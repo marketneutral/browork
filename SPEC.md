@@ -61,30 +61,47 @@ technical complexity.
 
 ## 5. UI Design
 
-### Layout (3-panel)
+### Layout (3-panel + plan overlay)
 
 ```
 ┌──────────┬──────────────────────────┬──────────────┐
-│          │                          │              │
-│ Sessions │       Chat Panel         │   File       │
-│ Sidebar  │                          │   Manager    │
+│          │  ┌─ Plan Progress ─────┐ │              │
+│ Sessions │  │ ✓ 1. Read input     │ │   File       │
+│ Sidebar  │  │ ✓ 2. Clean headers  │ │   Manager    │
+│          │  │ ▸ 3. Merge by date  │ │              │
+│ • Active │  │ ○ 4. Calculate YoY  │ │ work/        │
+│ • Recent │  │ ○ 5. Save output    │ │ ├─ input/    │
+│ • Search │  └─────────── 2/5 ─────┘ │ ├─ output/   │
+│          │                          │ └─ Q4.xlsx   │
 │          │  ┌────────────────────┐  │              │
-│ • Active │  │ Agent messages     │  │ work/        │
-│ • Recent │  │ with streaming     │  │ ├─ input/    │
-│ • Search │  │ and status         │  │ ├─ output/   │
-│          │  └────────────────────┘  │ └─ Q4.xlsx   │
-│          │  ┌────────────────────┐  │              │
-│          │  │ Message input      │  │ [Upload]     │
-│          │  │ + attach files     │  │ [Download]   │
+│          │  │ Chat messages      │  │              │
+│          │  │ (scrolling)        │  │              │
+│          │  └────────────────────┘  │              │
+│          │  ┌────────────────────┐  │ [Upload]     │
+│          │  │ Message input      │  │ [Download]   │
 │          │  └────────────────────┘  │              │
 └──────────┴──────────────────────────┴──────────────┘
 ```
+
+The Plan Progress panel appears at the top of the chat area when the agent is
+working through a multi-step task. It collapses automatically when there is no
+active plan, and can be manually collapsed/expanded by the user.
 
 ### Sessions Sidebar (left)
 - List of chat sessions, most recent first
 - Each session shows: name, last message preview, timestamp
 - "New Session" button
 - Sessions can be renamed, archived
+
+### Plan Progress Panel (top of center, contextual)
+- Appears automatically when Pi produces a numbered plan
+- Shows each step as a checklist item with three states:
+  - **Done** (checkmark): step completed
+  - **In progress** (spinner): currently executing
+  - **Pending** (empty circle): not yet started
+- Progress summary in the corner (e.g., "2/5")
+- Collapsible — auto-expands when a plan is active, user can minimize
+- Disappears when there is no active plan (simple one-off requests)
 
 ### Chat Panel (center)
 - Scrolling message history
@@ -162,6 +179,16 @@ Events sent over WebSocket (mirroring Pi's event model):
 { "type": "message_end" }
 { "type": "agent_end" }
 { "type": "files_changed", "paths": ["output/cleaned.csv"] }
+
+// Plan & task tracking events (from Pi extensions)
+{ "type": "plan_update", "steps": [
+    { "label": "Read input files", "status": "done" },
+    { "label": "Clean column headers", "status": "done" },
+    { "label": "Merge by date", "status": "in_progress" },
+    { "label": "Calculate YoY growth", "status": "pending" },
+    { "label": "Save output", "status": "pending" }
+  ], "completed": 2, "total": 5 }
+{ "type": "plan_complete" }
 ```
 
 Commands sent by client over WebSocket:
@@ -183,6 +210,8 @@ async function createSession(userId: string, workDir: string) {
     workingDirectory: workDir,
     model: getModel("anthropic", "claude-sonnet-4-20250514"),
     thinkingLevel: "medium",
+    // Load plan-mode and todo extensions for structured task tracking
+    extensions: ["plan-mode", "todo"],
   });
 
   // Stream events to the user's WebSocket
@@ -194,6 +223,21 @@ async function createSession(userId: string, workDir: string) {
   return session;
 }
 ```
+
+### Pi Extensions Strategy
+
+Pi's core is deliberately minimal. We load two example extensions to get
+structured planning and task tracking:
+
+| Extension | What it gives us | How we use it |
+|-----------|-----------------|---------------|
+| **plan-mode** | Two-phase workflow: read-only planning → tracked execution. Emits custom messages (`plan-todo-list`, `plan-complete`) and tracks `TodoItem[]` with `[DONE:n]` markers. | Backend intercepts plan-related custom messages from Pi and translates them into `plan_update` WebSocket events for the frontend. |
+| **todo** | A `todo` tool the LLM can call (`add`, `toggle`, `list`, `clear`). State persists in session via tool result details. | Backend extracts todo state from tool results and forwards as `todo_update` WebSocket events. |
+
+The backend's `pi-session.ts` service acts as a **translation layer**: it
+subscribes to Pi's event stream, detects plan/todo custom messages and tool
+results, and emits normalized events over WebSocket that the React frontend
+can render without knowing Pi's internal extension format.
 
 ### File Watching
 
@@ -227,6 +271,11 @@ App
 │   │   ├── NewSessionButton
 │   │   └── SessionList
 │   │       └── SessionItem     (name, preview, timestamp)
+│   ├── PlanPanel                (top of center, contextual)
+│   │   ├── PlanStepList
+│   │   │   └── PlanStep        (checkbox + label + status icon)
+│   │   ├── PlanProgress        ("2/5" summary)
+│   │   └── CollapseToggle
 │   ├── ChatPanel               (center)
 │   │   ├── MessageList
 │   │   │   ├── UserMessage
@@ -281,11 +330,13 @@ browork/
 │       │   ├── App.tsx
 │       │   ├── components/
 │       │   │   ├── SessionSidebar/
+│       │   │   ├── PlanPanel/
 │       │   │   ├── ChatPanel/
 │       │   │   ├── FilePanel/
 │       │   │   └── common/
 │       │   ├── stores/
 │       │   │   ├── session.ts
+│       │   │   ├── plan.ts
 │       │   │   ├── files.ts
 │       │   │   └── auth.ts
 │       │   ├── hooks/
