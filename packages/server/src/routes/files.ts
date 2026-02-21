@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import {
   readdir,
   stat,
@@ -14,7 +14,12 @@ import { parseCSVLine } from "../utils/csv.js";
 import { safePath } from "../utils/safe-path.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
-const WORK_DIR = resolve(DATA_ROOT, "workspaces", "default");
+
+/** Resolve the per-user working directory */
+function workDir(req: FastifyRequest): string {
+  const userId = req.user?.id ?? "default";
+  return resolve(DATA_ROOT, "workspaces", userId);
+}
 
 /** File entry returned by the tree endpoint */
 interface FileEntry {
@@ -60,8 +65,8 @@ async function listTree(dir: string, base: string): Promise<FileEntry[]> {
   return entries;
 }
 
-function safeWorkPath(userPath: string): string | null {
-  return safePath(userPath, WORK_DIR);
+function safeWorkPath(userPath: string, baseDir: string): string | null {
+  return safePath(userPath, baseDir);
 }
 
 function mimeType(filePath: string): string {
@@ -92,36 +97,36 @@ function mimeType(filePath: string): string {
 }
 
 export const fileRoutes: FastifyPluginAsync = async (app) => {
-  // Ensure working directory exists
-  await mkdir(WORK_DIR, { recursive: true });
-
   // GET /api/files — list file tree
-  app.get("/files", async () => {
-    return listTree(WORK_DIR, WORK_DIR);
+  app.get("/files", async (req) => {
+    const wd = workDir(req);
+    await mkdir(wd, { recursive: true });
+    return listTree(wd, wd);
   });
 
   // POST /api/files/upload — multipart file upload
   app.post("/files/upload", async (req, reply) => {
+    const wd = workDir(req);
+    await mkdir(wd, { recursive: true });
     const parts = req.parts();
     const uploaded: string[] = [];
 
     for await (const part of parts) {
       if (part.type === "file") {
-        // Use "path" field value or default to filename
         const targetDir = (part.fields.path as any)?.value || "";
-        const dir = safeWorkPath(targetDir);
+        const dir = safeWorkPath(targetDir, wd);
         if (!dir) {
           return reply.code(400).send({ error: "Invalid path" });
         }
         await mkdir(dir, { recursive: true });
 
         const dest = resolve(dir, part.filename);
-        if (!dest.startsWith(WORK_DIR)) {
+        if (!dest.startsWith(wd)) {
           return reply.code(400).send({ error: "Invalid filename" });
         }
 
         await pipeline(part.file, createWriteStream(dest));
-        uploaded.push(relative(WORK_DIR, dest));
+        uploaded.push(relative(wd, dest));
       }
     }
 
@@ -130,14 +135,14 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/files/* — download file
   app.get("/files/*", async (req, reply) => {
+    const wd = workDir(req);
     const filePath = (req.params as { "*": string })["*"];
 
-    // Skip sub-routes
     if (filePath.endsWith("/preview")) {
-      return; // handled by preview route below
+      return;
     }
 
-    const resolved = safeWorkPath(filePath);
+    const resolved = safeWorkPath(filePath, wd);
     if (!resolved) {
       return reply.code(400).send({ error: "Invalid path" });
     }
@@ -157,8 +162,9 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
 
   // PUT /api/files/* — save file content (from editor)
   app.put("/files/*", async (req, reply) => {
+    const wd = workDir(req);
     const filePath = (req.params as { "*": string })["*"];
-    const resolved = safeWorkPath(filePath);
+    const resolved = safeWorkPath(filePath, wd);
     if (!resolved) {
       return reply.code(400).send({ error: "Invalid path" });
     }
@@ -168,7 +174,6 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(400).send({ error: "Missing content" });
     }
 
-    // Conflict detection: check if file was modified since client's last known timestamp
     if (body.lastModified) {
       try {
         const s = await stat(resolved);
@@ -180,7 +185,7 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
           });
         }
       } catch {
-        // File doesn't exist yet — that's fine, we'll create it
+        // File doesn't exist yet
       }
     }
 
@@ -193,8 +198,9 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /api/files/* — delete file
   app.delete("/files/*", async (req, reply) => {
+    const wd = workDir(req);
     const filePath = (req.params as { "*": string })["*"];
-    const resolved = safeWorkPath(filePath);
+    const resolved = safeWorkPath(filePath, wd);
     if (!resolved) {
       return reply.code(400).send({ error: "Invalid path" });
     }
@@ -209,8 +215,9 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/files-preview/* — preview data (CSV→JSON rows, text snippet)
   app.get("/files-preview/*", async (req, reply) => {
+    const wd = workDir(req);
     const filePath = (req.params as { "*": string })["*"];
-    const resolved = safeWorkPath(filePath);
+    const resolved = safeWorkPath(filePath, wd);
     if (!resolved) {
       return reply.code(400).send({ error: "Invalid path" });
     }

@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useSessionStore, type SessionListItem } from "../../stores/session";
+import { useAuthStore } from "../../stores/auth";
+import { api } from "../../api/client";
 import {
   Plus,
   MessageSquare,
@@ -8,6 +10,7 @@ import {
   GitBranch,
   Check,
   X,
+  LogOut,
 } from "lucide-react";
 import type { ConnectionStatus } from "../../hooks/useWebSocket";
 
@@ -30,6 +33,13 @@ export function SessionSidebar({
 }: SessionSidebarProps) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.sessionId);
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+
+  const handleLogout = () => {
+    api.auth.logout().catch(() => {});
+    logout();
+  };
 
   return (
     <aside className="w-64 border-r border-[var(--border)] bg-[var(--muted)] flex flex-col">
@@ -86,6 +96,22 @@ export function SessionSidebar({
           </span>
         )}
       </div>
+
+      {/* User / logout */}
+      {user && (
+        <div className="p-3 border-t border-[var(--border)] flex items-center justify-between">
+          <span className="text-sm font-medium truncate">
+            {user.displayName}
+          </span>
+          <button
+            onClick={handleLogout}
+            title="Sign out"
+            className="p-1.5 rounded-md hover:bg-[var(--accent)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

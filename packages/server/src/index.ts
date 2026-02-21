@@ -6,10 +6,12 @@ import multipart from "@fastify/multipart";
 import { sessionRoutes } from "./routes/sessions.js";
 import { fileRoutes } from "./routes/files.js";
 import { skillRoutes } from "./routes/skills.js";
+import { authRoutes } from "./routes/auth.js";
 import { healthRoutes } from "./routes/health.js";
 import { sessionStreamHandler } from "./ws/session-stream.js";
 import { initSkills } from "./services/skill-manager.js";
 import { initDatabase } from "./db/database.js";
+import { authPlugin } from "./plugins/auth.js";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -30,8 +32,12 @@ async function main() {
   // Discover and load skills
   await initSkills();
 
+  // Auth plugin — must be registered before protected routes
+  await app.register(authPlugin);
+
   // Routes
   await app.register(healthRoutes);
+  await app.register(authRoutes, { prefix: "/api" });
   await app.register(sessionRoutes, { prefix: "/api" });
   await app.register(fileRoutes, { prefix: "/api" });
   await app.register(skillRoutes, { prefix: "/api" });

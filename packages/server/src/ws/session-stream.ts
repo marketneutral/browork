@@ -17,8 +17,9 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
     async (socket, req) => {
       const { id } = req.params as { id: string };
 
-      // Ensure working directory exists
-      const workDir = resolve(DATA_ROOT, "workspaces", "default");
+      // Per-user working directory (falls back to "default" if no auth)
+      const userId = req.user?.id ?? "default";
+      const workDir = resolve(DATA_ROOT, "workspaces", userId);
       mkdirSync(workDir, { recursive: true });
 
       app.log.info({ sessionId: id }, "WebSocket connected");

@@ -6,6 +6,7 @@ import { getDb } from "./database.js";
 
 export interface SessionRow {
   id: string;
+  user_id: string | null;
   name: string;
   created_at: string;
   updated_at: string;
@@ -31,23 +32,23 @@ export interface MessageRow {
 
 // ── Sessions ──
 
-export function createSession(id: string, name: string): SessionMeta {
+export function createSession(id: string, name: string, userId?: string): SessionMeta {
   const db = getDb();
   const now = new Date().toISOString();
 
   db.prepare(
-    "INSERT INTO sessions (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)",
-  ).run(id, name, now, now);
+    "INSERT INTO sessions (id, user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+  ).run(id, userId ?? null, name, now, now);
 
   return { id, name, createdAt: now, updatedAt: now, lastMessage: null, forkedFrom: null };
 }
 
-export function getSessionById(id: string): SessionMeta | undefined {
+export function getSessionById(id: string, userId?: string): SessionMeta | undefined {
   const db = getDb();
 
-  const row = db
-    .prepare("SELECT * FROM sessions WHERE id = ?")
-    .get(id) as SessionRow | undefined;
+  const row = userId
+    ? (db.prepare("SELECT * FROM sessions WHERE id = ? AND user_id = ?").get(id, userId) as SessionRow | undefined)
+    : (db.prepare("SELECT * FROM sessions WHERE id = ?").get(id) as SessionRow | undefined);
 
   if (!row) return undefined;
 
@@ -67,12 +68,12 @@ export function getSessionById(id: string): SessionMeta | undefined {
   };
 }
 
-export function listSessions(): SessionMeta[] {
+export function listSessions(userId?: string): SessionMeta[] {
   const db = getDb();
 
-  const rows = db
-    .prepare("SELECT * FROM sessions ORDER BY updated_at DESC")
-    .all() as SessionRow[];
+  const rows = userId
+    ? (db.prepare("SELECT * FROM sessions WHERE user_id = ? ORDER BY updated_at DESC").all(userId) as SessionRow[])
+    : (db.prepare("SELECT * FROM sessions ORDER BY updated_at DESC").all() as SessionRow[]);
 
   // Batch-fetch last messages for all sessions
   const lastMessages = new Map<string, string>();
@@ -105,20 +106,23 @@ export function listSessions(): SessionMeta[] {
 export function renameSession(
   id: string,
   name: string,
+  userId?: string,
 ): SessionMeta | undefined {
   const db = getDb();
-  const result = db
-    .prepare("UPDATE sessions SET name = ?, updated_at = datetime('now') WHERE id = ?")
-    .run(name, id);
+  const result = userId
+    ? db.prepare("UPDATE sessions SET name = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?").run(name, id, userId)
+    : db.prepare("UPDATE sessions SET name = ?, updated_at = datetime('now') WHERE id = ?").run(name, id);
 
   if (result.changes === 0) return undefined;
   return getSessionById(id);
 }
 
-export function deleteSession(id: string): boolean {
+export function deleteSession(id: string, userId?: string): boolean {
   const db = getDb();
   // Messages cascade-delete via foreign key
-  const result = db.prepare("DELETE FROM sessions WHERE id = ?").run(id);
+  const result = userId
+    ? db.prepare("DELETE FROM sessions WHERE id = ? AND user_id = ?").run(id, userId)
+    : db.prepare("DELETE FROM sessions WHERE id = ?").run(id);
   return result.changes > 0;
 }
 
@@ -126,13 +130,14 @@ export function forkSession(
   sourceId: string,
   newId: string,
   newName: string,
+  userId?: string,
 ): SessionMeta | undefined {
   const db = getDb();
 
-  // Verify source exists
-  const source = db
-    .prepare("SELECT id FROM sessions WHERE id = ?")
-    .get(sourceId) as { id: string } | undefined;
+  // Verify source exists (and belongs to user if userId provided)
+  const source = userId
+    ? (db.prepare("SELECT id FROM sessions WHERE id = ? AND user_id = ?").get(sourceId, userId) as { id: string } | undefined)
+    : (db.prepare("SELECT id FROM sessions WHERE id = ?").get(sourceId) as { id: string } | undefined);
 
   if (!source) return undefined;
 
@@ -140,8 +145,8 @@ export function forkSession(
 
   // Create forked session
   db.prepare(
-    "INSERT INTO sessions (id, name, created_at, updated_at, forked_from) VALUES (?, ?, ?, ?, ?)",
-  ).run(newId, newName, now, now, sourceId);
+    "INSERT INTO sessions (id, user_id, name, created_at, updated_at, forked_from) VALUES (?, ?, ?, ?, ?, ?)",
+  ).run(newId, userId ?? null, newName, now, now, sourceId);
 
   // Copy all messages from source to fork
   db.prepare(`

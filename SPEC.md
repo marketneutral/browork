@@ -767,11 +767,14 @@ browork/
 - [x] **Milestone**: Multiple sessions, switch between them, pick up where you left off ✅
 
 ### Phase 5 — Auth & Multi-User
-- [ ] User accounts (SQLite)
-- [ ] Token-based authentication
-- [ ] Per-user working directories
-- [ ] Login/logout UI
-- [ ] **Milestone**: Two users can use the system simultaneously with isolated workspaces
+- [x] User accounts (SQLite) — `users` table with scrypt password hashing, `tokens` table with 30-day expiry
+- [x] Token-based authentication — Bearer token auth via Fastify plugin, token validation on every request
+- [x] Per-user working directories — `data/workspaces/<user_id>/` isolation for files and Pi sessions
+- [x] Login/logout UI — LoginPage with register/sign-in toggle, AuthGate wrapper, logout in sidebar
+- [x] Sessions scoped by user — `user_id` column on sessions table, all queries filtered by authenticated user
+- [x] API client sends auth token with all requests (including file uploads and WebSocket connections)
+- [x] Server-side tests: 103 tests (85 existing + 18 new user-store tests)
+- [x] **Milestone**: Two users can use the system simultaneously with isolated workspaces ✅
 
 ### Phase 6 — MCP Server Support
 - [ ] Install and configure `pi-mcp-adapter` extension

@@ -1,15 +1,40 @@
+import { useAuthStore } from "../stores/auth";
+
 const BASE = "/api";
+
+function authHeaders(): Record<string, string> {
+  const token = useAuthStore.getState().token;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     ...init,
   });
+  if (res.status === 401) {
+    // Token expired or invalid — force logout
+    useAuthStore.getState().logout();
+    throw new Error("Session expired. Please log in again.");
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `HTTP ${res.status}`);
   }
   return res.json();
+}
+
+export interface UserMeta {
+  id: string;
+  username: string;
+  displayName: string;
+  createdAt: string;
 }
 
 export interface SessionMeta {
@@ -50,6 +75,20 @@ export interface SkillMeta {
 }
 
 export const api = {
+  auth: {
+    login: (username: string, password: string) =>
+      request<{ user: UserMeta; token: string }>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+      }),
+    register: (username: string, displayName: string, password: string) =>
+      request<{ user: UserMeta; token: string }>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ username, displayName, password }),
+      }),
+    logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
+    me: () => request<{ user: UserMeta }>("/auth/me"),
+  },
   skills: {
     list: () => request<SkillMeta[]>("/skills"),
     toggle: (name: string, enabled: boolean) =>
@@ -93,6 +132,7 @@ export const api = {
       for (const file of files) {
         formData.append("file", file);
       }
+      const token = useAuthStore.getState().token;
       const xhr = new XMLHttpRequest();
       return new Promise<{ uploaded: string[] }>((resolve, reject) => {
         xhr.upload.onprogress = (e) => {
@@ -109,6 +149,9 @@ export const api = {
         };
         xhr.onerror = () => reject(new Error("Upload failed"));
         xhr.open("POST", `${BASE}/files/upload`);
+        if (token) {
+          xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        }
         xhr.send(formData);
       });
     },
@@ -117,9 +160,11 @@ export const api = {
 
 /**
  * Build a WebSocket URL for a session stream.
- * Uses wss:// in production, ws:// in dev.
+ * Includes auth token as query parameter.
  */
 export function wsUrl(sessionId: string): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${window.location.host}/api/sessions/${sessionId}/stream`;
+  const token = useAuthStore.getState().token;
+  const params = token ? `?token=${encodeURIComponent(token)}` : "";
+  return `${proto}//${window.location.host}/api/sessions/${sessionId}/stream${params}`;
 }
