@@ -36,7 +36,21 @@ export interface FilePreview {
   message?: string;
 }
 
+export interface SkillMeta {
+  name: string;
+  description: string;
+  enabled: boolean;
+}
+
 export const api = {
+  skills: {
+    list: () => request<SkillMeta[]>("/skills"),
+    toggle: (name: string, enabled: boolean) =>
+      request<SkillMeta>(`/skills/${name}`, {
+        method: "PATCH",
+        body: JSON.stringify({ enabled }),
+      }),
+  },
   sessions: {
     list: () => request<SessionMeta[]>("/sessions"),
     create: () => request<SessionMeta>("/sessions", { method: "POST" }),

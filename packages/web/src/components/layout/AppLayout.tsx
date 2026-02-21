@@ -5,12 +5,14 @@ import type { ConnectionStatus } from "../../hooks/useWebSocket";
 interface AppLayoutProps {
   connectionStatus: ConnectionStatus;
   onSendMessage: (text: string) => void;
+  onInvokeSkill: (skillName: string, args?: string) => void;
   onAbort: () => void;
 }
 
 export function AppLayout({
   connectionStatus,
   onSendMessage,
+  onInvokeSkill,
   onAbort,
 }: AppLayoutProps) {
   return (
@@ -47,7 +49,7 @@ export function AppLayout({
 
       {/* Chat panel — center */}
       <main className="flex-1 flex flex-col">
-        <ChatPanel onSendMessage={onSendMessage} onAbort={onAbort} />
+        <ChatPanel onSendMessage={onSendMessage} onInvokeSkill={onInvokeSkill} onAbort={onAbort} />
       </main>
 
       {/* File panel */}

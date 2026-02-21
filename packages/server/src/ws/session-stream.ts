@@ -3,6 +3,7 @@ import type { RawData } from "ws";
 import { createPiSession, getSession } from "../services/pi-session.js";
 import type { BroworkCommand } from "../services/pi-session.js";
 import { subscribeWsToFileChanges } from "../services/file-watcher.js";
+import { expandSkillPrompt, getSkill } from "../services/skill-manager.js";
 import { resolve } from "path";
 import { mkdirSync } from "fs";
 
@@ -55,6 +56,35 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
             case "prompt":
               await session!.sendPrompt(cmd.message);
               break;
+            case "skill_invoke": {
+              const skill = getSkill(cmd.skill);
+              const prompt = expandSkillPrompt(cmd.skill, cmd.args);
+              if (!prompt || !skill) {
+                socket.send(
+                  JSON.stringify({
+                    type: "error",
+                    message: `Skill "${cmd.skill}" not found or disabled`,
+                  }),
+                );
+                break;
+              }
+              // Notify frontend that a skill is active
+              socket.send(
+                JSON.stringify({
+                  type: "skill_start",
+                  skill: cmd.skill,
+                  label: skill.description,
+                }),
+              );
+              await session!.sendPrompt(prompt);
+              socket.send(
+                JSON.stringify({
+                  type: "skill_end",
+                  skill: cmd.skill,
+                }),
+              );
+              break;
+            }
             case "steer":
               await session!.sendSteer(cmd.message);
               break;

@@ -6,11 +6,14 @@ export type BroworkEvent =
   | { type: "tool_start"; tool: string; args: unknown }
   | { type: "tool_end"; tool: string; result: unknown; isError: boolean }
   | { type: "agent_end" }
+  | { type: "skill_start"; skill: string; label: string }
+  | { type: "skill_end"; skill: string }
   | { type: "files_changed"; paths: string[] }
   | { type: "error"; message: string };
 
 /** Commands sent to the server over WebSocket */
 export type BroworkCommand =
   | { type: "prompt"; message: string }
+  | { type: "skill_invoke"; skill: string; args?: string }
   | { type: "abort" }
   | { type: "steer"; message: string };

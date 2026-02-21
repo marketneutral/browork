@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from "react";
 import { useSessionStore } from "./stores/session";
 import { useFilesStore } from "./stores/files";
+import { useSkillsStore } from "./stores/skills";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { api, wsUrl } from "./api/client";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -40,6 +41,12 @@ export function App() {
           finalizeAssistantMessage();
           setStreaming(false);
           break;
+        case "skill_start":
+          useSkillsStore.getState().setActiveSkill(event.skill, event.label);
+          break;
+        case "skill_end":
+          useSkillsStore.getState().clearActiveSkill();
+          break;
         case "files_changed":
           // Refresh file tree when Pi creates/modifies files
           api.files.list().then(useFilesStore.getState().setEntries).catch(console.error);
@@ -72,11 +79,29 @@ export function App() {
     }
   }, [sessionId, setSessionId]);
 
+  // Load available skills on mount
+  useEffect(() => {
+    api.skills
+      .list()
+      .then((skills) => useSkillsStore.getState().setSkills(skills))
+      .catch(console.error);
+  }, []);
+
   const handleSendMessage = useCallback(
     (text: string) => {
       if (!text.trim()) return;
       useSessionStore.getState().addUserMessage(text);
       send({ type: "prompt", message: text });
+    },
+    [send],
+  );
+
+  const handleInvokeSkill = useCallback(
+    (skillName: string, args?: string) => {
+      useSessionStore
+        .getState()
+        .addUserMessage(args ? `[Workflow: ${skillName}] ${args}` : `[Workflow: ${skillName}]`);
+      send({ type: "skill_invoke", skill: skillName, args });
     },
     [send],
   );
@@ -89,6 +114,7 @@ export function App() {
     <AppLayout
       connectionStatus={status}
       onSendMessage={handleSendMessage}
+      onInvokeSkill={handleInvokeSkill}
       onAbort={handleAbort}
     />
   );

@@ -1,19 +1,24 @@
 import { useRef, useEffect } from "react";
 import { useSessionStore } from "../../stores/session";
+import { useSkillsStore } from "../../stores/skills";
 import { MessageBubble } from "./MessageBubble";
 import { Composer } from "./Composer";
 import { ToolCallCard } from "./ToolCallCard";
+import { SkillsBar } from "./SkillsBar";
+import { SkillBadge } from "./SkillBadge";
 
 interface ChatPanelProps {
   onSendMessage: (text: string) => void;
+  onInvokeSkill: (skillName: string, args?: string) => void;
   onAbort: () => void;
 }
 
-export function ChatPanel({ onSendMessage, onAbort }: ChatPanelProps) {
+export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelProps) {
   const messages = useSessionStore((s) => s.messages);
   const currentText = useSessionStore((s) => s.currentAssistantText);
   const isStreaming = useSessionStore((s) => s.isStreaming);
   const activeToolCalls = useSessionStore((s) => s.activeToolCalls);
+  const activeSkill = useSkillsStore((s) => s.activeSkill);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom on new content
@@ -44,6 +49,11 @@ export function ChatPanel({ onSendMessage, onAbort }: ChatPanelProps) {
           <MessageBubble key={msg.id} message={msg} />
         ))}
 
+        {/* Active skill badge */}
+        {activeSkill && (
+          <SkillBadge skill={activeSkill.skill} label={activeSkill.label} />
+        )}
+
         {/* Active tool calls */}
         {activeToolCalls
           .filter((tc) => tc.status === "running")
@@ -69,7 +79,9 @@ export function ChatPanel({ onSendMessage, onAbort }: ChatPanelProps) {
       {isStreaming && (
         <div className="px-4 py-1.5 text-xs text-[var(--muted-foreground)] border-t border-[var(--border)] flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-          Agent is working...
+          {activeSkill
+            ? `Running workflow: ${activeSkill.label}...`
+            : "Agent is working..."}
           <button
             onClick={onAbort}
             className="ml-auto text-[var(--destructive)] hover:underline"
@@ -78,6 +90,9 @@ export function ChatPanel({ onSendMessage, onAbort }: ChatPanelProps) {
           </button>
         </div>
       )}
+
+      {/* Skills bar (workflow buttons) */}
+      <SkillsBar onInvokeSkill={onInvokeSkill} disabled={isStreaming} />
 
       {/* Message composer */}
       <Composer onSend={onSendMessage} disabled={isStreaming} />

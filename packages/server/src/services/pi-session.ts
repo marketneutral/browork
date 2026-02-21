@@ -20,12 +20,15 @@ export type BroworkEvent =
   | { type: "tool_start"; tool: string; args: unknown }
   | { type: "tool_end"; tool: string; result: unknown; isError: boolean }
   | { type: "agent_end" }
+  | { type: "skill_start"; skill: string; label: string }
+  | { type: "skill_end"; skill: string }
   | { type: "error"; message: string };
 
 // ── Browork commands received from the frontend over WebSocket ──
 
 export type BroworkCommand =
   | { type: "prompt"; message: string }
+  | { type: "skill_invoke"; skill: string; args?: string }
   | { type: "abort" }
   | { type: "steer"; message: string };
 
@@ -122,7 +125,14 @@ function createMockSession(
       // Simulate Pi agent response with streaming
       send(ws, { type: "agent_start" });
 
-      const response = `I received your message: "${text}"\n\nI'm running in **mock mode** because the Pi SDK is not installed. Once you install \`@mariozechner/pi-coding-agent\`, I'll use the real agent.\n\nFor now, this confirms the end-to-end WebSocket pipeline is working!`;
+      // Detect skill invocations and generate a more relevant mock response
+      const skillMatch = text.match(/<skill name="([^"]+)">/);
+      const isSkill = !!skillMatch;
+      const skillName = skillMatch?.[1] ?? "";
+
+      const response = isSkill
+        ? `I'm executing the **${skillName}** workflow.\n\nIn mock mode, I can't actually process files, but here's what I would do:\n\n1. Read the input files from your working directory\n2. Follow the skill instructions step by step\n3. Save the results to the output/ directory\n\nInstall the Pi SDK to run real workflows!`
+        : `I received your message: "${text}"\n\nI'm running in **mock mode** because the Pi SDK is not installed. Once you install \`@mariozechner/pi-coding-agent\`, I'll use the real agent.\n\nFor now, this confirms the end-to-end WebSocket pipeline is working!`;
 
       // Stream character by character with small delays
       for (let i = 0; i < response.length; i += 3) {
