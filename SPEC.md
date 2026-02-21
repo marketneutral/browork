@@ -245,8 +245,8 @@ async function createSession(userId: string, workDir: string) {
     workingDirectory: workDir,
     model: getModel("anthropic", "claude-sonnet-4-20250514"),
     thinkingLevel: "medium",
-    // Load plan-mode and todo extensions for structured task tracking
-    extensions: ["plan-mode", "todo"],
+    // Load extensions for task tracking and MCP support
+    extensions: ["plan-mode", "todo", "pi-mcp-adapter"],
   });
 
   // Stream events to the user's WebSocket
@@ -414,6 +414,88 @@ The frontend exposes this through a "Project Settings" or "Agent Instructions"
 section in the settings panel — a simple text editor for the `AGENTS.md` content,
 with a "Reset to Default" button.
 
+### MCP (Model Context Protocol) Server Support
+
+Pi's core deliberately excludes MCP, but the extension system supports it via
+the community [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter).
+We use this adapter to give Pi access to local MCP servers — databases, APIs,
+internal tools — without bloating the agent's context window.
+
+#### How pi-mcp-adapter Works
+
+Instead of registering every MCP tool individually (which can consume 13k+
+tokens for a single server), the adapter registers **one `mcp` proxy tool**
+(~200 tokens) that acts as a gateway:
+
+```
+LLM calls:  mcp(search: "database")     → discovers available MCP tools
+            mcp(describe: "query_db")    → gets schema for a specific tool
+            mcp(tool: "query_db", ...)   → invokes the tool
+```
+
+Key features:
+- **Lazy server startup**: MCP servers connect only when first called
+- **Metadata caching**: Cached at `~/.pi/agent/mcp-cache.json` for fast discovery
+- **Idle timeout**: Servers disconnect after 10 minutes of inactivity
+- **Direct tools mode**: Frequently-used tools can be promoted to first-class
+  Pi tools (bypass the proxy, appear in the system prompt directly)
+
+#### MCP Configuration in Browork
+
+MCP servers are configured at two levels:
+
+**Global** (`~/.pi/agent/mcp.json`): Servers available to all sessions.
+**Project** (`.pi/mcp.json` in the working directory): Servers scoped to a
+specific user/workspace.
+
+Example configuration:
+```json
+{
+  "servers": {
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": { "DATABASE_URL": "postgresql://..." }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data/shared"]
+    }
+  }
+}
+```
+
+#### Browork Integration
+
+The backend manages MCP configuration server-side:
+
+```
+GET    /api/mcp/servers              → [{ name, command, status, toolCount }]
+POST   /api/mcp/servers              → { name, command, args, env }
+DELETE /api/mcp/servers/:name
+GET    /api/mcp/servers/:name/tools  → [{ name, description, schema }]
+```
+
+The frontend provides an **admin-only settings page** for MCP server management:
+- Add/remove MCP servers (not exposed to analysts directly)
+- View connected servers and their available tools
+- Toggle servers on/off per workspace
+- Status indicators (connected, disconnected, error)
+
+For the analyst, MCP tools are invisible infrastructure — they just ask questions
+and Pi uses whatever tools are available (file tools, MCP tools, bash) to answer.
+MCP tool calls appear in the chat as regular tool execution cards (collapsible,
+same UX as read/write/bash).
+
+#### Example Use Cases for Financial Analysts
+
+| MCP Server | What it enables |
+|-----------|----------------|
+| `server-postgres` | Query internal databases directly ("What were Q4 revenues by region?") |
+| `server-filesystem` | Access shared network drives beyond the working directory |
+| `server-slack` | Post results to team Slack channels |
+| Custom internal API | Pull live market data, portfolio positions, risk metrics |
+
 ### File Watching
 
 Use `chokidar` to watch each user's working directory. When Pi creates or
@@ -492,10 +574,12 @@ browork/
 │   │   │   │   ├── auth.ts
 │   │   │   │   ├── sessions.ts
 │   │   │   │   ├── files.ts
-│   │   │   │   └── skills.ts       # Skills CRUD + invoke
+│   │   │   │   ├── skills.ts       # Skills CRUD + invoke
+│   │   │   │   └── mcp.ts          # MCP server management (admin)
 │   │   │   ├── services/
 │   │   │   │   ├── pi-session.ts    # Pi SDK wrapper
 │   │   │   │   ├── skill-manager.ts # Discover, load, install skills
+│   │   │   │   ├── mcp-manager.ts   # MCP server config + lifecycle
 │   │   │   │   ├── file-watcher.ts  # chokidar file watching
 │   │   │   │   └── user.ts
 │   │   │   ├── ws/
@@ -592,7 +676,15 @@ browork/
 - [ ] Login/logout UI
 - [ ] **Milestone**: Two users can use the system simultaneously with isolated workspaces
 
-### Phase 6 — Polish & Production Readiness
+### Phase 6 — MCP Server Support
+- [ ] Install and configure `pi-mcp-adapter` extension
+- [ ] MCP server config management (`mcp-manager.ts`)
+- [ ] Admin API endpoints for MCP server CRUD
+- [ ] Admin settings page for managing MCP servers
+- [ ] MCP tool calls rendered as regular tool cards in chat
+- [ ] **Milestone**: Connect a Postgres MCP server, analyst asks "What were Q4 revenues?", Pi queries the database
+
+### Phase 7 — Polish & Production Readiness
 - [ ] Error handling and user-friendly error messages
 - [ ] Loading states and skeleton screens
 - [ ] Mobile-responsive layout (tablet at minimum)
