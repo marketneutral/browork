@@ -58,19 +58,32 @@ browork/
 │   │       ├── index.ts              # Entry point
 │   │       ├── routes/health.ts      # GET /health
 │   │       ├── routes/sessions.ts    # Session CRUD
+│   │       ├── routes/files.ts       # File management API
 │   │       ├── services/pi-session.ts # Pi SDK wrapper + mock mode
+│   │       ├── services/file-watcher.ts # Chokidar file watching
+│   │       ├── utils/                # Testable utilities (CSV, safePath, events)
+│   │       ├── __tests__/            # Vitest tests (49 tests)
 │   │       └── ws/session-stream.ts  # WebSocket handler
 │   └── web/             # React frontend (Vite + Tailwind)
 │       └── src/
 │           ├── App.tsx               # Root component + WebSocket wiring
 │           ├── api/client.ts         # REST + WebSocket URL helpers
 │           ├── components/chat/      # ChatPanel, Composer, MessageBubble
+│           ├── components/files/     # FilePanel, FileTree, editors, viewers
 │           ├── components/layout/    # AppLayout (3-panel)
 │           ├── hooks/useWebSocket.ts # WebSocket with reconnection
-│           └── stores/session.ts     # Zustand chat state
+│           └── stores/               # Zustand stores (session, files)
 ├── package.json         # Workspace root
 └── tsconfig.base.json   # Shared TypeScript config
 ```
+
+## Tests
+
+```bash
+npm test
+```
+
+Runs Vitest server-side tests (49 tests): file routes, CSV parser, path traversal, Pi event translation.
 
 ## Build
 

@@ -720,26 +720,29 @@ browork/
 
 ## 10. Development Phases
 
-### Phase 1 — Walking Skeleton
-- [ ] Monorepo setup (npm workspaces, TypeScript, ESLint)
-- [ ] Fastify server with health check
-- [ ] Vite + React app with shadcn/ui + `@assistant-ui/react`
-- [ ] Custom WebSocket hook (~100 lines) with reconnection
-- [ ] Wire assistant-ui Thread to backend via WebSocket runtime adapter
-- [ ] Single Pi session via SDK, prompt → response round-trip
-- [ ] **Milestone**: Type a message in the browser, see Pi's response stream back with markdown rendering
+### Phase 1 — Walking Skeleton ✅
+- [x] Monorepo setup (npm workspaces, TypeScript)
+- [x] Fastify server with health check
+- [x] Vite + React app with Tailwind CSS v4
+- [x] Custom WebSocket hook (~80 lines) with reconnection + exponential backoff
+- [x] Pi session service with SDK integration + mock mode fallback
+- [x] Chat UI with streaming messages, tool call cards, composer
+- [x] Zustand store for session/chat state
+- [x] **Milestone**: Type a message in the browser, see Pi's response stream back ✅
 
-### Phase 2 — File Management & Editing
-- [ ] File upload endpoint (multipart) + drag-and-drop UI
-- [ ] File tree using `react-arborist` + file API
-- [ ] File download and save (`PUT /api/files/:path`)
-- [ ] File preview (images, PDF, Excel read-only table)
-- [ ] Text/JSON/YAML editing via `@uiw/react-codemirror` (drop-in)
-- [ ] Markdown editing via `@uiw/react-md-editor` (split-pane built in)
-- [ ] CSV editing via AG Grid Community (inline editing built in)
-- [ ] Auto-save with save indicator + conflict detection
-- [ ] Chokidar file watching → WebSocket `files_changed` push
-- [ ] **Milestone**: Upload a CSV, edit a cell, ask Pi to process it, see the output file appear
+### Phase 2 — File Management & Editing ✅
+- [x] File upload endpoint (multipart) + drag-and-drop UI with progress bar
+- [x] File tree with directories, icons, size display, delete
+- [x] File download and save (`PUT /api/files/:path`) with conflict detection (409)
+- [x] File preview (CSV→JSON, text, images, PDF)
+- [x] Text/JSON/YAML editing via `@uiw/react-codemirror`
+- [x] Markdown editing via `@uiw/react-md-editor` (split-pane built in)
+- [x] CSV editing via AG Grid Community (inline cell editing)
+- [x] Auto-save (2s debounce + blur + Ctrl+S) with save indicator
+- [x] Chokidar file watching → WebSocket `files_changed` push
+- [x] Path traversal protection on all file endpoints
+- [x] Server-side tests: 49 tests (Vitest) covering file routes, CSV parser, event translation, path traversal
+- [x] **Milestone**: Upload a CSV, edit a cell, ask Pi to process it, see the output file appear ✅
 
 ### Phase 3 — Skills (Workflows)
 - [ ] Skill discovery and loading on the backend (`skill-manager.ts`)

@@ -7,9 +7,11 @@ import {
   unlink,
   mkdir,
 } from "fs/promises";
-import { resolve, relative, extname, join, dirname } from "path";
+import { resolve, relative, extname, dirname } from "path";
 import { createWriteStream } from "fs";
 import { pipeline } from "stream/promises";
+import { parseCSVLine } from "../utils/csv.js";
+import { safePath } from "../utils/safe-path.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 const WORK_DIR = resolve(DATA_ROOT, "workspaces", "default");
@@ -58,14 +60,8 @@ async function listTree(dir: string, base: string): Promise<FileEntry[]> {
   return entries;
 }
 
-/**
- * Resolve a user-provided path safely within the working directory.
- * Prevents path traversal attacks.
- */
-function safePath(userPath: string): string | null {
-  const resolved = resolve(WORK_DIR, userPath);
-  if (!resolved.startsWith(WORK_DIR)) return null;
-  return resolved;
+function safeWorkPath(userPath: string): string | null {
+  return safePath(userPath, WORK_DIR);
 }
 
 function mimeType(filePath: string): string {
@@ -113,7 +109,7 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
       if (part.type === "file") {
         // Use "path" field value or default to filename
         const targetDir = (part.fields.path as any)?.value || "";
-        const dir = safePath(targetDir);
+        const dir = safeWorkPath(targetDir);
         if (!dir) {
           return reply.code(400).send({ error: "Invalid path" });
         }
@@ -141,7 +137,7 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
       return; // handled by preview route below
     }
 
-    const resolved = safePath(filePath);
+    const resolved = safeWorkPath(filePath);
     if (!resolved) {
       return reply.code(400).send({ error: "Invalid path" });
     }
@@ -162,7 +158,7 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
   // PUT /api/files/* — save file content (from editor)
   app.put("/files/*", async (req, reply) => {
     const filePath = (req.params as { "*": string })["*"];
-    const resolved = safePath(filePath);
+    const resolved = safeWorkPath(filePath);
     if (!resolved) {
       return reply.code(400).send({ error: "Invalid path" });
     }
@@ -198,7 +194,7 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
   // DELETE /api/files/* — delete file
   app.delete("/files/*", async (req, reply) => {
     const filePath = (req.params as { "*": string })["*"];
-    const resolved = safePath(filePath);
+    const resolved = safeWorkPath(filePath);
     if (!resolved) {
       return reply.code(400).send({ error: "Invalid path" });
     }
@@ -214,7 +210,7 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
   // GET /api/files-preview/* — preview data (CSV→JSON rows, text snippet)
   app.get("/files-preview/*", async (req, reply) => {
     const filePath = (req.params as { "*": string })["*"];
-    const resolved = safePath(filePath);
+    const resolved = safeWorkPath(filePath);
     if (!resolved) {
       return reply.code(400).send({ error: "Invalid path" });
     }
@@ -255,28 +251,3 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
   });
 };
 
-/** Simple CSV line parser (handles quoted fields) */
-function parseCSVLine(line: string): string[] {
-  const result: string[] = [];
-  let current = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (ch === "," && !inQuotes) {
-      result.push(current.trim());
-      current = "";
-    } else {
-      current += ch;
-    }
-  }
-  result.push(current.trim());
-  return result;
-}
