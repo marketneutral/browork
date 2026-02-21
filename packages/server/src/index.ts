@@ -9,6 +9,7 @@ import { skillRoutes } from "./routes/skills.js";
 import { healthRoutes } from "./routes/health.js";
 import { sessionStreamHandler } from "./ws/session-stream.js";
 import { initSkills } from "./services/skill-manager.js";
+import { initDatabase } from "./db/database.js";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -22,6 +23,9 @@ async function main() {
   await app.register(multipart, {
     limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024 },
   });
+
+  // Initialize database
+  initDatabase();
 
   // Discover and load skills
   await initSkills();

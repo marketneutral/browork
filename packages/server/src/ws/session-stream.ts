@@ -4,6 +4,7 @@ import { createPiSession, getSession } from "../services/pi-session.js";
 import type { BroworkCommand } from "../services/pi-session.js";
 import { subscribeWsToFileChanges } from "../services/file-watcher.js";
 import { expandSkillPrompt, getSkill } from "../services/skill-manager.js";
+import { addMessage } from "../db/session-store.js";
 import { resolve } from "path";
 import { mkdirSync } from "fs";
 
@@ -43,6 +44,31 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
         }
       }
 
+      // Track assistant text for persistence
+      let assistantBuffer = "";
+
+      // Listen for outgoing events to capture assistant messages
+      const origSend = socket.send.bind(socket);
+      socket.send = (data: any, ...args: any[]) => {
+        try {
+          const event = typeof data === "string" ? JSON.parse(data) : null;
+          if (event) {
+            if (event.type === "message_delta" && event.text) {
+              assistantBuffer += event.text;
+            } else if (
+              (event.type === "message_end" || event.type === "agent_end") &&
+              assistantBuffer
+            ) {
+              addMessage(id, "assistant", assistantBuffer, Date.now());
+              assistantBuffer = "";
+            }
+          }
+        } catch {
+          // Don't interfere with sending
+        }
+        return origSend(data, ...args);
+      };
+
       socket.on("message", async (raw: RawData) => {
         let cmd: BroworkCommand;
         try {
@@ -54,6 +80,8 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
         try {
           switch (cmd.type) {
             case "prompt":
+              // Persist user message
+              addMessage(id, "user", cmd.message, Date.now());
               await session!.sendPrompt(cmd.message);
               break;
             case "skill_invoke": {
@@ -68,6 +96,11 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
                 );
                 break;
               }
+              // Persist skill invocation as a user message
+              const userMsg = cmd.args
+                ? `[Workflow: ${cmd.skill}] ${cmd.args}`
+                : `[Workflow: ${cmd.skill}]`;
+              addMessage(id, "user", userMsg, Date.now());
               // Notify frontend that a skill is active
               socket.send(
                 JSON.stringify({

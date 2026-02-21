@@ -15,15 +15,26 @@ export interface ToolCall {
   status: "running" | "done";
 }
 
+export interface SessionListItem {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  lastMessage: string | null;
+}
+
 interface SessionState {
   sessionId: string | null;
+  sessions: SessionListItem[];
   messages: ChatMessage[];
   currentAssistantText: string;
   isStreaming: boolean;
   activeToolCalls: ToolCall[];
 
   // Actions
-  setSessionId: (id: string) => void;
+  setSessionId: (id: string | null) => void;
+  setSessions: (sessions: SessionListItem[]) => void;
+  setMessages: (messages: ChatMessage[]) => void;
   addUserMessage: (text: string) => void;
   appendAssistantDelta: (text: string) => void;
   finalizeAssistantMessage: () => void;
@@ -35,14 +46,27 @@ interface SessionState {
 
 let msgCounter = 0;
 
-export const useSessionStore = create<SessionState>((set, get) => ({
+export const useSessionStore = create<SessionState>((set) => ({
   sessionId: null,
+  sessions: [],
   messages: [],
   currentAssistantText: "",
   isStreaming: false,
   activeToolCalls: [],
 
-  setSessionId: (id) => set({ sessionId: id }),
+  setSessionId: (id) =>
+    set({
+      sessionId: id,
+      // Clear chat state when switching sessions
+      messages: [],
+      currentAssistantText: "",
+      isStreaming: false,
+      activeToolCalls: [],
+    }),
+
+  setSessions: (sessions) => set({ sessions }),
+
+  setMessages: (messages) => set({ messages }),
 
   addUserMessage: (text) =>
     set((s) => ({

@@ -63,8 +63,10 @@ browork/
 │   │       ├── services/pi-session.ts # Pi SDK wrapper + mock mode
 │   │       ├── services/skill-manager.ts # Skill discovery, loading, invocation
 │   │       ├── services/file-watcher.ts # Chokidar file watching
+│   │       ├── db/database.ts        # SQLite init (better-sqlite3, WAL mode)
+│   │       ├── db/session-store.ts   # Session & message CRUD
 │   │       ├── utils/                # Testable utilities (CSV, safePath, events)
-│   │       ├── __tests__/            # Vitest tests (66 tests)
+│   │       ├── __tests__/            # Vitest tests (85 tests)
 │   │       └── ws/session-stream.ts  # WebSocket handler
 │   ├── skills/          # Bundled financial analyst workflow skills
 │   │   ├── data-cleaning/SKILL.md
@@ -79,7 +81,7 @@ browork/
 │           ├── api/client.ts         # REST + WebSocket URL helpers
 │           ├── components/chat/      # ChatPanel, Composer, MessageBubble, SkillsBar, SkillBadge
 │           ├── components/files/     # FilePanel, FileTree, editors, viewers
-│           ├── components/layout/    # AppLayout (3-panel)
+│           ├── components/layout/    # AppLayout, SessionSidebar
 │           ├── hooks/useWebSocket.ts # WebSocket with reconnection
 │           └── stores/               # Zustand stores (session, files, skills)
 ├── package.json         # Workspace root
@@ -92,7 +94,7 @@ browork/
 npm test
 ```
 
-Runs Vitest server-side tests (66 tests): file routes, CSV parser, path traversal, Pi event translation, skill manager.
+Runs Vitest server-side tests (85 tests): file routes, CSV parser, path traversal, Pi event translation, skill manager, session store.
 
 ## Build
 
