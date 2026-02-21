@@ -175,6 +175,48 @@ Editor details:
 | **Auth** | Simple token-based (initially) | Can be upgraded to SSO/OIDC later |
 | **Database** | SQLite (via `better-sqlite3`) | User accounts, session metadata. Lightweight, zero-config. |
 
+### LLM Provider: Azure OpenAI (GPT-5.1 with Thinking)
+
+The default model is **GPT-5.1** deployed on **Azure OpenAI** with reasoning
+(thinking) mode enabled. Pi's multi-provider LLM layer (`pi-ai`) supports Azure
+natively.
+
+#### Configuration
+
+Azure OpenAI credentials are stored server-side (never exposed to the browser)
+via environment variables:
+
+```env
+AZURE_OPENAI_API_KEY=<key>
+AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
+AZURE_OPENAI_DEPLOYMENT=gpt-5.1          # Deployment name in Azure
+AZURE_OPENAI_API_VERSION=2025-12-01-preview
+```
+
+#### Thinking Mode
+
+GPT-5.1 supports reasoning/thinking, which Pi exposes via `thinkingLevel`:
+
+| Level | When to use | Token cost |
+|-------|-------------|------------|
+| `off` | Simple questions, file listing | Lowest |
+| `minimal` | Basic data operations | Low |
+| `low` | Standard analysis tasks | Moderate |
+| `medium` | Multi-step data processing (default) | Moderate-high |
+| `high` | Complex financial analysis, multi-file operations | High |
+
+The default is `medium` — a good balance for financial analyst workflows.
+Browork can expose a "Reasoning depth" toggle in the settings panel (presented
+as "Simple" / "Standard" / "Deep" to the analyst) or leave it fixed at `medium`
+for simplicity.
+
+#### Model Flexibility
+
+While Azure OpenAI GPT-5.1 is the default, Pi supports switching models at
+runtime via `session.setModel()`. The backend could support a model selector
+for admin users, or use different models for different skill types (e.g., a
+cheaper model for simple data cleaning, a stronger model for complex analysis).
+
 ### API Endpoints
 
 #### Auth
@@ -265,8 +307,8 @@ import { createAgentSession } from "@mariozechner/pi-coding-agent";
 async function createSession(userId: string, workDir: string) {
   const { session } = await createAgentSession({
     workingDirectory: workDir,
-    model: getModel("anthropic", "claude-sonnet-4-20250514"),
-    thinkingLevel: "medium",
+    model: getModel("azure", "gpt-5.1"),  // Azure OpenAI deployment
+    thinkingLevel: "medium",               // Enables reasoning/thinking mode
     // Load extensions for task tracking and MCP support
     extensions: ["plan-mode", "todo", "pi-mcp-adapter"],
   });
@@ -721,8 +763,8 @@ browork/
 
 ## 11. Open Questions
 
-1. **LLM Provider**: Which LLM provider/model should Pi use by default? (Anthropic Claude is the natural choice, but Pi supports many.)
-2. **File size limits**: What's the max upload size? Financial files can be large (100MB+ Excel files).
-3. **Concurrent sessions**: Can one user run multiple Pi sessions in parallel, or one at a time?
-4. **Data retention**: How long are files and sessions kept? Auto-cleanup policy?
-5. **Deployment**: Single server, or should we plan for horizontal scaling from the start?
+1. **File size limits**: What's the max upload size? Financial files can be large (100MB+ Excel files).
+2. **Concurrent sessions**: Can one user run multiple Pi sessions in parallel, or one at a time?
+3. **Data retention**: How long are files and sessions kept? Auto-cleanup policy?
+4. **Deployment**: Single server, or should we plan for horizontal scaling from the start?
+5. **Thinking level UX**: Should analysts be able to toggle reasoning depth ("Simple" / "Standard" / "Deep"), or keep it fixed at medium?
