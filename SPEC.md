@@ -135,10 +135,31 @@ active plan, and can be manually collapsed/expanded by the user.
 ### File Manager (right)
 - Tree view of the user's working directory
 - Drag-and-drop upload zone
-- File actions: download, preview, delete
+- File actions: download, edit, delete
 - Auto-refreshes when Pi creates/modifies files
-- Preview support for: CSV (table view), images, text, PDF
 - Upload progress indicator
+
+**File viewer/editor**: Clicking a file opens it in a viewer/editor pane that
+replaces the file tree (with a back button to return). The mode depends on file
+type:
+
+| File type | View mode | Edit mode |
+|-----------|-----------|-----------|
+| **CSV** | Table view (sortable columns, row numbers) | Inline cell editing, add/remove rows and columns |
+| **Markdown** | Rendered Markdown | Split pane: editor left, live preview right |
+| **Text, JSON, YAML** | Syntax-highlighted read view | CodeMirror editor with syntax highlighting |
+| **Images** | Image preview (zoom, pan) | No editing |
+| **PDF** | Embedded PDF viewer | No editing |
+| **Excel (.xlsx)** | Read-only table preview (first sheet) | No editing (too complex — use Pi to modify) |
+
+Editor details:
+- **CodeMirror** (not Monaco — lighter weight, better for this use case)
+- Auto-save on blur or after 2 seconds of inactivity (debounced)
+- Save indicator: "Saved" / "Saving..." / "Unsaved changes"
+- Ctrl+S / Cmd+S keyboard shortcut
+- Conflict detection: if Pi modifies a file while the user is editing,
+  show a notification ("This file was updated by the agent. Reload?")
+- The `AGENTS.md` editor in settings uses this same component
 
 ## 6. Backend Design
 
@@ -178,6 +199,7 @@ POST   /api/sessions/:id/fork    → { newId }  (branch conversation)
 GET    /api/files                → [{ name, path, size, modified, type }]  (tree)
 POST   /api/files/upload         → multipart upload to working directory
 GET    /api/files/:path          → file download
+PUT    /api/files/:path          → save file content (from editor)
 DELETE /api/files/:path
 GET    /api/files/:path/preview  → preview data (CSV→JSON, text, image thumbnail)
 ```
@@ -516,7 +538,8 @@ updates in real-time.
 | **File upload** | `react-dropzone` | Drag-and-drop UX |
 | **WebSocket** | Native `WebSocket` + reconnection wrapper | Real-time streaming |
 | **Icons** | Lucide React | Clean, consistent |
-| **Data tables** | TanStack Table | CSV preview in file panel |
+| **Code editor** | CodeMirror 6 | Lightweight file editor (text, JSON, YAML, Markdown) |
+| **Data tables** | TanStack Table | CSV table view and inline editing |
 
 ### Key Components
 
@@ -548,7 +571,12 @@ App
 │   └── FilePanel               (right panel, collapsible)
 │       ├── FileTree
 │       ├── UploadZone          (drag & drop)
-│       ├── FilePreview         (CSV table, text, image, PDF)
+│       ├── FileViewer          (read-only: image, PDF, Excel preview)
+│       ├── FileEditor          (editable files)
+│       │   ├── CodeMirrorEditor  (text, JSON, YAML, Markdown source)
+│       │   ├── MarkdownSplitView (edit + live preview side-by-side)
+│       │   ├── CsvTableEditor    (inline cell editing, add/remove rows)
+│       │   └── SaveIndicator     ("Saved" / "Saving..." / "Unsaved")
 │       └── FileActions         (download, delete)
 ```
 
@@ -612,6 +640,7 @@ browork/
 │       │   │   ├── ChatPanel/
 │       │   │   ├── SkillsBar/
 │       │   │   ├── FilePanel/
+│       │   │   ├── FileEditor/
 │       │   │   └── common/
 │       │   ├── stores/
 │       │   │   ├── session.ts
@@ -646,11 +675,16 @@ browork/
 ### Phase 2 — File Management
 - [ ] File upload endpoint (multipart)
 - [ ] File tree API + frontend component
-- [ ] File download
-- [ ] File preview (CSV, text, images)
+- [ ] File download and save (`PUT /api/files/:path`)
+- [ ] File preview (images, PDF, Excel read-only table)
+- [ ] CodeMirror editor for text, JSON, YAML, Markdown files
+- [ ] Markdown split view (edit + live preview)
+- [ ] CSV table editor (inline cell editing, add/remove rows)
+- [ ] Save indicator with auto-save (debounced) and Ctrl+S
+- [ ] Conflict detection (agent modifies file while user is editing)
 - [ ] Chokidar file watching → WebSocket push
 - [ ] Drag-and-drop upload in the UI
-- [ ] **Milestone**: Upload a CSV, ask Pi to process it, see the output file appear
+- [ ] **Milestone**: Upload a CSV, edit a cell, ask Pi to process it, see the output file appear
 
 ### Phase 3 — Skills (Workflows)
 - [ ] Skill discovery and loading on the backend (`skill-manager.ts`)
