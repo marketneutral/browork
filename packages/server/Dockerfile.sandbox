@@ -18,10 +18,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     jq \
     unzip \
-    # PDF skill: poppler (pdftotext, pdftoppm, pdfimages), qpdf, tesseract OCR
+    # PDF skill: poppler (pdftotext, pdftoppm, pdfimages), qpdf, tesseract OCR, ImageMagick
     poppler-utils \
     qpdf \
     tesseract-ocr \
+    imagemagick \
+    # DOCX skill: pandoc for text extraction
+    pandoc \
     # DOCX / PPTX / XLSX skills: LibreOffice headless for conversion & recalc
     libreoffice-calc \
     libreoffice-writer \
@@ -42,17 +45,19 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     requests \
     # PDF skill
     pypdf \
+    pypdfium2 \
     pdfplumber \
     reportlab \
     pytesseract \
     pdf2image \
     # PPTX skill
     "markitdown[pptx]" \
-    Pillow
+    Pillow \
+    defusedxml
 
 # ── NPM global packages ────────────────────────────────────────
-# PPTX skill: pptxgenjs  |  DOCX skill: docx
-RUN npm install -g pptxgenjs docx
+# PPTX: pptxgenjs | DOCX: docx | PDF: pdf-lib, pdfjs-dist
+RUN npm install -g pptxgenjs docx pdf-lib pdfjs-dist
 
 # Create a non-root user for safer execution
 RUN useradd -m -s /bin/bash analyst
