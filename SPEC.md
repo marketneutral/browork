@@ -82,7 +82,8 @@ technical complexity.
 │          │  │ [Clean] [Merge]    │  │              │
 │          │  │ [Report] [Chart]   │  │ [Upload]     │
 │          │  ├────────────────────┤  │ [Download]   │
-│          │  │ Message input      │  │              │
+│          │  │ [Quick|STD|Deep]   │  │              │
+│          │  │ Message input  [→] │  │              │
 │          │  └────────────────────┘  │              │
 └──────────┴──────────────────────────┴──────────────┘
 ```
@@ -131,6 +132,7 @@ active plan, and can be manually collapsed/expanded by the user.
 - Message input at bottom with:
   - Text area (Shift+Enter for newline, Enter to send)
   - Attach button (reference files from working directory)
+  - **Thinking depth toggle**: segmented control — Quick / Standard / Deep
 
 ### File Manager (right)
 - Tree view of the user's working directory
@@ -191,6 +193,7 @@ AZURE_OPENAI_API_KEY=<key>
 AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
 AZURE_OPENAI_DEPLOYMENT=gpt-5.1          # Deployment name in Azure
 AZURE_OPENAI_API_VERSION=2025-12-01-preview
+MAX_UPLOAD_SIZE_MB=10                     # File upload limit (default 10)
 ```
 
 #### Thinking Mode
@@ -205,10 +208,26 @@ GPT-5.1 supports reasoning/thinking, which Pi exposes via `thinkingLevel`:
 | `medium` | Multi-step data processing (default) | Moderate-high |
 | `high` | Complex financial analysis, multi-file operations | High |
 
-The default is `medium` — a good balance for financial analyst workflows.
-Browork can expose a "Reasoning depth" toggle in the settings panel (presented
-as "Simple" / "Standard" / "Deep" to the analyst) or leave it fixed at `medium`
-for simplicity.
+The default is `medium` ("Standard").
+
+#### Thinking Depth Toggle
+
+Browork exposes a **three-way toggle** in the chat input bar, next to the send
+button. The analyst sees friendly labels:
+
+| UI Label | Pi `thinkingLevel` | When to use |
+|----------|-------------------|-------------|
+| **Quick** | `low` | Simple lookups, file listings, straightforward tasks |
+| **Standard** | `medium` | Most analyst workflows (default) |
+| **Deep** | `high` | Complex multi-step analysis, multi-file operations |
+
+The toggle is a segmented control (shadcn `ToggleGroup`) that persists the
+analyst's last choice in `localStorage`. Changing it mid-session calls
+`session.setThinkingLevel()` on the backend via a REST endpoint:
+
+```
+PUT /api/sessions/:id/thinking-level   → { level: "low" | "medium" | "high" }
+```
 
 #### Model Flexibility
 
@@ -234,12 +253,13 @@ GET    /api/sessions/:id         → { id, name, messages }
 DELETE /api/sessions/:id
 PATCH  /api/sessions/:id         → { name }  (rename)
 POST   /api/sessions/:id/fork    → { newId }  (branch conversation)
+PUT    /api/sessions/:id/thinking-level → { level }  (low | medium | high)
 ```
 
 #### Files
 ```
 GET    /api/files                → [{ name, path, size, modified, type }]  (tree)
-POST   /api/files/upload         → multipart upload to working directory
+POST   /api/files/upload         → multipart upload (max 10 MB, configurable)
 GET    /api/files/:path          → file download
 PUT    /api/files/:path          → save file content (from editor)
 DELETE /api/files/:path
@@ -308,7 +328,7 @@ async function createSession(userId: string, workDir: string) {
   const { session } = await createAgentSession({
     workingDirectory: workDir,
     model: getModel("azure", "gpt-5.1"),  // Azure OpenAI deployment
-    thinkingLevel: "medium",               // Enables reasoning/thinking mode
+    thinkingLevel: "medium",               // Default; analyst can toggle via UI
     // Load extensions for task tracking and MCP support
     extensions: ["plan-mode", "todo", "pi-mcp-adapter"],
   });
@@ -603,6 +623,7 @@ App
 │   │   │   ├── ToolCallUI      [aui] (Generative UI — maps tool names to cards)
 │   │   │   └── SkillBadge      [custom] (small badge on skill-invoked messages)
 │   │   ├── SkillsBar           [custom] (workflow buttons above composer)
+│   │   ├── ThinkingToggle     [shd] (ToggleGroup: Quick / Standard / Deep)
 │   │   └── Composer            [aui] (message input, attachments, send button)
 │   └── FilePanel               [shd] (shadcn Sheet or collapsible panel)
 │       ├── FileTree            [react-arborist] (virtualized file browser)
@@ -623,7 +644,7 @@ SkillBadge, FileViewer, SaveIndicator). Everything else is library-provided.
 | Concern | Mitigation |
 |---------|-----------|
 | **Pi has bash access** | Each user's Pi session is scoped to their working directory. Consider running Pi in a sandboxed environment (container per user) for production. |
-| **File upload attacks** | Validate file types, enforce size limits, scan filenames for path traversal. |
+| **File upload attacks** | Validate file types, enforce size limit (default 10 MB via `MAX_UPLOAD_SIZE_MB`), scan filenames for path traversal. |
 | **Multi-user isolation** | Separate working directories per user. Pi sessions are isolated. |
 | **Auth** | Token-based auth with expiry. HTTPS only. |
 | **LLM API keys** | Stored server-side only, never exposed to the browser. |
@@ -761,10 +782,12 @@ browork/
 - [ ] Deployment configuration (systemd, nginx reverse proxy, TLS)
 - [ ] Container-per-user sandboxing for Pi sessions (optional)
 
-## 11. Open Questions
+## 11. Resolved Decisions
 
-1. **File size limits**: What's the max upload size? Financial files can be large (100MB+ Excel files).
-2. **Concurrent sessions**: Can one user run multiple Pi sessions in parallel, or one at a time?
-3. **Data retention**: How long are files and sessions kept? Auto-cleanup policy?
-4. **Deployment**: Single server, or should we plan for horizontal scaling from the start?
-5. **Thinking level UX**: Should analysts be able to toggle reasoning depth ("Simple" / "Standard" / "Deep"), or keep it fixed at medium?
+| Question | Decision |
+|----------|----------|
+| **File size limits** | Configurable, default **10 MB**. Set via `MAX_UPLOAD_SIZE_MB` env var. |
+| **Concurrent sessions** | **One session at a time** per user. Must close/stop current session before starting another. |
+| **Data retention** | **Forever**. No auto-cleanup. Files and sessions persist until the user explicitly deletes them. |
+| **Deployment** | **Single server** for now. No horizontal scaling needed initially. |
+| **Thinking level UX** | **Yes — user-facing toggle** in the chat input bar. Three levels: "Quick" / "Standard" / "Deep". |
