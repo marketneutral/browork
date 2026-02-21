@@ -426,15 +426,13 @@ requirements, approved data sources, output formatting standards).
 
 #### API Support
 
-```
-GET    /api/agents-md              → { content, source }  (current AGENTS.md)
-PUT    /api/agents-md              → { content }  (update AGENTS.md)
-POST   /api/agents-md/reset        → restore default AGENTS.md
-```
+No dedicated endpoints needed — the existing file API handles `AGENTS.md`:
+- `GET /api/files/AGENTS.md` to read it
+- `PUT /api/files/AGENTS.md` to save edits
 
 The frontend exposes this through a "Project Settings" or "Agent Instructions"
-section in the settings panel — a simple text editor for the `AGENTS.md` content,
-with a "Reset to Default" button.
+section in the settings panel — opening `AGENTS.md` in the file editor component,
+with a "Reset to Default" button that restores the template content.
 
 ### MCP (Model Context Protocol) Server Support
 
@@ -532,53 +530,51 @@ updates in real-time.
 |-------|-----------|-----|
 | **Framework** | React 19 | Ecosystem, component model, familiar |
 | **Build tool** | Vite | Fast dev server, good defaults |
+| **UI kit** | shadcn/ui | 50+ accessible components, copy-paste model, Tailwind-native. Includes Sidebar, Dialog, Sheet, Toast, Data Table, etc. Icons via Lucide (bundled). |
 | **Styling** | Tailwind CSS v4 | Utility-first, consistent with Pi's own web-ui |
+| **AI chat** | `@assistant-ui/react` | Purpose-built AI chat UI — streaming, markdown, tool calls, message input, auto-scroll. Built on shadcn/ui. Replaces hand-rolled chat components. |
 | **State** | Zustand | Lightweight, no boilerplate |
-| **Markdown** | `react-markdown` + `remark-gfm` | Render agent responses |
-| **File upload** | `react-dropzone` | Drag-and-drop UX |
-| **WebSocket** | Native `WebSocket` + reconnection wrapper | Real-time streaming |
-| **Icons** | Lucide React | Clean, consistent |
-| **Code editor** | CodeMirror 6 | Lightweight file editor (text, JSON, YAML, Markdown) |
-| **Data tables** | TanStack Table | CSV table view and inline editing |
+| **Code editor** | `@uiw/react-codemirror` | Best CodeMirror 6 React wrapper (~1.2M weekly downloads) |
+| **Markdown editor** | `@uiw/react-md-editor` | Split-pane Markdown editor with live preview (4.6KB gzipped) |
+| **CSV editing** | AG Grid Community (MIT) | Inline cell editing, sorting, filtering built in — no custom editor code needed |
+| **File tree** | `react-arborist` | VSCode-style file tree with virtualization, drag-and-drop, inline rename (~157K weekly downloads) |
+| **WebSocket** | Custom hook (~100 lines) | Native WebSocket + reconnection with exponential backoff. No library needed — guarantees React 19 compatibility. |
 
 ### Key Components
 
+Most of the chat UI comes from `@assistant-ui/react` (marked with `[aui]`).
+Layout primitives come from shadcn/ui (marked with `[shd]`).
+Only components marked with `[custom]` need to be built from scratch.
+
 ```
 App
-├── AuthGate                    (login screen if not authenticated)
+├── AuthGate                    [shd] (login form using shadcn Form + Input)
 ├── AppLayout
-│   ├── SessionSidebar          (left panel)
-│   │   ├── NewSessionButton
-│   │   └── SessionList
-│   │       └── SessionItem     (name, preview, timestamp)
-│   ├── PlanPanel                (top of center, contextual)
-│   │   ├── PlanStepList
-│   │   │   └── PlanStep        (checkbox + label + status icon)
-│   │   ├── PlanProgress        ("2/5" summary)
-│   │   └── CollapseToggle
-│   ├── ChatPanel               (center)
-│   │   ├── MessageList
-│   │   │   ├── UserMessage
-│   │   │   ├── AgentMessage    (markdown rendered)
-│   │   │   ├── SkillBadge      ("Workflow: Clean Data" on relevant messages)
-│   │   │   └── ToolCallCard    (collapsible, shows tool name + status)
-│   │   ├── AgentStatusBar      ("Thinking...", "Running bash...", "Done")
-│   │   ├── SkillsBar           (workflow buttons above input)
-│   │   │   └── SkillButton     (icon + label, triggers skill invocation)
-│   │   └── MessageInput
-│   │       ├── TextArea
-│   │       └── AttachButton
-│   └── FilePanel               (right panel, collapsible)
-│       ├── FileTree
-│       ├── UploadZone          (drag & drop)
-│       ├── FileViewer          (read-only: image, PDF, Excel preview)
-│       ├── FileEditor          (editable files)
-│       │   ├── CodeMirrorEditor  (text, JSON, YAML, Markdown source)
-│       │   ├── MarkdownSplitView (edit + live preview side-by-side)
-│       │   ├── CsvTableEditor    (inline cell editing, add/remove rows)
-│       │   └── SaveIndicator     ("Saved" / "Saving..." / "Unsaved")
-│       └── FileActions         (download, delete)
+│   ├── SessionSidebar          [shd] (shadcn Sidebar component)
+│   │   ├── NewSessionButton    [shd]
+│   │   └── SessionList         [custom] (maps sessions to sidebar items)
+│   ├── PlanPanel               [custom] (plan progress checklist)
+│   ├── ChatPanel               [aui] (AssistantRuntimeProvider + Thread)
+│   │   ├── Thread              [aui] (message list, auto-scroll, streaming)
+│   │   │   ├── UserMessage     [aui] (built-in, styled via Tailwind)
+│   │   │   ├── AssistantMessage [aui] (markdown via @assistant-ui/react-markdown)
+│   │   │   ├── ToolCallUI      [aui] (Generative UI — maps tool names to cards)
+│   │   │   └── SkillBadge      [custom] (small badge on skill-invoked messages)
+│   │   ├── SkillsBar           [custom] (workflow buttons above composer)
+│   │   └── Composer            [aui] (message input, attachments, send button)
+│   └── FilePanel               [shd] (shadcn Sheet or collapsible panel)
+│       ├── FileTree            [react-arborist] (virtualized file browser)
+│       ├── FileViewer          [custom] (image preview, PDF embed, Excel table)
+│       ├── FileEditor          (editable files, mode by file type)
+│       │   ├── CodeMirrorEditor  [@uiw/react-codemirror]
+│       │   ├── MarkdownEditor    [@uiw/react-md-editor] (split-pane built in)
+│       │   ├── CsvEditor         [ag-grid-community] (inline editing built in)
+│       │   └── SaveIndicator     [custom] (tiny status text)
+│       └── FileActions         [shd] (shadcn DropdownMenu: download, delete)
 ```
+
+**Custom components to build**: ~6 (SessionList, PlanPanel, SkillsBar,
+SkillBadge, FileViewer, SaveIndicator). Everything else is library-provided.
 
 ## 8. Security Considerations
 
@@ -635,13 +631,10 @@ browork/
 │       │   ├── main.tsx
 │       │   ├── App.tsx
 │       │   ├── components/
-│       │   │   ├── SessionSidebar/
-│       │   │   ├── PlanPanel/
-│       │   │   ├── ChatPanel/
-│       │   │   ├── SkillsBar/
-│       │   │   ├── FilePanel/
-│       │   │   ├── FileEditor/
-│       │   │   └── common/
+│       │   │   ├── layout/           # AppLayout, panels, sidebar
+│       │   │   ├── chat/             # SkillsBar, SkillBadge, PlanPanel
+│       │   │   ├── files/            # FilePanel, FileViewer, FileEditor
+│       │   │   └── ui/              # shadcn/ui generated components
 │       │   ├── stores/
 │       │   │   ├── session.ts
 │       │   │   ├── plan.ts
@@ -667,23 +660,22 @@ browork/
 ### Phase 1 — Walking Skeleton
 - [ ] Monorepo setup (npm workspaces, TypeScript, ESLint)
 - [ ] Fastify server with health check
-- [ ] Vite + React app with hardcoded layout
-- [ ] WebSocket connection between frontend and backend
+- [ ] Vite + React app with shadcn/ui + `@assistant-ui/react`
+- [ ] Custom WebSocket hook (~100 lines) with reconnection
+- [ ] Wire assistant-ui Thread to backend via WebSocket runtime adapter
 - [ ] Single Pi session via SDK, prompt → response round-trip
-- [ ] **Milestone**: Type a message in the browser, see Pi's response stream back
+- [ ] **Milestone**: Type a message in the browser, see Pi's response stream back with markdown rendering
 
-### Phase 2 — File Management
-- [ ] File upload endpoint (multipart)
-- [ ] File tree API + frontend component
+### Phase 2 — File Management & Editing
+- [ ] File upload endpoint (multipart) + drag-and-drop UI
+- [ ] File tree using `react-arborist` + file API
 - [ ] File download and save (`PUT /api/files/:path`)
 - [ ] File preview (images, PDF, Excel read-only table)
-- [ ] CodeMirror editor for text, JSON, YAML, Markdown files
-- [ ] Markdown split view (edit + live preview)
-- [ ] CSV table editor (inline cell editing, add/remove rows)
-- [ ] Save indicator with auto-save (debounced) and Ctrl+S
-- [ ] Conflict detection (agent modifies file while user is editing)
-- [ ] Chokidar file watching → WebSocket push
-- [ ] Drag-and-drop upload in the UI
+- [ ] Text/JSON/YAML editing via `@uiw/react-codemirror` (drop-in)
+- [ ] Markdown editing via `@uiw/react-md-editor` (split-pane built in)
+- [ ] CSV editing via AG Grid Community (inline editing built in)
+- [ ] Auto-save with save indicator + conflict detection
+- [ ] Chokidar file watching → WebSocket `files_changed` push
 - [ ] **Milestone**: Upload a CSV, edit a cell, ask Pi to process it, see the output file appear
 
 ### Phase 3 — Skills (Workflows)
