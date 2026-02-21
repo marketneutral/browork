@@ -6,6 +6,7 @@ export type BroworkEvent =
   | { type: "tool_start"; tool: string; args: unknown }
   | { type: "tool_end"; tool: string; result: unknown; isError: boolean }
   | { type: "agent_end" }
+  | { type: "files_changed"; paths: string[] }
   | { type: "error"; message: string };
 
 /** Commands sent to the server over WebSocket */

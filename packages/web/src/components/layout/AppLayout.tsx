@@ -1,4 +1,5 @@
 import { ChatPanel } from "../chat/ChatPanel";
+import { FilePanel } from "../files/FilePanel";
 import type { ConnectionStatus } from "../../hooks/useWebSocket";
 
 interface AppLayoutProps {
@@ -49,9 +50,9 @@ export function AppLayout({
         <ChatPanel onSendMessage={onSendMessage} onAbort={onAbort} />
       </main>
 
-      {/* File panel — Phase 2 */}
-      <aside className="w-72 border-l border-[var(--border)] bg-[var(--muted)] p-4 text-sm text-[var(--muted-foreground)]">
-        File Manager (Phase 2)
+      {/* File panel */}
+      <aside className="w-80 border-l border-[var(--border)] bg-[var(--muted)]">
+        <FilePanel />
       </aside>
     </div>
   );

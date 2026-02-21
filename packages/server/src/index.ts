@@ -4,6 +4,7 @@ import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import multipart from "@fastify/multipart";
 import { sessionRoutes } from "./routes/sessions.js";
+import { fileRoutes } from "./routes/files.js";
 import { healthRoutes } from "./routes/health.js";
 import { sessionStreamHandler } from "./ws/session-stream.js";
 
@@ -23,6 +24,7 @@ async function main() {
   // Routes
   await app.register(healthRoutes);
   await app.register(sessionRoutes, { prefix: "/api" });
+  await app.register(fileRoutes, { prefix: "/api" });
 
   // WebSocket
   await app.register(sessionStreamHandler);
