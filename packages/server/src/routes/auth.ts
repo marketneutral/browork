@@ -9,10 +9,17 @@ import {
 } from "../db/user-store.js";
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
+  // Stricter rate limit for auth endpoints (brute-force protection)
+  const authRateConfig = {
+    config: {
+      rateLimit: { max: 10, timeWindow: "1 minute" },
+    },
+  };
+
   // Register a new user
   app.post<{
     Body: { username: string; displayName: string; password: string };
-  }>("/auth/register", async (req, reply) => {
+  }>("/auth/register", authRateConfig, async (req, reply) => {
     const { username, displayName, password } = req.body as {
       username: string;
       displayName: string;
@@ -52,6 +59,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   // Login
   app.post<{ Body: { username: string; password: string } }>(
     "/auth/login",
+    authRateConfig,
     async (req, reply) => {
       const { username, password } = req.body as {
         username: string;

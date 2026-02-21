@@ -1,0 +1,41 @@
+# Browork Sandbox — isolated per-user execution environment
+#
+# Each user gets a container from this image so that
+# pip install, npm install, and bash commands are isolated.
+#
+# Build:  docker build -f packages/server/Dockerfile.sandbox -t browork-sandbox .
+# Usage:  Managed automatically by sandbox-manager.ts
+
+FROM node:20-slim
+
+# Install Python 3, pip, and common data analysis libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-venv \
+    git \
+    curl \
+    jq \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install common Python data packages into the system Python
+# Users can pip install more — it stays in their container
+RUN pip3 install --no-cache-dir --break-system-packages \
+    pandas \
+    openpyxl \
+    matplotlib \
+    numpy \
+    scipy \
+    xlsxwriter \
+    python-dateutil \
+    requests
+
+# Create a non-root user for safer execution
+RUN useradd -m -s /bin/bash analyst
+USER analyst
+
+WORKDIR /workspace
+
+# Default: sleep forever — container stays alive for docker exec
+CMD ["sleep", "infinity"]

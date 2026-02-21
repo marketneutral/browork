@@ -12,7 +12,9 @@ import {
   X,
   LogOut,
   Settings,
+  PanelLeftClose,
 } from "lucide-react";
+import { SessionSkeleton } from "../ui/Skeleton";
 import type { ConnectionStatus } from "../../hooks/useWebSocket";
 
 interface SessionSidebarProps {
@@ -23,6 +25,8 @@ interface SessionSidebarProps {
   onRenameSession: (id: string, name: string) => void;
   onForkSession: (id: string) => void;
   onOpenSettings: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export function SessionSidebar({
@@ -33,9 +37,12 @@ export function SessionSidebar({
   onRenameSession,
   onForkSession,
   onOpenSettings,
+  collapsed,
+  onToggleCollapse,
 }: SessionSidebarProps) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.sessionId);
+  const isLoading = useSessionStore((s) => s.isLoading);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
 
@@ -44,23 +51,43 @@ export function SessionSidebar({
     logout();
   };
 
+  if (collapsed) return null;
+
   return (
-    <aside className="w-64 border-r border-[var(--border)] bg-[var(--muted)] flex flex-col">
+    <aside className="w-64 shrink-0 border-r border-[var(--border)] bg-[var(--muted)] flex flex-col max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:shadow-lg">
       {/* Header */}
       <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
         <h1 className="text-lg font-semibold">Browork</h1>
-        <button
-          onClick={onNewSession}
-          title="New session"
-          className="rounded-md p-1.5 hover:bg-[var(--accent)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-        >
-          <Plus size={18} />
-        </button>
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={onNewSession}
+            title="New session"
+            className="rounded-md p-1.5 hover:bg-[var(--accent)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+          >
+            <Plus size={18} />
+          </button>
+          {onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              title="Close sidebar"
+              className="rounded-md p-1.5 hover:bg-[var(--accent)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors md:hidden"
+            >
+              <PanelLeftClose size={18} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Session list */}
       <div className="flex-1 overflow-y-auto">
-        {sessions.length === 0 && (
+        {isLoading && sessions.length === 0 && (
+          <>
+            <SessionSkeleton />
+            <SessionSkeleton />
+            <SessionSkeleton />
+          </>
+        )}
+        {!isLoading && sessions.length === 0 && (
           <div className="p-4 text-sm text-[var(--muted-foreground)]">
             No sessions yet
           </div>

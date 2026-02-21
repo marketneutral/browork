@@ -11,6 +11,7 @@
 import type { WebSocket } from "ws";
 import { translatePiEvent } from "../utils/event-translator.js";
 import { writeMcpConfig } from "./mcp-manager.js";
+import { isSandboxEnabled, ensureSandbox } from "./sandbox-manager.js";
 
 // ── Browork event types sent to the frontend over WebSocket ──
 
@@ -48,12 +49,28 @@ const activeSessions = new Map<string, PiSessionHandle>();
 
 /**
  * Create a new Pi agent session and wire its events to a WebSocket.
+ *
+ * When SANDBOX_ENABLED=true, the user's Docker container is
+ * provisioned before the Pi session starts so that Pi's bash
+ * commands run inside the isolated container.
  */
 export async function createPiSession(
   sessionId: string,
   workDir: string,
   ws: WebSocket,
+  userId?: string,
 ): Promise<PiSessionHandle> {
+  // Provision sandbox container when enabled
+  if (isSandboxEnabled() && userId) {
+    try {
+      const containerId = ensureSandbox(userId, workDir);
+      console.log(`Sandbox ready for user ${userId}: ${containerId.slice(0, 12)}`);
+    } catch (err) {
+      console.error(`Sandbox provisioning failed for user ${userId}:`, err);
+      // Fall through — Pi will run on host if sandbox fails
+    }
+  }
+
   // Dynamically import the Pi SDK — it may not be installed yet
   let piSdk: typeof import("@mariozechner/pi-coding-agent") | null = null;
   let piAi: typeof import("@mariozechner/pi-ai") | null = null;

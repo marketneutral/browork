@@ -1,0 +1,55 @@
+# Browork — systemd service file
+#
+# Install:
+#   sudo cp deploy/browork.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now browork
+#
+# Logs:  journalctl -u browork -f
+# Stop:  sudo systemctl stop browork
+
+[Unit]
+Description=Browork — AI Agent Web UI for Financial Analysts
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=browork
+Group=browork
+WorkingDirectory=/opt/browork
+
+# Node.js process
+ExecStart=/usr/bin/node packages/server/dist/index.js
+
+# Environment
+Environment=NODE_ENV=production
+Environment=PORT=3001
+Environment=HOST=127.0.0.1
+Environment=DATA_ROOT=/data/browork
+EnvironmentFile=-/opt/browork/.env
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=1G
+
+# Restart on failure
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/data/browork
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=browork
+
+[Install]
+WantedBy=multi-user.target

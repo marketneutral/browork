@@ -5,6 +5,7 @@ import { useSkillsStore } from "./stores/skills";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { api, wsUrl } from "./api/client";
 import { AppLayout } from "./components/layout/AppLayout";
+import { ErrorToast } from "./components/ui/ErrorToast";
 import type { BroworkEvent } from "./types";
 
 /** Refresh the session list in the sidebar */
@@ -19,6 +20,9 @@ export function App() {
   const sessionId = useSessionStore((s) => s.sessionId);
   const setSessionId = useSessionStore((s) => s.setSessionId);
   const setStreaming = useSessionStore((s) => s.setStreaming);
+  const setLoading = useSessionStore((s) => s.setLoading);
+  const setError = useSessionStore((s) => s.setError);
+  const error = useSessionStore((s) => s.error);
   const appendAssistantDelta = useSessionStore((s) => s.appendAssistantDelta);
   const finalizeAssistantMessage = useSessionStore(
     (s) => s.finalizeAssistantMessage,
@@ -61,13 +65,14 @@ export function App() {
           api.files.list().then(useFilesStore.getState().setEntries).catch(console.error);
           break;
         case "error":
-          console.error("Server error:", event.message);
+          setError(event.message);
           setStreaming(false);
           break;
       }
     },
     [
       setStreaming,
+      setError,
       appendAssistantDelta,
       finalizeAssistantMessage,
       addToolStart,
@@ -83,19 +88,22 @@ export function App() {
 
   // Load sessions and auto-create if none exist
   useEffect(() => {
-    api.sessions.list().then((sessions) => {
-      useSessionStore.getState().setSessions(sessions);
-      if (sessions.length > 0 && !sessionId) {
-        // Select most recent session
-        selectSession(sessions[0].id);
-      } else if (sessions.length === 0) {
-        // First time — create a session
-        api.sessions.create().then((s) => {
-          refreshSessions();
-          selectSession(s.id);
-        });
-      }
-    });
+    setLoading(true);
+    api.sessions
+      .list()
+      .then((sessions) => {
+        useSessionStore.getState().setSessions(sessions);
+        if (sessions.length > 0 && !sessionId) {
+          selectSession(sessions[0].id);
+        } else if (sessions.length === 0) {
+          api.sessions.create().then((s) => {
+            refreshSessions();
+            selectSession(s.id);
+          });
+        }
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -122,17 +130,17 @@ export function App() {
             })),
           );
         }
-      }).catch(console.error);
+      }).catch((err) => setError(err.message));
     },
-    [setSessionId],
+    [setSessionId, setError],
   );
 
   const handleNewSession = useCallback(() => {
     api.sessions.create().then((s) => {
       refreshSessions();
       selectSession(s.id);
-    });
-  }, [selectSession]);
+    }).catch((err) => setError(err.message));
+  }, [selectSession, setError]);
 
   const handleSelectSession = useCallback(
     (id: string) => {
@@ -147,7 +155,6 @@ export function App() {
       api.sessions.delete(id).then(() => {
         refreshSessions();
         if (id === sessionId) {
-          // Switch to another session or create new
           api.sessions.list().then((sessions) => {
             if (sessions.length > 0) {
               selectSession(sessions[0].id);
@@ -159,23 +166,23 @@ export function App() {
             }
           });
         }
-      });
+      }).catch((err) => setError(err.message));
     },
-    [sessionId, selectSession],
+    [sessionId, selectSession, setError],
   );
 
   const handleRenameSession = useCallback((id: string, name: string) => {
-    api.sessions.rename(id, name).then(() => refreshSessions());
-  }, []);
+    api.sessions.rename(id, name).then(() => refreshSessions()).catch((err) => setError(err.message));
+  }, [setError]);
 
   const handleForkSession = useCallback(
     (id: string) => {
       api.sessions.fork(id).then((forked) => {
         refreshSessions();
         selectSession(forked.id);
-      });
+      }).catch((err) => setError(err.message));
     },
-    [selectSession],
+    [selectSession, setError],
   );
 
   const handleSendMessage = useCallback(
@@ -202,16 +209,21 @@ export function App() {
   }, [send]);
 
   return (
-    <AppLayout
-      connectionStatus={status}
-      onSendMessage={handleSendMessage}
-      onInvokeSkill={handleInvokeSkill}
-      onAbort={handleAbort}
-      onNewSession={handleNewSession}
-      onSelectSession={handleSelectSession}
-      onDeleteSession={handleDeleteSession}
-      onRenameSession={handleRenameSession}
-      onForkSession={handleForkSession}
-    />
+    <>
+      {error && (
+        <ErrorToast message={error} onDismiss={() => setError(null)} />
+      )}
+      <AppLayout
+        connectionStatus={status}
+        onSendMessage={handleSendMessage}
+        onInvokeSkill={handleInvokeSkill}
+        onAbort={handleAbort}
+        onNewSession={handleNewSession}
+        onSelectSession={handleSelectSession}
+        onDeleteSession={handleDeleteSession}
+        onRenameSession={handleRenameSession}
+        onForkSession={handleForkSession}
+      />
+    </>
   );
 }
