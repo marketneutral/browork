@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from "react";
 import { useSessionStore } from "./stores/session";
+import { useFilesStore } from "./stores/files";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { api, wsUrl } from "./api/client";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -38,6 +39,10 @@ export function App() {
         case "agent_end":
           finalizeAssistantMessage();
           setStreaming(false);
+          break;
+        case "files_changed":
+          // Refresh file tree when Pi creates/modifies files
+          api.files.list().then(useFilesStore.getState().setEntries).catch(console.error);
           break;
         case "error":
           console.error("Server error:", event.message);

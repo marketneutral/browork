@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import type { RawData } from "ws";
 import { createPiSession, getSession } from "../services/pi-session.js";
 import type { BroworkCommand } from "../services/pi-session.js";
+import { subscribeWsToFileChanges } from "../services/file-watcher.js";
 import { resolve } from "path";
 import { mkdirSync } from "fs";
 
@@ -19,6 +20,9 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
       mkdirSync(workDir, { recursive: true });
 
       app.log.info({ sessionId: id }, "WebSocket connected");
+
+      // Subscribe to file changes in the working directory
+      const unsubFiles = subscribeWsToFileChanges(socket, workDir);
 
       // Create or reconnect to a Pi session
       let session = getSession(id);
@@ -71,6 +75,7 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
 
       socket.on("close", () => {
         app.log.info({ sessionId: id }, "WebSocket disconnected");
+        unsubFiles();
         // Don't dispose session on disconnect — allow reconnection
       });
     },
