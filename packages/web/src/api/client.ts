@@ -16,6 +16,13 @@ export interface SessionMeta {
   id: string;
   name: string;
   createdAt: string;
+  updatedAt: string;
+  lastMessage: string | null;
+  forkedFrom: string | null;
+}
+
+export interface SessionWithMessages extends SessionMeta {
+  messages: { id: number; role: "user" | "assistant"; content: string; timestamp: number }[];
 }
 
 export interface FileEntry {
@@ -54,7 +61,7 @@ export const api = {
   sessions: {
     list: () => request<SessionMeta[]>("/sessions"),
     create: () => request<SessionMeta>("/sessions", { method: "POST" }),
-    get: (id: string) => request<SessionMeta>(`/sessions/${id}`),
+    get: (id: string) => request<SessionWithMessages>(`/sessions/${id}`),
     delete: (id: string) =>
       request<{ ok: boolean }>(`/sessions/${id}`, { method: "DELETE" }),
     rename: (id: string, name: string) =>
@@ -62,6 +69,8 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify({ name }),
       }),
+    fork: (id: string) =>
+      request<SessionMeta>(`/sessions/${id}/fork`, { method: "POST" }),
   },
   files: {
     list: () => request<FileEntry[]>("/files"),

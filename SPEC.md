@@ -755,13 +755,16 @@ browork/
 - [x] Server-side tests: 66 tests (49 existing + 17 new skill-manager tests)
 - [x] **Milestone**: Click "Clean Data", Pi follows the skill instructions on uploaded files ✅
 
-### Phase 4 — Session Management
-- [ ] SQLite database for session metadata
-- [ ] Create/list/rename/delete sessions API
-- [ ] Session sidebar in frontend
-- [ ] Session persistence (Pi's JSONL sessions)
-- [ ] Session forking (branching conversations)
-- [ ] **Milestone**: Multiple sessions, switch between them, pick up where you left off
+### Phase 4 — Session Management ✅
+- [x] SQLite database for session metadata (`better-sqlite3`, WAL mode)
+- [x] Create/list/rename/delete sessions API (migrated from in-memory Map)
+- [x] Session sidebar in frontend (rename, delete, fork, last message preview, time ago)
+- [x] Message persistence (chat history saved to SQLite, restored on session switch)
+- [x] Session forking (branch conversations with copied message history)
+- [x] `GET /api/sessions/:id/messages`, `POST /api/sessions/:id/messages`, `POST /api/sessions/:id/fork`
+- [x] WebSocket handler persists user and assistant messages automatically
+- [x] Server-side tests: 85 tests (66 existing + 19 new session-store tests)
+- [x] **Milestone**: Multiple sessions, switch between them, pick up where you left off ✅
 
 ### Phase 5 — Auth & Multi-User
 - [ ] User accounts (SQLite)

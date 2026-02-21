@@ -1,48 +1,43 @@
 import type { FastifyPluginAsync } from "fastify";
 import { nanoid } from "nanoid";
-
-// In-memory session store (Phase 4 will use SQLite)
-interface SessionMeta {
-  id: string;
-  name: string;
-  createdAt: string;
-}
-
-const sessions = new Map<string, SessionMeta>();
+import {
+  createSession,
+  getSessionById,
+  listSessions,
+  renameSession,
+  deleteSession,
+  forkSession,
+  addMessage,
+  getMessages,
+} from "../db/session-store.js";
 
 export const sessionRoutes: FastifyPluginAsync = async (app) => {
   // List sessions
   app.get("/sessions", async () => {
-    return Array.from(sessions.values()).sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
+    return listSessions();
   });
 
   // Create session
   app.post("/sessions", async () => {
     const id = nanoid(12);
-    const session: SessionMeta = {
-      id,
-      name: `Session ${sessions.size + 1}`,
-      createdAt: new Date().toISOString(),
-    };
-    sessions.set(id, session);
-    return session;
+    const sessions = listSessions();
+    return createSession(id, `Session ${sessions.length + 1}`);
   });
 
-  // Get session
+  // Get session (includes messages)
   app.get<{ Params: { id: string } }>("/sessions/:id", async (req, reply) => {
-    const session = sessions.get(req.params.id);
+    const session = getSessionById(req.params.id);
     if (!session) return reply.code(404).send({ error: "Session not found" });
-    return session;
+
+    const messages = getMessages(req.params.id);
+    return { ...session, messages };
   });
 
   // Delete session
   app.delete<{ Params: { id: string } }>(
     "/sessions/:id",
     async (req, reply) => {
-      if (!sessions.delete(req.params.id)) {
+      if (!deleteSession(req.params.id)) {
         return reply.code(404).send({ error: "Session not found" });
       }
       return { ok: true };
@@ -53,10 +48,64 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
   app.patch<{ Params: { id: string }; Body: { name: string } }>(
     "/sessions/:id",
     async (req, reply) => {
-      const session = sessions.get(req.params.id);
+      const { name } = req.body as { name: string };
+      const session = renameSession(req.params.id, name);
       if (!session) return reply.code(404).send({ error: "Session not found" });
-      session.name = (req.body as { name: string }).name;
       return session;
     },
   );
+
+  // Fork session (branch conversation)
+  app.post<{ Params: { id: string } }>(
+    "/sessions/:id/fork",
+    async (req, reply) => {
+      const sourceId = req.params.id;
+      const newId = nanoid(12);
+
+      const source = getSessionById(sourceId);
+      if (!source) {
+        return reply.code(404).send({ error: "Source session not found" });
+      }
+
+      const forked = forkSession(
+        sourceId,
+        newId,
+        `${source.name} (fork)`,
+      );
+
+      if (!forked) {
+        return reply.code(500).send({ error: "Failed to fork session" });
+      }
+
+      return forked;
+    },
+  );
+
+  // Get messages for a session
+  app.get<{ Params: { id: string } }>(
+    "/sessions/:id/messages",
+    async (req, reply) => {
+      const session = getSessionById(req.params.id);
+      if (!session) return reply.code(404).send({ error: "Session not found" });
+      return getMessages(req.params.id);
+    },
+  );
+
+  // Add a message to a session (used by WebSocket handler for persistence)
+  app.post<{
+    Params: { id: string };
+    Body: { role: "user" | "assistant"; content: string; timestamp: number };
+  }>("/sessions/:id/messages", async (req, reply) => {
+    const session = getSessionById(req.params.id);
+    if (!session) return reply.code(404).send({ error: "Session not found" });
+
+    const { role, content, timestamp } = req.body as {
+      role: "user" | "assistant";
+      content: string;
+      timestamp: number;
+    };
+
+    addMessage(req.params.id, role, content, timestamp);
+    return { ok: true };
+  });
 };
