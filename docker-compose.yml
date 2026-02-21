@@ -1,0 +1,39 @@
+# Browork — docker-compose for development and production
+#
+# Development: docker compose up
+# Production:  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  browork:
+    build: .
+    ports:
+      - "${PORT:-3001}:3001"
+    volumes:
+      - browork-data:/data
+      # Allow Browork to manage sandbox containers via Docker socket
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - NODE_ENV=production
+      - DATA_ROOT=/data
+      - PORT=3001
+      - SANDBOX_ENABLED=${SANDBOX_ENABLED:-false}
+      - SANDBOX_IMAGE=${SANDBOX_IMAGE:-browork-sandbox:latest}
+      - SANDBOX_MEMORY=${SANDBOX_MEMORY:-512m}
+      - SANDBOX_CPUS=${SANDBOX_CPUS:-1.0}
+      - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-100}
+      # Azure OpenAI (set in .env)
+      - AZURE_OPENAI_API_KEY
+      - AZURE_OPENAI_RESOURCE_NAME
+      - PI_PROVIDER
+      - PI_MODEL
+      - DEFAULT_THINKING_LEVEL
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  browork-data:

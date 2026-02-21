@@ -787,13 +787,19 @@ browork/
 - [x] **Milestone**: Connect a Postgres MCP server, analyst asks "What were Q4 revenues?", Pi queries the database ✅
 
 ### Phase 7 — Polish & Production Readiness
-- [ ] Error handling and user-friendly error messages
-- [ ] Loading states and skeleton screens
-- [ ] Mobile-responsive layout (tablet at minimum)
-- [ ] Rate limiting
-- [ ] Logging and monitoring
-- [ ] Deployment configuration (systemd, nginx reverse proxy, TLS)
-- [ ] Container-per-user sandboxing for Pi sessions (optional)
+- [x] Container-per-user sandboxing (`sandbox-manager.ts`) — Docker container lifecycle, workspace volume mounting, resource limits, security hardening (`--cap-drop ALL`, `--no-new-privileges`)
+- [x] Sandbox image (`Dockerfile.sandbox`) — Node.js 20, Python 3, pip, pandas, openpyxl, matplotlib, numpy, scipy, xlsxwriter
+- [x] Pi sessions integrate with sandbox — container provisioned before session start, configurable via `SANDBOX_ENABLED` env var
+- [x] Rate limiting via `@fastify/rate-limit` — 100 req/min default, stricter 10 req/min on auth endpoints, keyed by user ID or IP
+- [x] Global error handler — consistent JSON error responses, user-friendly messages for 429/400/500, Fastify 404 handler
+- [x] Error toast UI — dismissible error notifications with auto-dismiss, surfaced from WebSocket errors and API failures
+- [x] Loading states — skeleton screens for session sidebar, chat panel, file panel; `isLoading` state in session store
+- [x] Mobile-responsive layout — collapsible sidebar on mobile (overlay with backdrop), tablet file panel toggle, mobile top bar with hamburger menu
+- [x] Deployment configuration — `Dockerfile` (multi-stage build), `docker-compose.yml`, nginx reverse proxy with TLS/WebSocket support, systemd service file with security hardening
+- [x] `.env.example` with all configuration options documented
+- [x] Health endpoint enhanced with sandbox status (Docker availability, image status, active container count)
+- [x] Server-side tests: 144 tests (122 existing + 22 new sandbox-manager tests)
+- [x] **Milestone**: Production-ready deployment with isolated user sandboxes, rate limiting, error handling, and responsive UI ✅
 
 ## 11. Resolved Decisions
 

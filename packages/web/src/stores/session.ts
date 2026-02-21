@@ -29,6 +29,8 @@ interface SessionState {
   messages: ChatMessage[];
   currentAssistantText: string;
   isStreaming: boolean;
+  isLoading: boolean;
+  error: string | null;
   activeToolCalls: ToolCall[];
 
   // Actions
@@ -39,6 +41,8 @@ interface SessionState {
   appendAssistantDelta: (text: string) => void;
   finalizeAssistantMessage: () => void;
   setStreaming: (v: boolean) => void;
+  setLoading: (v: boolean) => void;
+  setError: (msg: string | null) => void;
   addToolStart: (tool: string, args: unknown) => void;
   completeToolCall: (tool: string, result: unknown, isError: boolean) => void;
   reset: () => void;
@@ -52,6 +56,8 @@ export const useSessionStore = create<SessionState>((set) => ({
   messages: [],
   currentAssistantText: "",
   isStreaming: false,
+  isLoading: true,
+  error: null,
   activeToolCalls: [],
 
   setSessionId: (id) =>
@@ -102,6 +108,8 @@ export const useSessionStore = create<SessionState>((set) => ({
     }),
 
   setStreaming: (v) => set({ isStreaming: v }),
+  setLoading: (v) => set({ isLoading: v }),
+  setError: (msg) => set({ error: msg }),
 
   addToolStart: (tool, args) =>
     set((s) => ({

@@ -31,7 +31,7 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
       let session = getSession(id);
       if (!session) {
         try {
-          session = await createPiSession(id, workDir, socket);
+          session = await createPiSession(id, workDir, socket, userId);
         } catch (err) {
           app.log.error({ err }, "Failed to create Pi session");
           socket.send(
