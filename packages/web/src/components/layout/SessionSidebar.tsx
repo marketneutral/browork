@@ -11,6 +11,7 @@ import {
   Check,
   X,
   LogOut,
+  Settings,
 } from "lucide-react";
 import type { ConnectionStatus } from "../../hooks/useWebSocket";
 
@@ -21,6 +22,7 @@ interface SessionSidebarProps {
   onDeleteSession: (id: string) => void;
   onRenameSession: (id: string, name: string) => void;
   onForkSession: (id: string) => void;
+  onOpenSettings: () => void;
 }
 
 export function SessionSidebar({
@@ -30,6 +32,7 @@ export function SessionSidebar({
   onDeleteSession,
   onRenameSession,
   onForkSession,
+  onOpenSettings,
 }: SessionSidebarProps) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.sessionId);
@@ -97,19 +100,28 @@ export function SessionSidebar({
         )}
       </div>
 
-      {/* User / logout */}
+      {/* User / settings / logout */}
       {user && (
         <div className="p-3 border-t border-[var(--border)] flex items-center justify-between">
           <span className="text-sm font-medium truncate">
             {user.displayName}
           </span>
-          <button
-            onClick={handleLogout}
-            title="Sign out"
-            className="p-1.5 rounded-md hover:bg-[var(--accent)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-          >
-            <LogOut size={16} />
-          </button>
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={onOpenSettings}
+              title="Settings"
+              className="p-1.5 rounded-md hover:bg-[var(--accent)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+            >
+              <Settings size={16} />
+            </button>
+            <button
+              onClick={handleLogout}
+              title="Sign out"
+              className="p-1.5 rounded-md hover:bg-[var(--accent)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
       )}
     </aside>

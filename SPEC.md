@@ -777,12 +777,14 @@ browork/
 - [x] **Milestone**: Two users can use the system simultaneously with isolated workspaces ✅
 
 ### Phase 6 — MCP Server Support
-- [ ] Install and configure `pi-mcp-adapter` extension
-- [ ] MCP server config management (`mcp-manager.ts`)
-- [ ] Admin API endpoints for MCP server CRUD
-- [ ] Admin settings page for managing MCP servers
-- [ ] MCP tool calls rendered as regular tool cards in chat
-- [ ] **Milestone**: Connect a Postgres MCP server, analyst asks "What were Q4 revenues?", Pi queries the database
+- [x] Pass `pi-mcp-adapter` extension to `createAgentSession`, write `.pi/mcp.json` config per workspace
+- [x] MCP server config management (`mcp-manager.ts`) — SQLite `mcp_servers` table, CRUD, enable/disable, config file sync
+- [x] Admin API endpoints: `GET/POST /api/mcp/servers`, `PATCH/DELETE /api/mcp/servers/:name`
+- [x] Admin settings page — modal with add/remove/toggle servers, expandable details, accessed via sidebar gear icon
+- [x] MCP tool calls rendered as regular tool cards in chat (friendly labels: "MCP: searching tools...", "MCP: query_db...")
+- [x] Config synced to all active workspaces on server add/update/delete
+- [x] Server-side tests: 122 tests (103 existing + 19 new mcp-manager tests)
+- [x] **Milestone**: Connect a Postgres MCP server, analyst asks "What were Q4 revenues?", Pi queries the database ✅
 
 ### Phase 7 — Polish & Production Readiness
 - [ ] Error handling and user-friendly error messages

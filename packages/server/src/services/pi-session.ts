@@ -10,6 +10,7 @@
 
 import type { WebSocket } from "ws";
 import { translatePiEvent } from "../utils/event-translator.js";
+import { writeMcpConfig } from "./mcp-manager.js";
 
 // ── Browork event types sent to the frontend over WebSocket ──
 
@@ -70,6 +71,9 @@ export async function createPiSession(
     (process.env.DEFAULT_THINKING_LEVEL as "low" | "medium" | "high") ||
     "medium";
 
+  // Write MCP server config to the workspace before creating the session
+  writeMcpConfig(workDir);
+
   const { session } = await piSdk.createAgentSession({
     cwd: workDir,
     model: piAi.getModel(
@@ -77,6 +81,7 @@ export async function createPiSession(
       process.env.PI_MODEL || "gpt-4",
     ),
     thinkingLevel,
+    extensions: ["pi-mcp-adapter"],
   });
 
   // Translate Pi events → Browork events → WebSocket

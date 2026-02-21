@@ -81,6 +81,15 @@ function createTables() {
 
     CREATE INDEX IF NOT EXISTS idx_messages_session
       ON messages(session_id, timestamp);
+
+    CREATE TABLE IF NOT EXISTS mcp_servers (
+      name TEXT PRIMARY KEY,
+      command TEXT NOT NULL,
+      args TEXT NOT NULL DEFAULT '[]',
+      env TEXT NOT NULL DEFAULT '{}',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 }
 

@@ -109,9 +109,10 @@ export function renameSession(
   userId?: string,
 ): SessionMeta | undefined {
   const db = getDb();
+  const now = new Date().toISOString();
   const result = userId
-    ? db.prepare("UPDATE sessions SET name = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?").run(name, id, userId)
-    : db.prepare("UPDATE sessions SET name = ?, updated_at = datetime('now') WHERE id = ?").run(name, id);
+    ? db.prepare("UPDATE sessions SET name = ?, updated_at = ? WHERE id = ? AND user_id = ?").run(name, now, id, userId)
+    : db.prepare("UPDATE sessions SET name = ?, updated_at = ? WHERE id = ?").run(name, now, id);
 
   if (result.changes === 0) return undefined;
   return getSessionById(id);
@@ -173,10 +174,10 @@ export function addMessage(
     "INSERT INTO messages (session_id, role, content, timestamp) VALUES (?, ?, ?, ?)",
   ).run(sessionId, role, content, timestamp);
 
-  // Touch session updated_at
+  // Touch session updated_at (use JS ISO string for millisecond precision)
   db.prepare(
-    "UPDATE sessions SET updated_at = datetime('now') WHERE id = ?",
-  ).run(sessionId);
+    "UPDATE sessions SET updated_at = ? WHERE id = ?",
+  ).run(new Date().toISOString(), sessionId);
 }
 
 export function getMessages(
