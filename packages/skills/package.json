@@ -1,0 +1,6 @@
+{
+  "name": "@browork/skills",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bundled financial analyst workflow skills for Browork"
+}

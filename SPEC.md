@@ -744,14 +744,16 @@ browork/
 - [x] Server-side tests: 49 tests (Vitest) covering file routes, CSV parser, event translation, path traversal
 - [x] **Milestone**: Upload a CSV, edit a cell, ask Pi to process it, see the output file appear ✅
 
-### Phase 3 — Skills (Workflows)
-- [ ] Skill discovery and loading on the backend (`skill-manager.ts`)
-- [ ] Skills API endpoints (list, invoke)
-- [ ] SkillsBar component with workflow buttons
-- [ ] Skill invocation via WebSocket (`skill_invoke` → expanded prompt)
-- [ ] SkillBadge on agent messages when a skill is active
-- [ ] Write bundled financial analyst skills (data-cleaning, excel-merge, etc.)
-- [ ] **Milestone**: Click "Clean Data", Pi follows the skill instructions on uploaded files
+### Phase 3 — Skills (Workflows) ✅
+- [x] Skill discovery and loading on the backend (`skill-manager.ts`)
+- [x] Skills API endpoints (list, invoke, toggle enable/disable)
+- [x] SkillsBar component with workflow buttons (6 bundled skills with icons)
+- [x] Skill invocation via WebSocket (`skill_invoke` → expanded prompt with `<skill>` tags)
+- [x] SkillBadge on agent messages when a skill is active
+- [x] Write bundled financial analyst skills (data-cleaning, excel-merge, financial-report, chart-generator, pivot-table, data-validation)
+- [x] Mock session supports skill-aware responses
+- [x] Server-side tests: 66 tests (49 existing + 17 new skill-manager tests)
+- [x] **Milestone**: Click "Clean Data", Pi follows the skill instructions on uploaded files ✅
 
 ### Phase 4 — Session Management
 - [ ] SQLite database for session metadata

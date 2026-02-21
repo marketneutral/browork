@@ -59,20 +59,29 @@ browork/
 │   │       ├── routes/health.ts      # GET /health
 │   │       ├── routes/sessions.ts    # Session CRUD
 │   │       ├── routes/files.ts       # File management API
+│   │       ├── routes/skills.ts      # Skills CRUD + invoke
 │   │       ├── services/pi-session.ts # Pi SDK wrapper + mock mode
+│   │       ├── services/skill-manager.ts # Skill discovery, loading, invocation
 │   │       ├── services/file-watcher.ts # Chokidar file watching
 │   │       ├── utils/                # Testable utilities (CSV, safePath, events)
-│   │       ├── __tests__/            # Vitest tests (49 tests)
+│   │       ├── __tests__/            # Vitest tests (66 tests)
 │   │       └── ws/session-stream.ts  # WebSocket handler
+│   ├── skills/          # Bundled financial analyst workflow skills
+│   │   ├── data-cleaning/SKILL.md
+│   │   ├── excel-merge/SKILL.md
+│   │   ├── financial-report/SKILL.md
+│   │   ├── chart-generator/SKILL.md
+│   │   ├── pivot-table/SKILL.md
+│   │   └── data-validation/SKILL.md
 │   └── web/             # React frontend (Vite + Tailwind)
 │       └── src/
 │           ├── App.tsx               # Root component + WebSocket wiring
 │           ├── api/client.ts         # REST + WebSocket URL helpers
-│           ├── components/chat/      # ChatPanel, Composer, MessageBubble
+│           ├── components/chat/      # ChatPanel, Composer, MessageBubble, SkillsBar, SkillBadge
 │           ├── components/files/     # FilePanel, FileTree, editors, viewers
 │           ├── components/layout/    # AppLayout (3-panel)
 │           ├── hooks/useWebSocket.ts # WebSocket with reconnection
-│           └── stores/               # Zustand stores (session, files)
+│           └── stores/               # Zustand stores (session, files, skills)
 ├── package.json         # Workspace root
 └── tsconfig.base.json   # Shared TypeScript config
 ```
@@ -83,7 +92,7 @@ browork/
 npm test
 ```
 
-Runs Vitest server-side tests (49 tests): file routes, CSV parser, path traversal, Pi event translation.
+Runs Vitest server-side tests (66 tests): file routes, CSV parser, path traversal, Pi event translation, skill manager.
 
 ## Build
 
