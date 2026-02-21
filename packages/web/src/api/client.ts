@@ -74,6 +74,15 @@ export interface SkillMeta {
   enabled: boolean;
 }
 
+export interface McpServerMeta {
+  name: string;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  enabled: boolean;
+  createdAt: string;
+}
+
 export const api = {
   auth: {
     login: (username: string, password: string) =>
@@ -96,6 +105,21 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify({ enabled }),
       }),
+  },
+  mcp: {
+    list: () => request<McpServerMeta[]>("/mcp/servers"),
+    add: (server: { name: string; command: string; args?: string[]; env?: Record<string, string> }) =>
+      request<McpServerMeta>("/mcp/servers", {
+        method: "POST",
+        body: JSON.stringify(server),
+      }),
+    update: (name: string, updates: { command?: string; args?: string[]; env?: Record<string, string>; enabled?: boolean }) =>
+      request<McpServerMeta>(`/mcp/servers/${name}`, {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      }),
+    delete: (name: string) =>
+      request<{ ok: boolean }>(`/mcp/servers/${name}`, { method: "DELETE" }),
   },
   sessions: {
     list: () => request<SessionMeta[]>("/sessions"),

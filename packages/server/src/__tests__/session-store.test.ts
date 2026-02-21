@@ -68,7 +68,8 @@ describe("session-store", () => {
     it("should return sessions sorted by updated_at descending", () => {
       createSession("s1", "First");
       createSession("s2", "Second");
-      // s2 was created after s1, so it should be first
+      // Add a message to s2 to ensure its updated_at is later
+      addMessage("s2", "user", "bump", Date.now());
       const sessions = listSessions();
       expect(sessions.length).toBe(2);
       expect(sessions[0].id).toBe("s2");

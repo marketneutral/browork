@@ -4,6 +4,15 @@ interface ToolCallCardProps {
   toolCall: ToolCall;
 }
 
+function mcpLabel(args: unknown): string {
+  const a = args as Record<string, unknown> | undefined;
+  if (!a) return "Querying MCP server...";
+  if (a.search) return `MCP: searching tools...`;
+  if (a.describe) return `MCP: inspecting ${a.describe}...`;
+  if (a.tool) return `MCP: ${a.tool}...`;
+  return "Querying MCP server...";
+}
+
 export function ToolCallCard({ toolCall }: ToolCallCardProps) {
   const label =
     toolCall.tool === "read"
@@ -14,7 +23,9 @@ export function ToolCallCard({ toolCall }: ToolCallCardProps) {
           ? `Editing ${(toolCall.args as any)?.path || "file"}...`
           : toolCall.tool === "bash"
             ? `Running command...`
-            : `Using ${toolCall.tool}...`;
+            : toolCall.tool === "mcp"
+              ? mcpLabel(toolCall.args)
+              : `Using ${toolCall.tool}...`;
 
   return (
     <div className="flex justify-start">
