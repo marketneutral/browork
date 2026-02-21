@@ -77,8 +77,12 @@ technical complexity.
 │          │  │ Chat messages      │  │              │
 │          │  │ (scrolling)        │  │              │
 │          │  └────────────────────┘  │              │
-│          │  ┌────────────────────┐  │ [Upload]     │
-│          │  │ Message input      │  │ [Download]   │
+│          │  ┌────────────────────┐  │              │
+│          │  │ Workflows:         │  │              │
+│          │  │ [Clean] [Merge]    │  │              │
+│          │  │ [Report] [Chart]   │  │ [Upload]     │
+│          │  ├────────────────────┤  │ [Download]   │
+│          │  │ Message input      │  │              │
 │          │  └────────────────────┘  │              │
 └──────────┴──────────────────────────┴──────────────┘
 ```
@@ -103,6 +107,18 @@ active plan, and can be manually collapsed/expanded by the user.
 - Collapsible — auto-expands when a plan is active, user can minimize
 - Disappears when there is no active plan (simple one-off requests)
 
+### Skills Bar (above message input)
+- Horizontal row of skill buttons above the message input area
+- Each button shows the skill's name and a short description on hover
+- Clicking a skill button populates the message input with the skill invocation
+  and optionally opens a small form for skill-specific arguments
+- Skills are presented as **"Workflows"** in the UI — the word "skill" is too
+  technical for the target user
+- Example buttons: `Clean Data`, `Merge Files`, `Financial Report`, `Chart`
+- An admin/settings page allows enabling/disabling skills and installing new ones
+- When Pi auto-loads a skill (model-initiated), a subtle "Using: Clean Data"
+  badge appears on the agent's response
+
 ### Chat Panel (center)
 - Scrolling message history
 - User messages in bubbles (right-aligned)
@@ -110,6 +126,7 @@ active plan, and can be manually collapsed/expanded by the user.
 - Tool execution shown as collapsible cards:
   - "Reading Q4_revenue.xlsx..." with a spinner
   - Expandable to show details (for curious users, collapsed by default)
+- Skill invocation shown as a labeled badge on the message (e.g., "Workflow: Clean Data")
 - Status bar: "Agent is thinking...", "Running bash command...", "Done"
 - Message input at bottom with:
   - Text area (Shift+Enter for newline, Enter to send)
@@ -165,6 +182,15 @@ DELETE /api/files/:path
 GET    /api/files/:path/preview  → preview data (CSV→JSON, text, image thumbnail)
 ```
 
+#### Skills (Workflows)
+```
+GET    /api/skills                  → [{ name, description, enabled }]
+POST   /api/skills/install          → { source }  (npm, git, or local path)
+DELETE /api/skills/:name
+PATCH  /api/skills/:name            → { enabled }  (toggle on/off)
+POST   /api/sessions/:id/skill/:name → invoke skill with optional args
+```
+
 #### WebSocket
 ```
 WS     /api/sessions/:id/stream
@@ -194,8 +220,17 @@ Events sent over WebSocket (mirroring Pi's event model):
 Commands sent by client over WebSocket:
 ```jsonc
 { "type": "prompt", "message": "Clean up Q4_revenue.xlsx" }
+{ "type": "skill_invoke", "skill": "data-cleaning", "args": "focus on Q4_revenue.xlsx" }
 { "type": "abort" }
 { "type": "steer", "message": "Actually, keep the original headers" }
+```
+
+Skill-related events sent by server:
+```jsonc
+// When a skill is invoked (user-initiated via button or model-initiated)
+{ "type": "skill_start", "skill": "data-cleaning", "label": "Clean Data" }
+// When skill execution completes
+{ "type": "skill_end", "skill": "data-cleaning" }
 ```
 
 ### Pi SDK Integration
@@ -239,6 +274,88 @@ subscribes to Pi's event stream, detects plan/todo custom messages and tool
 results, and emits normalized events over WebSocket that the React frontend
 can render without knowing Pi's internal extension format.
 
+### Skills (Workflows) Integration
+
+Pi skills are Markdown files (`SKILL.md`) with YAML frontmatter, following the
+open [Agent Skills standard](https://agentskills.io/specification). They provide
+specialized, reusable workflows — perfect for financial analyst tasks.
+
+#### How Skills Work in Pi
+
+```
+~/.pi/agent/skills/              # Global skills directory
+  data-cleaning/
+    SKILL.md                     # YAML frontmatter + Markdown instructions
+    scripts/clean.py             # Optional helper scripts
+    references/column-rules.md   # Optional reference docs
+  excel-merge/
+    SKILL.md
+```
+
+A `SKILL.md` looks like:
+```markdown
+---
+name: data-cleaning
+description: Clean and standardize financial data files. Handles column
+  renaming, date normalization, currency formatting, and deduplication.
+---
+
+# Data Cleaning
+
+## Steps
+1. Read the input file and detect format (CSV, XLSX, etc.)
+2. Standardize column headers to snake_case
+3. Normalize date columns to YYYY-MM-DD
+4. Format currency columns to 2 decimal places
+5. Remove duplicate rows
+6. Save cleaned output to the output/ directory
+
+## Rules
+- Never modify the original file — always write to output/
+- Preserve all original columns unless explicitly asked to drop
+...
+```
+
+#### Invocation Flow
+
+Two paths, both surfaced in the UI:
+
+**User-initiated (button click):**
+1. User clicks "Clean Data" workflow button in the UI
+2. Frontend sends `{ "type": "skill_invoke", "skill": "data-cleaning", "args": "..." }`
+3. Backend expands the skill: reads `SKILL.md`, strips frontmatter, wraps in
+   `<skill>` XML tags, appends user args, sends as a prompt to Pi's session
+4. Pi agent follows the skill instructions
+
+**Model-initiated (automatic):**
+1. Pi's system prompt includes available skill descriptions
+2. When the model detects a task matching a skill, it uses `read` to load
+   the full `SKILL.md` content on its own
+3. Backend detects the skill read via tool events and emits `skill_start`
+
+#### Skill Management
+
+Skills are managed server-side. The backend:
+- Discovers skills from configurable directories on startup
+- Serves the skill list to the frontend via `GET /api/skills`
+- Supports installing skills from npm or git (`pi install npm:@org/skill`)
+- Allows enabling/disabling per skill
+
+#### Bundled Skills (Financial Analyst Starter Pack)
+
+We will create a set of domain-specific skills for the target user:
+
+| Skill | Description |
+|-------|-------------|
+| `data-cleaning` | Standardize headers, dates, currencies. Deduplicate rows. |
+| `excel-merge` | Merge multiple Excel/CSV files by shared key columns. |
+| `financial-report` | Generate summary reports with key metrics (YoY, QoQ, margins). |
+| `chart-generator` | Create charts/visualizations from data and save as images. |
+| `pivot-table` | Create pivot-table-style summaries from flat data. |
+| `data-validation` | Check for missing values, outliers, and format inconsistencies. |
+
+These ship as a `browork-skills` package in the monorepo under `packages/skills/`.
+
 ### File Watching
 
 Use `chokidar` to watch each user's working directory. When Pi creates or
@@ -280,8 +397,11 @@ App
 │   │   ├── MessageList
 │   │   │   ├── UserMessage
 │   │   │   ├── AgentMessage    (markdown rendered)
+│   │   │   ├── SkillBadge      ("Workflow: Clean Data" on relevant messages)
 │   │   │   └── ToolCallCard    (collapsible, shows tool name + status)
 │   │   ├── AgentStatusBar      ("Thinking...", "Running bash...", "Done")
+│   │   ├── SkillsBar           (workflow buttons above input)
+│   │   │   └── SkillButton     (icon + label, triggers skill invocation)
 │   │   └── MessageInput
 │   │       ├── TextArea
 │   │       └── AttachButton
@@ -313,9 +433,11 @@ browork/
 │   │   │   ├── routes/
 │   │   │   │   ├── auth.ts
 │   │   │   │   ├── sessions.ts
-│   │   │   │   └── files.ts
+│   │   │   │   ├── files.ts
+│   │   │   │   └── skills.ts       # Skills CRUD + invoke
 │   │   │   ├── services/
 │   │   │   │   ├── pi-session.ts    # Pi SDK wrapper
+│   │   │   │   ├── skill-manager.ts # Discover, load, install skills
 │   │   │   │   ├── file-watcher.ts  # chokidar file watching
 │   │   │   │   └── user.ts
 │   │   │   ├── ws/
@@ -324,6 +446,20 @@ browork/
 │   │   │       └── schema.ts
 │   │   ├── package.json
 │   │   └── tsconfig.json
+│   ├── skills/                  # Bundled financial analyst skills
+│   │   ├── data-cleaning/
+│   │   │   └── SKILL.md
+│   │   ├── excel-merge/
+│   │   │   └── SKILL.md
+│   │   ├── financial-report/
+│   │   │   └── SKILL.md
+│   │   ├── chart-generator/
+│   │   │   └── SKILL.md
+│   │   ├── pivot-table/
+│   │   │   └── SKILL.md
+│   │   ├── data-validation/
+│   │   │   └── SKILL.md
+│   │   └── package.json
 │   └── web/                     # React frontend
 │       ├── src/
 │       │   ├── main.tsx
@@ -332,11 +468,13 @@ browork/
 │       │   │   ├── SessionSidebar/
 │       │   │   ├── PlanPanel/
 │       │   │   ├── ChatPanel/
+│       │   │   ├── SkillsBar/
 │       │   │   ├── FilePanel/
 │       │   │   └── common/
 │       │   ├── stores/
 │       │   │   ├── session.ts
 │       │   │   ├── plan.ts
+│       │   │   ├── skills.ts
 │       │   │   ├── files.ts
 │       │   │   └── auth.ts
 │       │   ├── hooks/
@@ -372,7 +510,16 @@ browork/
 - [ ] Drag-and-drop upload in the UI
 - [ ] **Milestone**: Upload a CSV, ask Pi to process it, see the output file appear
 
-### Phase 3 — Session Management
+### Phase 3 — Skills (Workflows)
+- [ ] Skill discovery and loading on the backend (`skill-manager.ts`)
+- [ ] Skills API endpoints (list, invoke)
+- [ ] SkillsBar component with workflow buttons
+- [ ] Skill invocation via WebSocket (`skill_invoke` → expanded prompt)
+- [ ] SkillBadge on agent messages when a skill is active
+- [ ] Write bundled financial analyst skills (data-cleaning, excel-merge, etc.)
+- [ ] **Milestone**: Click "Clean Data", Pi follows the skill instructions on uploaded files
+
+### Phase 4 — Session Management
 - [ ] SQLite database for session metadata
 - [ ] Create/list/rename/delete sessions API
 - [ ] Session sidebar in frontend
@@ -380,14 +527,14 @@ browork/
 - [ ] Session forking (branching conversations)
 - [ ] **Milestone**: Multiple sessions, switch between them, pick up where you left off
 
-### Phase 4 — Auth & Multi-User
+### Phase 5 — Auth & Multi-User
 - [ ] User accounts (SQLite)
 - [ ] Token-based authentication
 - [ ] Per-user working directories
 - [ ] Login/logout UI
 - [ ] **Milestone**: Two users can use the system simultaneously with isolated workspaces
 
-### Phase 5 — Polish & Production Readiness
+### Phase 6 — Polish & Production Readiness
 - [ ] Error handling and user-friendly error messages
 - [ ] Loading states and skeleton screens
 - [ ] Mobile-responsive layout (tablet at minimum)
