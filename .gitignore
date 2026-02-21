@@ -2,3 +2,6 @@ node_modules/
 dist/
 .env
 pi-mono/
+data/
+*.log
+.vite/
