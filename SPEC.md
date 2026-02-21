@@ -356,6 +356,64 @@ We will create a set of domain-specific skills for the target user:
 
 These ship as a `browork-skills` package in the monorepo under `packages/skills/`.
 
+### AGENTS.md (Project Context)
+
+Pi natively supports `AGENTS.md` — a Markdown file placed in the working
+directory that provides project-level instructions to the agent. Pi also
+recognizes `CLAUDE.md` as a fallback. When Pi starts a session, it:
+
+1. Checks the global agent dir (`~/.pi/agent/`) for an `AGENTS.md`
+2. Walks from the working directory up to the filesystem root, collecting
+   any `AGENTS.md` or `CLAUDE.md` files found along the way
+3. Injects all discovered context files into the system prompt under a
+   `# Project Context` section
+
+#### How Browork uses AGENTS.md
+
+**Default AGENTS.md**: When Browork creates a new user working directory, it
+seeds it with a default `AGENTS.md` tailored for financial analysts:
+
+```markdown
+# Project Context
+
+You are assisting a financial analyst. Follow these guidelines:
+
+## File Handling
+- Never modify original uploaded files — always write outputs to the output/ directory
+- Preserve all original data unless explicitly asked to remove columns/rows
+- When creating new files, use descriptive names (e.g., cleaned_Q4_revenue.csv)
+
+## Output Formatting
+- Format currency values with 2 decimal places and comma separators
+- Use YYYY-MM-DD for all dates
+- Include column headers in all output files
+
+## Communication Style
+- Explain what you're doing in plain language — avoid technical jargon
+- Summarize results clearly at the end of each task
+- If something looks wrong with the data, flag it before proceeding
+```
+
+**User-editable**: The analyst can edit this file through the File Manager panel,
+or upload a custom `AGENTS.md` to override the default. This lets teams
+standardize agent behavior across their workflows.
+
+**Admin-level global AGENTS.md**: A server-wide `AGENTS.md` can be placed in the
+global Pi agent directory to enforce organization-wide rules (e.g., compliance
+requirements, approved data sources, output formatting standards).
+
+#### API Support
+
+```
+GET    /api/agents-md              → { content, source }  (current AGENTS.md)
+PUT    /api/agents-md              → { content }  (update AGENTS.md)
+POST   /api/agents-md/reset        → restore default AGENTS.md
+```
+
+The frontend exposes this through a "Project Settings" or "Agent Instructions"
+section in the settings panel — a simple text editor for the `AGENTS.md` content,
+with a "Reset to Default" button.
+
 ### File Watching
 
 Use `chokidar` to watch each user's working directory. When Pi creates or
