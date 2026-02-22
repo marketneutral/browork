@@ -33,8 +33,7 @@ export function FilePanel() {
         if (preview.type === "text" || preview.type === "csv") {
           useFilesStore.getState().openFileForEdit(
             path,
-            preview.content || JSON.stringify(preview.rows, null, 2),
-            // Fetch actual modified time from the entries
+            preview.content || "",
             entries.find((e) => e.path === path)?.modified || "",
           );
         } else {

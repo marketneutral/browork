@@ -256,7 +256,7 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
           headers.forEach((h, i) => (row[h] = values[i] || ""));
           return row;
         });
-        return { type: "csv", headers, rows, totalRows: lines.length - 1 };
+        return { type: "csv", content: raw, headers, rows, totalRows: lines.length - 1 };
       }
 
       if ([".json", ".txt", ".md", ".yaml", ".yml", ".ts", ".js", ".py", ".html", ".css"].includes(ext)) {
