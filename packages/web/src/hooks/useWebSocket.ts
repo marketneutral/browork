@@ -71,8 +71,17 @@ export function useWebSocket({
     }
     return () => {
       clearTimeout(retryTimeoutRef.current);
-      wsRef.current?.close();
-      wsRef.current = null;
+      if (wsRef.current) {
+        // Detach handlers before closing to prevent the onclose handler
+        // from scheduling a stale reconnect to the old session URL
+        wsRef.current.onclose = null;
+        wsRef.current.onmessage = null;
+        wsRef.current.onerror = null;
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      retryCountRef.current = 0;
+      setStatus("disconnected");
     };
   }, [connect, enabled]);
 
