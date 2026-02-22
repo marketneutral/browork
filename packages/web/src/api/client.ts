@@ -2,11 +2,12 @@ import { useAuthStore } from "../stores/auth";
 
 const BASE = "/api";
 
-function authHeaders(): Record<string, string> {
+function authHeaders(hasBody?: boolean): Record<string, string> {
   const token = useAuthStore.getState().token;
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+  const headers: Record<string, string> = {};
+  if (hasBody) {
+    headers["Content-Type"] = "application/json";
+  }
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
@@ -15,7 +16,7 @@ function authHeaders(): Record<string, string> {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: authHeaders(),
+    headers: authHeaders(!!init?.body),
     ...init,
   });
   if (res.status === 401) {

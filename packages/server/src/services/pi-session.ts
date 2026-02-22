@@ -42,6 +42,8 @@ export interface PiSessionHandle {
   sendSteer(text: string): Promise<void>;
   abort(): Promise<void>;
   dispose(): void;
+  /** Re-wire events to a new WebSocket (e.g. after reconnect) */
+  rebindSocket(ws: WebSocket): void;
 }
 
 // Active sessions keyed by session ID
@@ -102,10 +104,13 @@ export async function createPiSession(
   });
 
   // Translate Pi events → Browork events → WebSocket
+  // Keep a mutable reference so rebindSocket can swap it
+  let activeWs = ws;
+
   const unsubscribe = session.subscribe((event) => {
     const broworkEvent = translatePiEvent(event);
-    if (broworkEvent && ws.readyState === ws.OPEN) {
-      ws.send(JSON.stringify(broworkEvent));
+    if (broworkEvent && activeWs.readyState === activeWs.OPEN) {
+      activeWs.send(JSON.stringify(broworkEvent));
     }
   });
 
@@ -125,6 +130,9 @@ export async function createPiSession(
       session.dispose();
       activeSessions.delete(sessionId);
     },
+    rebindSocket(newWs: WebSocket) {
+      activeWs = newWs;
+    },
   };
 
   activeSessions.set(sessionId, handle);
@@ -141,11 +149,13 @@ function createMockSession(
   sessionId: string,
   ws: WebSocket,
 ): PiSessionHandle {
+  let activeWs = ws;
+
   const handle: PiSessionHandle = {
     id: sessionId,
     async sendPrompt(text: string) {
       // Simulate Pi agent response with streaming
-      send(ws, { type: "agent_start" });
+      send(activeWs, { type: "agent_start" });
 
       // Detect skill invocations and generate a more relevant mock response
       const skillMatch = text.match(/<skill name="([^"]+)">/);
@@ -159,21 +169,24 @@ function createMockSession(
       // Stream character by character with small delays
       for (let i = 0; i < response.length; i += 3) {
         const chunk = response.slice(i, i + 3);
-        send(ws, { type: "message_delta", text: chunk });
+        send(activeWs, { type: "message_delta", text: chunk });
         await sleep(15);
       }
 
-      send(ws, { type: "message_end" });
-      send(ws, { type: "agent_end" });
+      send(activeWs, { type: "message_end" });
+      send(activeWs, { type: "agent_end" });
     },
     async sendSteer(text: string) {
-      send(ws, { type: "message_delta", text: `\n\n[Steering: ${text}]` });
+      send(activeWs, { type: "message_delta", text: `\n\n[Steering: ${text}]` });
     },
     async abort() {
-      send(ws, { type: "agent_end" });
+      send(activeWs, { type: "agent_end" });
     },
     dispose() {
       activeSessions.delete(sessionId);
+    },
+    rebindSocket(newWs: WebSocket) {
+      activeWs = newWs;
     },
   };
 

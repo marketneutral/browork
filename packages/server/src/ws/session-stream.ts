@@ -29,7 +29,11 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
 
       // Create or reconnect to a Pi session
       let session = getSession(id);
-      if (!session) {
+      if (session) {
+        // Re-wire the existing Pi session's events to the new WebSocket
+        session.rebindSocket(socket);
+        app.log.info({ sessionId: id }, "Rebound existing Pi session to new WebSocket");
+      } else {
         try {
           session = await createPiSession(id, workDir, socket, userId);
         } catch (err) {

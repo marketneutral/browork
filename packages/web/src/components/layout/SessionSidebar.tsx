@@ -70,7 +70,7 @@ export function SessionSidebar({
             <button
               onClick={onToggleCollapse}
               title="Close sidebar"
-              className="rounded-md p-1.5 hover:bg-surface-glass-hover text-foreground-secondary hover:text-foreground transition-colors md:hidden"
+              className="rounded-md p-1.5 hover:bg-surface-glass-hover text-foreground-secondary hover:text-foreground transition-colors"
             >
               <PanelLeftClose size={18} />
             </button>

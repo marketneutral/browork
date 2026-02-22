@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { ChatPanel } from "../chat/ChatPanel";
 import { FilePanel } from "../files/FilePanel";
 import { SessionSidebar } from "./SessionSidebar";
 import { McpSettings } from "../settings/McpSettings";
-import { Menu, FolderOpen } from "lucide-react";
+import { Menu, FolderOpen, PanelLeftOpen } from "lucide-react";
 import type { ConnectionStatus } from "../../hooks/useWebSocket";
 
 interface AppLayoutProps {
@@ -32,6 +32,40 @@ export function AppLayout({
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filesPanelOpen, setFilesPanelOpen] = useState(true);
+  const [filesPanelWidth, setFilesPanelWidth] = useState(320);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(0);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = filesPanelWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [filesPanelWidth]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      const delta = dragStartX.current - e.clientX;
+      const newWidth = Math.min(Math.max(dragStartWidth.current + delta, 200), 600);
+      setFilesPanelWidth(newWidth);
+    };
+    const handleMouseUp = () => {
+      if (!isDragging.current) return;
+      isDragging.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background relative">
@@ -67,16 +101,18 @@ export function AppLayout({
         />
       )}
 
-      {/* Center: mobile header + chat */}
+      {/* Center: header + chat */}
       <main className="flex-1 flex flex-col min-w-0 relative z-10">
-        {/* Mobile top bar — only shown when sidebar is collapsed on mobile */}
-        <div className="md:hidden flex items-center gap-2 p-2 border-b border-border bg-background-secondary">
+        {/* Top bar — mobile: always shown; desktop: only when sidebar collapsed */}
+        <div className={`flex items-center gap-2 p-2 border-b border-border bg-background-secondary ${
+          sidebarCollapsed ? "" : "md:hidden"
+        }`}>
           <button
             onClick={() => setSidebarCollapsed(false)}
             className="p-1.5 rounded-md hover:bg-surface-glass-hover text-muted-foreground"
             title="Open sessions"
           >
-            <Menu size={20} />
+            {sidebarCollapsed ? <PanelLeftOpen size={20} /> : <Menu size={20} />}
           </button>
           <span className="text-lg font-medium truncate flex-1 text-gradient" style={{ fontFamily: "var(--font-display)" }}>Browork</span>
           <button
@@ -91,11 +127,22 @@ export function AppLayout({
         <ChatPanel onSendMessage={onSendMessage} onInvokeSkill={onInvokeSkill} onAbort={onAbort} />
       </main>
 
-      {/* File panel — hidden on mobile, togglable on tablet */}
+      {/* Resizable file panel — hidden on mobile, togglable on tablet */}
       {filesPanelOpen && (
-        <aside className="w-80 shrink-0 border-l border-border bg-background-secondary max-lg:hidden lg:block">
-          <FilePanel />
-        </aside>
+        <>
+          {/* Drag handle */}
+          <div
+            onMouseDown={handleResizeStart}
+            className="shrink-0 w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors max-lg:hidden lg:block relative z-10"
+            title="Drag to resize"
+          />
+          <aside
+            className="shrink-0 bg-background-secondary max-lg:hidden lg:block"
+            style={{ width: filesPanelWidth }}
+          >
+            <FilePanel />
+          </aside>
+        </>
       )}
 
       {/* File panel overlay on tablet (when toggled via button) */}

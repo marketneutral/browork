@@ -5,6 +5,11 @@ import type { BroworkEvent } from "../services/pi-session.js";
  * Returns null for events we don't forward to the frontend.
  */
 export function translatePiEvent(event: any): BroworkEvent | null {
+  // Debug: log all Pi events to help diagnose connectivity
+  if (process.env.DEBUG_PI_EVENTS) {
+    console.log("[Pi event]", event.type, event.assistantMessageEvent?.type ?? "");
+  }
+
   switch (event.type) {
     case "agent_start":
       return { type: "agent_start" };
