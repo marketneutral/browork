@@ -17,6 +17,8 @@
     "@fastify/websocket": "^11.0.0",
     "@mariozechner/pi-ai": "^0.54.0",
     "@mariozechner/pi-coding-agent": "^0.54.0",
+    "adm-zip": "^0.5.16",
+    "archiver": "^7.0.1",
     "better-sqlite3": "^12.6.2",
     "chokidar": "^4.0.0",
     "dotenv": "^16.4.0",
@@ -25,6 +27,8 @@
     "nanoid": "^5.0.0"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/archiver": "^7.0.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.13.0",
     "@types/ws": "^8.18.1",

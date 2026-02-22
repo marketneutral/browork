@@ -1,8 +1,9 @@
 import { useEffect, useCallback, useRef, useState } from "react";
-import { FolderPlus, FilePlus } from "lucide-react";
+import { FolderPlus, FilePlus, Download } from "lucide-react";
 import type { TreeApi } from "react-arborist";
 import { useFilesStore } from "../../stores/files";
 import { useSessionStore } from "../../stores/session";
+import { useAuthStore } from "../../stores/auth";
 import { api } from "../../api/client";
 import { FileTree } from "./FileTree";
 import { FileEditorPane } from "./FileEditorPane";
@@ -246,6 +247,25 @@ export function FilePanel() {
     [refresh, sessionId, handleFileSelect],
   );
 
+  const handleExportZip = useCallback(async () => {
+    if (!sessionId) return;
+    try {
+      const token = useAuthStore.getState().token;
+      const res = await fetch(api.files.exportZip(sessionId), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "workspace.zip";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (err) {
+      console.error("Export failed:", err);
+    }
+  }, [sessionId]);
+
   return (
     <div className="flex flex-col h-full">
       <div className="p-3 border-b border-border flex items-center justify-between">
@@ -265,6 +285,15 @@ export function FilePanel() {
           >
             <FilePlus className="w-3.5 h-3.5" />
           </button>
+          {entries.length > 0 && (
+            <button
+              onClick={handleExportZip}
+              className="text-muted-foreground hover:text-foreground"
+              title="Download all as zip"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </button>
+          )}
           <label className="text-xs text-primary cursor-pointer hover:underline">
             Upload
             <input

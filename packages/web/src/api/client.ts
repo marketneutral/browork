@@ -169,6 +169,8 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ from, to }),
       }),
+    exportZip: (sessionId: string) =>
+      `${BASE}/files-export?sessionId=${sessionId}`,
     upload: async (
       files: File[],
       sessionId: string,

@@ -12,6 +12,8 @@ import {
 import { resolve, relative, extname, dirname } from "path";
 import { createWriteStream } from "fs";
 import { pipeline } from "stream/promises";
+import AdmZip from "adm-zip";
+import archiver from "archiver";
 import { parseCSVLine } from "../utils/csv.js";
 import { safePath } from "../utils/safe-path.js";
 import { getSessionById } from "../db/session-store.js";
@@ -141,7 +143,24 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
         }
 
         await pipeline(part.file, createWriteStream(dest));
-        uploaded.push(relative(wd, dest));
+
+        // Auto-extract .zip uploads
+        if (extname(dest).toLowerCase() === ".zip") {
+          const zip = new AdmZip(dest);
+          const zipEntries = zip.getEntries();
+          for (const entry of zipEntries) {
+            if (entry.isDirectory) continue;
+            const entryDest = resolve(dir, entry.entryName);
+            // Prevent path traversal from zip entry names
+            if (!entryDest.startsWith(wd)) continue;
+            await mkdir(dirname(entryDest), { recursive: true });
+            zip.extractEntryTo(entry, dirname(entryDest), false, true);
+            uploaded.push(relative(wd, entryDest));
+          }
+          await unlink(dest);
+        } else {
+          uploaded.push(relative(wd, dest));
+        }
       }
     }
 
@@ -310,6 +329,28 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
     } catch {
       return reply.code(404).send({ error: "File not found" });
     }
+  });
+
+  // GET /api/files-export — download entire workspace as zip
+  app.get("/files-export", async (req, reply) => {
+    const result = workDir(req);
+    if ("error" in result) return reply.code(result.code).send({ error: result.error });
+    const wd = result.dir;
+    await mkdir(wd, { recursive: true });
+
+    reply.raw.writeHead(200, {
+      "Content-Type": "application/zip",
+      "Content-Disposition": 'attachment; filename="workspace.zip"',
+    });
+
+    const archive = archiver("zip", { zlib: { level: 5 } });
+    archive.on("error", (err) => {
+      reply.raw.end();
+      throw err;
+    });
+    archive.pipe(reply.raw);
+    archive.directory(wd, false);
+    await archive.finalize();
   });
 
   // GET /api/files-preview/* — preview data (CSV→JSON rows, text snippet)
