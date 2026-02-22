@@ -44,16 +44,16 @@ export function McpSettings({ onClose }: McpSettingsProps) {
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-      <div className="bg-[var(--background-tertiary)] border border-[var(--border)] rounded-[var(--radius-xl)] shadow-lg w-full max-w-2xl max-h-[80vh] flex flex-col animate-fade-in-up">
+      <div className="bg-background-tertiary border border-border rounded-[var(--radius-xl)] shadow-lg w-full max-w-2xl max-h-[80vh] flex flex-col animate-fade-in-up">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+        <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
             <Server size={20} />
             <h2 className="text-lg font-semibold">MCP Servers</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md hover:bg-[var(--surface-glass-hover)] text-[var(--foreground-secondary)]"
+            className="p-1.5 rounded-md hover:bg-surface-glass-hover text-foreground-secondary"
           >
             <X size={18} />
           </button>
@@ -62,18 +62,18 @@ export function McpSettings({ onClose }: McpSettingsProps) {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {error && (
-            <div className="text-sm text-[var(--destructive)] bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 rounded px-3 py-2">
+            <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded px-3 py-2">
               {error}
             </div>
           )}
 
-          <p className="text-sm text-[var(--foreground-secondary)]">
+          <p className="text-sm text-foreground-secondary">
             Configure MCP (Model Context Protocol) servers to give the AI agent
             access to databases, APIs, and other tools.
           </p>
 
           {servers.length === 0 && !showAdd && (
-            <div className="text-center py-8 text-[var(--foreground-secondary)] text-sm">
+            <div className="text-center py-8 text-foreground-secondary text-sm">
               No MCP servers configured yet.
             </div>
           )}
@@ -106,7 +106,7 @@ export function McpSettings({ onClose }: McpSettingsProps) {
 
         {/* Footer */}
         {!showAdd && (
-          <div className="p-4 border-t border-[var(--border)]">
+          <div className="p-4 border-t border-border">
             <button
               onClick={() => setShowAdd(true)}
               className="flex items-center gap-2 px-3 py-2 text-sm bg-gradient-primary text-white rounded-md hover:brightness-110 transition-all"
@@ -134,22 +134,22 @@ function McpServerCard({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="border border-[var(--border)] rounded-lg">
+    <div className="border border-border rounded-lg">
       <div className="flex items-center gap-3 p-3">
         <button
           onClick={() => setExpanded(!expanded)}
-          className="text-[var(--foreground-secondary)]"
+          className="text-foreground-secondary"
         >
           {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         </button>
 
         <div
-          className={`w-2 h-2 rounded-full ${server.enabled ? "bg-[var(--success)]" : "bg-[var(--foreground-tertiary)]"}`}
+          className={`w-2 h-2 rounded-full ${server.enabled ? "bg-success" : "bg-foreground-tertiary"}`}
         />
 
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium">{server.name}</div>
-          <div className="text-xs text-[var(--foreground-secondary)] truncate">
+          <div className="text-xs text-foreground-secondary truncate">
             {server.command} {server.args.join(" ")}
           </div>
         </div>
@@ -157,10 +157,10 @@ function McpServerCard({
         <button
           onClick={() => onToggle(!server.enabled)}
           title={server.enabled ? "Disable" : "Enable"}
-          className="text-[var(--foreground-secondary)] hover:text-[var(--foreground)]"
+          className="text-foreground-secondary hover:text-foreground"
         >
           {server.enabled ? (
-            <ToggleRight size={20} className="text-[var(--success)]" />
+            <ToggleRight size={20} className="text-success" />
           ) : (
             <ToggleLeft size={20} />
           )}
@@ -169,14 +169,14 @@ function McpServerCard({
         <button
           onClick={onDelete}
           title="Remove server"
-          className="text-[var(--foreground-secondary)] hover:text-[var(--destructive)]"
+          className="text-foreground-secondary hover:text-destructive"
         >
           <Trash2 size={16} />
         </button>
       </div>
 
       {expanded && (
-        <div className="px-4 pb-3 text-xs space-y-1 border-t border-[var(--border)] pt-2">
+        <div className="px-4 pb-3 text-xs space-y-1 border-t border-border pt-2">
           <div>
             <span className="font-medium">Command:</span> {server.command}
           </div>
@@ -250,46 +250,46 @@ function AddServerForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="border border-[var(--border)] rounded-lg p-4 space-y-3 bg-[var(--muted)]"
+      className="border border-border rounded-lg p-4 space-y-3 bg-muted"
     >
       <h3 className="text-sm font-semibold">Add MCP Server</h3>
 
       <div>
-        <label className="block text-xs font-medium mb-1 text-[var(--foreground-secondary)]">Name</label>
+        <label className="block text-xs font-medium mb-1 text-foreground-secondary">Name</label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. postgres"
           required
-          className="w-full px-2 py-1.5 text-sm border border-[var(--border)] rounded bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+          className="w-full px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-medium mb-1 text-[var(--foreground-secondary)]">Command</label>
+        <label className="block text-xs font-medium mb-1 text-foreground-secondary">Command</label>
         <input
           value={command}
           onChange={(e) => setCommand(e.target.value)}
           placeholder="e.g. npx"
           required
-          className="w-full px-2 py-1.5 text-sm border border-[var(--border)] rounded bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+          className="w-full px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-medium mb-1 text-[var(--foreground-secondary)]">
+        <label className="block text-xs font-medium mb-1 text-foreground-secondary">
           Arguments (space-separated)
         </label>
         <input
           value={argsStr}
           onChange={(e) => setArgsStr(e.target.value)}
           placeholder="e.g. -y @modelcontextprotocol/server-postgres"
-          className="w-full px-2 py-1.5 text-sm border border-[var(--border)] rounded bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+          className="w-full px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-medium mb-1 text-[var(--foreground-secondary)]">
+        <label className="block text-xs font-medium mb-1 text-foreground-secondary">
           Environment (KEY=VALUE, one per line)
         </label>
         <textarea
@@ -297,7 +297,7 @@ function AddServerForm({
           onChange={(e) => setEnvStr(e.target.value)}
           placeholder={"DATABASE_URL=postgresql://localhost/mydb"}
           rows={2}
-          className="w-full px-2 py-1.5 text-sm border border-[var(--border)] rounded bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)] font-mono"
+          className="w-full px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono"
         />
       </div>
 

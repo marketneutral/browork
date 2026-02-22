@@ -26,7 +26,7 @@ export function FileTree({ entries, onSelect, onDelete }: FileTreeProps) {
 
   if (tree.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center p-4 text-xs text-[var(--muted-foreground)]">
+      <div className="flex-1 flex items-center justify-center p-4 text-xs text-muted-foreground">
         No files yet. Upload or drop files here.
       </div>
     );
@@ -64,14 +64,14 @@ function TreeNodeRow({
   return (
     <>
       <div
-        className="flex items-center gap-1.5 py-1 px-1.5 rounded hover:bg-[var(--surface-glass-hover)] cursor-pointer group"
+        className="flex items-center gap-1.5 py-1 px-1.5 rounded hover:bg-surface-glass-hover cursor-pointer group"
         style={{ paddingLeft: `${depth * 16 + 6}px` }}
         onClick={() => !isDir && onSelect(node.path)}
       >
         <span className="text-xs shrink-0">{icon}</span>
         <span className="truncate flex-1 text-xs">{node.name}</span>
         {!isDir && (
-          <span className="text-[10px] text-[var(--muted-foreground)] shrink-0">
+          <span className="text-[10px] text-muted-foreground shrink-0">
             {formatSize(node.size)}
           </span>
         )}
@@ -81,7 +81,7 @@ function TreeNodeRow({
               e.stopPropagation();
               onDelete(node.path);
             }}
-            className="text-[10px] text-[var(--destructive)] opacity-0 group-hover:opacity-100 shrink-0"
+            className="text-[10px] text-destructive opacity-0 group-hover:opacity-100 shrink-0"
             title="Delete"
           >
             x

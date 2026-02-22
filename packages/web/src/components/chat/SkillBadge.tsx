@@ -19,7 +19,7 @@ export function SkillBadge({ skill, label }: SkillBadgeProps) {
   const displayLabel = SKILL_LABELS[skill] ?? label ?? skill;
 
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-[var(--primary)]/15 text-[var(--primary)] border border-[var(--primary)]/20 px-2.5 py-0.5 text-xs font-medium mb-1 animate-fade-in">
+    <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 text-primary border border-primary/20 px-2.5 py-0.5 text-xs font-medium mb-1 animate-fade-in">
       <Sparkles size={12} />
       Workflow: {displayLabel}
     </span>

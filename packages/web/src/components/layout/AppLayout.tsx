@@ -34,12 +34,12 @@ export function AppLayout({
   const [filesPanelOpen, setFilesPanelOpen] = useState(true);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--background)] relative">
+    <div className="flex h-screen overflow-hidden bg-background relative">
       {/* Atmospheric gradient orbs */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-[var(--accent-start)]/20 blur-[150px] animate-float" />
-        <div className="absolute -bottom-32 -right-32 w-[400px] h-[400px] rounded-full bg-[var(--accent-end)]/15 blur-[130px] animate-float-slow" />
-        <div className="absolute top-1/3 right-1/4 w-[300px] h-[300px] rounded-full bg-[var(--accent-mid)]/12 blur-[120px] animate-float-slower" />
+        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-accent-start/20 blur-[150px] animate-float" />
+        <div className="absolute -bottom-32 -right-32 w-[400px] h-[400px] rounded-full bg-accent-end/15 blur-[130px] animate-float-slow" />
+        <div className="absolute top-1/3 right-1/4 w-[300px] h-[300px] rounded-full bg-accent-mid/12 blur-[120px] animate-float-slower" />
       </div>
 
       {/* Sessions sidebar */}
@@ -70,10 +70,10 @@ export function AppLayout({
       {/* Center: mobile header + chat */}
       <main className="flex-1 flex flex-col min-w-0 relative z-10">
         {/* Mobile top bar — only shown when sidebar is collapsed on mobile */}
-        <div className="md:hidden flex items-center gap-2 p-2 border-b border-[var(--border)] bg-[var(--background-secondary)]">
+        <div className="md:hidden flex items-center gap-2 p-2 border-b border-border bg-background-secondary">
           <button
             onClick={() => setSidebarCollapsed(false)}
-            className="p-1.5 rounded-md hover:bg-[var(--surface-glass-hover)] text-[var(--muted-foreground)]"
+            className="p-1.5 rounded-md hover:bg-surface-glass-hover text-muted-foreground"
             title="Open sessions"
           >
             <Menu size={20} />
@@ -81,7 +81,7 @@ export function AppLayout({
           <span className="text-lg font-medium truncate flex-1 text-gradient" style={{ fontFamily: "var(--font-display)" }}>Browork</span>
           <button
             onClick={() => setFilesPanelOpen((v) => !v)}
-            className="p-1.5 rounded-md hover:bg-[var(--surface-glass-hover)] text-[var(--muted-foreground)] lg:hidden"
+            className="p-1.5 rounded-md hover:bg-surface-glass-hover text-muted-foreground lg:hidden"
             title="Toggle files"
           >
             <FolderOpen size={20} />
@@ -93,19 +93,19 @@ export function AppLayout({
 
       {/* File panel — hidden on mobile, togglable on tablet */}
       {filesPanelOpen && (
-        <aside className="w-80 shrink-0 border-l border-[var(--border)] bg-[var(--background-secondary)] max-lg:hidden lg:block">
+        <aside className="w-80 shrink-0 border-l border-border bg-background-secondary max-lg:hidden lg:block">
           <FilePanel />
         </aside>
       )}
 
       {/* File panel overlay on tablet (when toggled via button) */}
       {filesPanelOpen && (
-        <aside className="lg:hidden max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:w-80 max-lg:shadow-lg max-lg:bg-[var(--background-secondary)] max-lg:border-l max-lg:border-[var(--border)] hidden max-md:hidden md:max-lg:block">
-          <div className="flex items-center justify-between p-2 border-b border-[var(--border)] md:hidden">
+        <aside className="lg:hidden max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:w-80 max-lg:shadow-lg max-lg:bg-background-secondary max-lg:border-l max-lg:border-border hidden max-md:hidden md:max-lg:block">
+          <div className="flex items-center justify-between p-2 border-b border-border md:hidden">
             <span className="text-sm font-medium">Files</span>
             <button
               onClick={() => setFilesPanelOpen(false)}
-              className="p-1 rounded-md hover:bg-[var(--surface-glass-hover)] text-[var(--muted-foreground)]"
+              className="p-1 rounded-md hover:bg-surface-glass-hover text-muted-foreground"
             >
               &times;
             </button>

@@ -89,10 +89,10 @@ export function FileEditorPane({ onBack, onRefresh }: FileEditorPaneProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border)]">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
         <button
           onClick={onBack}
-          className="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+          className="text-xs text-muted-foreground hover:text-foreground"
         >
           &larr; Back
         </button>
@@ -101,7 +101,7 @@ export function FileEditorPane({ onBack, onRefresh }: FileEditorPaneProps) {
         <a
           href={api.files.download(openFile.path)}
           download
-          className="text-[10px] text-[var(--primary)] hover:underline"
+          className="text-[10px] text-primary hover:underline"
         >
           Download
         </a>
@@ -136,10 +136,10 @@ export function FileEditorPane({ onBack, onRefresh }: FileEditorPaneProps) {
 function SaveIndicator({ status }: { status: SaveStatus }) {
   const styles: Record<SaveStatus, { text: string; color: string }> = {
     idle: { text: "", color: "" },
-    saved: { text: "Saved", color: "text-[var(--success)]" },
-    saving: { text: "Saving...", color: "text-[var(--warning)]" },
-    unsaved: { text: "Unsaved", color: "text-[var(--warning)]" },
-    conflict: { text: "Conflict!", color: "text-[var(--destructive)]" },
+    saved: { text: "Saved", color: "text-success" },
+    saving: { text: "Saving...", color: "text-warning" },
+    unsaved: { text: "Unsaved", color: "text-warning" },
+    conflict: { text: "Conflict!", color: "text-destructive" },
   };
   const s = styles[status];
   if (!s.text) return null;

@@ -44,20 +44,20 @@ export function DropZone({ onDrop, children }: DropZoneProps) {
       {children}
 
       {dragOver && (
-        <div className="absolute inset-0 bg-[var(--primary)]/10 border-2 border-dashed border-[var(--primary)] rounded-lg flex items-center justify-center z-10">
-          <p className="text-sm text-[var(--primary)] font-medium">
+        <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-lg flex items-center justify-center z-10">
+          <p className="text-sm text-primary font-medium">
             Drop files to upload
           </p>
         </div>
       )}
 
       {uploading && (
-        <div className="absolute bottom-0 left-0 right-0 bg-[var(--background-secondary)] border-t border-[var(--border)] p-2">
-          <div className="flex items-center gap-2 text-xs text-[var(--foreground-secondary)]">
-            <span className="w-3 h-3 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+        <div className="absolute bottom-0 left-0 right-0 bg-background-secondary border-t border-border p-2">
+          <div className="flex items-center gap-2 text-xs text-foreground-secondary">
+            <span className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             <span>Uploading... {uploadProgress}%</span>
           </div>
-          <div className="mt-1 h-1 bg-[var(--border)] rounded-full overflow-hidden">
+          <div className="mt-1 h-1 bg-border rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-primary transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}

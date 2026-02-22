@@ -37,18 +37,18 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--background)] relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
       {/* Animated gradient orbs */}
-      <div className="absolute top-1/4 -left-32 w-[500px] h-[500px] rounded-full bg-[var(--accent-start)]/20 blur-[150px] pointer-events-none animate-float animate-gradient-shift" />
-      <div className="absolute bottom-1/4 -right-32 w-[400px] h-[400px] rounded-full bg-[var(--accent-end)]/15 blur-[130px] pointer-events-none animate-float-slow animate-gradient-shift" />
-      <div className="absolute top-1/2 left-1/3 w-[300px] h-[300px] rounded-full bg-[var(--accent-mid)]/12 blur-[120px] pointer-events-none animate-float-slower animate-gradient-shift" />
+      <div className="absolute top-1/4 -left-32 w-[500px] h-[500px] rounded-full bg-accent-start/20 blur-[150px] pointer-events-none animate-float animate-gradient-shift" />
+      <div className="absolute bottom-1/4 -right-32 w-[400px] h-[400px] rounded-full bg-accent-end/15 blur-[130px] pointer-events-none animate-float-slow animate-gradient-shift" />
+      <div className="absolute top-1/2 left-1/3 w-[300px] h-[300px] rounded-full bg-accent-mid/12 blur-[120px] pointer-events-none animate-float-slower animate-gradient-shift" />
 
       <div className="w-full max-w-sm mx-4 relative z-10">
         <div className="text-center mb-8">
           <h1 className="text-5xl text-gradient animate-fade-in-up" style={{ fontFamily: "var(--font-display)" }}>
             Browork
           </h1>
-          <p className="text-sm text-[var(--foreground-secondary)] mt-2 animate-fade-in-up stagger-1">
+          <p className="text-sm text-foreground-secondary mt-2 animate-fade-in-up stagger-1">
             AI-powered data analysis for your team
           </p>
         </div>
@@ -62,18 +62,18 @@ export function LoginPage() {
           </h2>
 
           {error && (
-            <div className="text-sm text-[var(--destructive)] bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 rounded px-3 py-2">
+            <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded px-3 py-2">
               {error}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-[var(--foreground-secondary)]">Username</label>
+            <label className="block text-sm font-medium mb-1 text-foreground-secondary">Username</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2.5 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--muted)] text-[var(--foreground)] text-sm focus:outline-none focus:shadow-[var(--glow-focus)] transition-shadow"
+              className="w-full px-3 py-2.5 border border-border rounded-[var(--radius)] bg-muted text-foreground text-sm focus:outline-none focus:shadow-[var(--glow-focus)] transition-shadow"
               placeholder="Enter username"
               required
               autoFocus
@@ -82,26 +82,26 @@ export function LoginPage() {
 
           {mode === "register" && (
             <div>
-              <label className="block text-sm font-medium mb-1 text-[var(--foreground-secondary)]">
+              <label className="block text-sm font-medium mb-1 text-foreground-secondary">
                 Display Name
               </label>
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-3 py-2.5 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--muted)] text-[var(--foreground)] text-sm focus:outline-none focus:shadow-[var(--glow-focus)] transition-shadow"
+                className="w-full px-3 py-2.5 border border-border rounded-[var(--radius)] bg-muted text-foreground text-sm focus:outline-none focus:shadow-[var(--glow-focus)] transition-shadow"
                 placeholder="How others will see you"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-[var(--foreground-secondary)]">Password</label>
+            <label className="block text-sm font-medium mb-1 text-foreground-secondary">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2.5 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--muted)] text-[var(--foreground)] text-sm focus:outline-none focus:shadow-[var(--glow-focus)] transition-shadow"
+              className="w-full px-3 py-2.5 border border-border rounded-[var(--radius)] bg-muted text-foreground text-sm focus:outline-none focus:shadow-[var(--glow-focus)] transition-shadow"
               placeholder="Enter password"
               required
             />
@@ -123,7 +123,7 @@ export function LoginPage() {
             )}
           </button>
 
-          <div className="text-center text-sm text-[var(--foreground-secondary)]">
+          <div className="text-center text-sm text-foreground-secondary">
             {mode === "login" ? (
               <>
                 Don't have an account?{" "}
@@ -133,7 +133,7 @@ export function LoginPage() {
                     setMode("register");
                     setError("");
                   }}
-                  className="text-[var(--primary)] hover:text-[var(--primary-hover)] hover:underline"
+                  className="text-primary hover:text-primary-hover hover:underline"
                 >
                   Register
                 </button>
@@ -147,7 +147,7 @@ export function LoginPage() {
                     setMode("login");
                     setError("");
                   }}
-                  className="text-[var(--primary)] hover:text-[var(--primary-hover)] hover:underline"
+                  className="text-primary hover:text-primary-hover hover:underline"
                 >
                   Sign in
                 </button>

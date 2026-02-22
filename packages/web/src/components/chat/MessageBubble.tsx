@@ -14,7 +14,7 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
         className={`max-w-[75%] rounded-lg px-4 py-2.5 text-sm leading-relaxed ${
           isUser
             ? "bg-gradient-primary text-white"
-            : "glass text-[var(--foreground)]"
+            : "glass text-foreground"
         }`}
       >
         {/* Simple markdown-ish rendering for Phase 1 */}
@@ -24,7 +24,7 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
           </p>
         ))}
         {isStreaming && (
-          <span className="inline-block w-1.5 h-4 bg-[var(--primary)] animate-pulse ml-0.5 align-text-bottom" />
+          <span className="inline-block w-1.5 h-4 bg-primary animate-pulse ml-0.5 align-text-bottom" />
         )}
       </div>
     </div>
@@ -46,7 +46,7 @@ function renderInline(text: string) {
       return (
         <code
           key={i}
-          className="bg-[var(--muted)] border border-[var(--surface-glass-border)] text-[var(--primary)] px-1 py-0.5 rounded text-xs font-mono"
+          className="bg-muted border border-surface-glass-border text-primary px-1 py-0.5 rounded text-xs font-mono"
         >
           {part.slice(1, -1)}
         </code>

@@ -38,7 +38,7 @@ export function SkillsBar({ onInvokeSkill, disabled }: SkillsBarProps) {
 
   return (
     <div className="flex items-center gap-1.5 px-4 pt-3 pb-1 overflow-x-auto">
-      <span className="text-xs text-[var(--foreground-tertiary)] mr-1 shrink-0">
+      <span className="text-xs text-foreground-tertiary mr-1 shrink-0">
         Workflows:
       </span>
       {enabledSkills.map((skill) => {
@@ -49,7 +49,7 @@ export function SkillsBar({ onInvokeSkill, disabled }: SkillsBarProps) {
             onClick={() => onInvokeSkill(skill.name)}
             disabled={disabled}
             title={skill.description}
-            className="inline-flex items-center gap-1.5 glass glass-hover hover-lift rounded-full px-3 py-1.5 text-xs font-medium text-[var(--foreground-secondary)] hover:text-[var(--foreground)] disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0"
+            className="inline-flex items-center gap-1.5 glass glass-hover hover-lift rounded-full px-3 py-1.5 text-xs font-medium text-foreground-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0"
           >
             {ui?.icon}
             {ui?.label ?? skill.name}

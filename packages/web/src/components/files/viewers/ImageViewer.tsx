@@ -4,7 +4,7 @@ interface ImageViewerProps {
 
 export function ImageViewer({ url }: ImageViewerProps) {
   return (
-    <div className="h-full flex items-center justify-center p-4 overflow-auto bg-[var(--muted)]">
+    <div className="h-full flex items-center justify-center p-4 overflow-auto bg-muted">
       <img
         src={url}
         alt="Preview"

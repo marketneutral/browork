@@ -65,7 +65,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
           <div className="flex items-center justify-center h-full">
             <div className="text-center max-w-lg mx-auto">
               <h2 className="text-4xl text-gradient mb-3 animate-fade-in-up" style={{ fontFamily: "var(--font-display)" }}>Welcome to Browork</h2>
-              <p className="text-sm text-[var(--foreground-secondary)] mb-8 animate-fade-in-up stagger-1">
+              <p className="text-sm text-foreground-secondary mb-8 animate-fade-in-up stagger-1">
                 Your AI-powered analyst. Upload data, run workflows, get insights.
               </p>
 
@@ -81,14 +81,14 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
                     className="glass glass-hover hover-lift rounded-[var(--radius-lg)] p-5 text-left transition-all group animate-fade-in-up"
                     style={{ animationDelay: `${0.1 + i * 0.05}s` }}
                   >
-                    <s.icon size={18} className="text-[var(--primary)] mb-2 group-hover:text-[var(--primary-hover)] transition-colors" />
-                    <div className="text-sm font-medium text-[var(--foreground)] mb-1">{s.title}</div>
-                    <div className="text-xs text-[var(--foreground-secondary)]">{s.description}</div>
+                    <s.icon size={18} className="text-primary mb-2 group-hover:text-primary-hover transition-colors" />
+                    <div className="text-sm font-medium text-foreground mb-1">{s.title}</div>
+                    <div className="text-xs text-foreground-secondary">{s.description}</div>
                   </button>
                 ))}
               </div>
 
-              <p className="text-xs text-[var(--foreground-tertiary)] animate-fade-in stagger-5">
+              <p className="text-xs text-foreground-tertiary animate-fade-in stagger-5">
                 Type a message or click a suggestion to get started
               </p>
             </div>
@@ -127,14 +127,14 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
 
       {/* Status bar */}
       {isStreaming && (
-        <div className="px-4 py-1.5 text-xs text-[var(--foreground-secondary)] border-t border-[var(--border)] bg-[var(--background-secondary)]/50 flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] animate-pulse" />
+        <div className="px-4 py-1.5 text-xs text-foreground-secondary border-t border-border bg-background-secondary/50 flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
           {activeSkill
             ? `Running workflow: ${activeSkill.label}...`
             : "Agent is working..."}
           <button
             onClick={onAbort}
-            className="ml-auto text-[var(--destructive)] hover:underline"
+            className="ml-auto text-destructive hover:underline"
           >
             Stop
           </button>

@@ -82,9 +82,9 @@ export function FilePanel() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-3 border-b border-[var(--border)] flex items-center justify-between">
+      <div className="p-3 border-b border-border flex items-center justify-between">
         <h2 className="text-sm font-medium" style={{ fontFamily: "var(--font-display)" }}>Files</h2>
-        <label className="text-xs text-[var(--primary)] cursor-pointer hover:underline">
+        <label className="text-xs text-primary cursor-pointer hover:underline">
           Upload
           <input
             type="file"

@@ -52,17 +52,17 @@ export function SessionSidebar({
   };
 
   return (
-    <aside className={`shrink-0 border-r bg-[var(--background-secondary)] flex flex-col max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:shadow-lg transition-all duration-300 ease-in-out overflow-hidden relative z-10 ${
-      collapsed ? "w-0 opacity-0 border-r-0" : "w-64 opacity-100 border-r-[var(--border)]"
+    <aside className={`shrink-0 border-r bg-background-secondary flex flex-col max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:shadow-lg transition-all duration-300 ease-in-out overflow-hidden relative z-10 ${
+      collapsed ? "w-0 opacity-0 border-r-0" : "w-64 opacity-100 border-r-border"
     }`}>
       {/* Header */}
-      <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
+      <div className="p-4 border-b border-border flex items-center justify-between">
         <h1 className="text-xl text-gradient" style={{ fontFamily: "var(--font-display)" }}>Browork</h1>
         <div className="flex items-center gap-0.5">
           <button
             onClick={onNewSession}
             title="New session"
-            className="rounded-md p-1.5 hover:bg-[var(--surface-glass-hover)] text-[var(--foreground-secondary)] hover:text-[var(--foreground)] transition-colors"
+            className="rounded-md p-1.5 hover:bg-surface-glass-hover text-foreground-secondary hover:text-foreground transition-colors"
           >
             <Plus size={18} />
           </button>
@@ -70,7 +70,7 @@ export function SessionSidebar({
             <button
               onClick={onToggleCollapse}
               title="Close sidebar"
-              className="rounded-md p-1.5 hover:bg-[var(--surface-glass-hover)] text-[var(--foreground-secondary)] hover:text-[var(--foreground)] transition-colors md:hidden"
+              className="rounded-md p-1.5 hover:bg-surface-glass-hover text-foreground-secondary hover:text-foreground transition-colors md:hidden"
             >
               <PanelLeftClose size={18} />
             </button>
@@ -88,7 +88,7 @@ export function SessionSidebar({
           </>
         )}
         {!isLoading && sessions.length === 0 && (
-          <div className="p-4 text-sm text-[var(--foreground-secondary)]">
+          <div className="p-4 text-sm text-foreground-secondary">
             No sessions yet
           </div>
         )}
@@ -106,22 +106,22 @@ export function SessionSidebar({
       </div>
 
       {/* Connection status */}
-      <div className="p-3 border-t border-[var(--border)] text-xs text-[var(--foreground-secondary)]">
+      <div className="p-3 border-t border-border text-xs text-foreground-secondary">
         {connectionStatus === "connected" && (
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[var(--success)]" />
+            <span className="w-2 h-2 rounded-full bg-success" />
             Connected
           </span>
         )}
         {connectionStatus === "connecting" && (
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[var(--warning)] animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-warning animate-pulse" />
             Connecting...
           </span>
         )}
         {connectionStatus === "disconnected" && (
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[var(--destructive)]" />
+            <span className="w-2 h-2 rounded-full bg-destructive" />
             Disconnected
           </span>
         )}
@@ -129,7 +129,7 @@ export function SessionSidebar({
 
       {/* User / settings / logout */}
       {user && (
-        <div className="p-3 border-t border-[var(--border)] flex items-center justify-between">
+        <div className="p-3 border-t border-border flex items-center justify-between">
           <span className="text-sm font-medium truncate">
             {user.displayName}
           </span>
@@ -137,14 +137,14 @@ export function SessionSidebar({
             <button
               onClick={onOpenSettings}
               title="Settings"
-              className="p-1.5 rounded-md hover:bg-[var(--surface-glass-hover)] text-[var(--foreground-secondary)] hover:text-[var(--foreground)] transition-colors"
+              className="p-1.5 rounded-md hover:bg-surface-glass-hover text-foreground-secondary hover:text-foreground transition-colors"
             >
               <Settings size={16} />
             </button>
             <button
               onClick={handleLogout}
               title="Sign out"
-              className="p-1.5 rounded-md hover:bg-[var(--surface-glass-hover)] text-[var(--foreground-secondary)] hover:text-[var(--foreground)] transition-colors"
+              className="p-1.5 rounded-md hover:bg-surface-glass-hover text-foreground-secondary hover:text-foreground transition-colors"
             >
               <LogOut size={16} />
             </button>
@@ -204,8 +204,8 @@ function SessionItem({
     <div
       className={`group px-3 py-2.5 cursor-pointer border-l-2 transition-colors ${
         isActive
-          ? "border-l-[var(--primary)] bg-[var(--primary)]/10"
-          : "border-l-transparent hover:bg-[var(--surface-glass-hover)]"
+          ? "border-l-primary bg-primary/10"
+          : "border-l-transparent hover:bg-surface-glass-hover"
       }`}
       onClick={() => !isRenaming && onSelect()}
     >
@@ -220,12 +220,12 @@ function SessionItem({
               if (e.key === "Escape") handleRenameCancel();
             }}
             onBlur={handleRenameSubmit}
-            className="flex-1 text-sm bg-[var(--muted)] text-[var(--foreground)] border border-[var(--border)] rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-[var(--primary)]"
+            className="flex-1 text-sm bg-muted text-foreground border border-border rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-primary"
           />
-          <button onClick={handleRenameSubmit} className="p-0.5 text-[var(--success)]">
+          <button onClick={handleRenameSubmit} className="p-0.5 text-success">
             <Check size={14} />
           </button>
-          <button onClick={handleRenameCancel} className="p-0.5 text-[var(--destructive)]">
+          <button onClick={handleRenameCancel} className="p-0.5 text-destructive">
             <X size={14} />
           </button>
         </div>
@@ -233,7 +233,7 @@ function SessionItem({
         <>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 min-w-0">
-              <MessageSquare size={14} className="shrink-0 text-[var(--foreground-secondary)]" />
+              <MessageSquare size={14} className="shrink-0 text-foreground-secondary" />
               <span className="text-sm font-medium truncate">{session.name}</span>
             </div>
             <div className="hidden group-hover:flex items-center gap-0.5">
@@ -244,7 +244,7 @@ function SessionItem({
                   setIsRenaming(true);
                 }}
                 title="Rename"
-                className="p-1 rounded hover:bg-[var(--surface-glass-hover)] text-[var(--foreground-secondary)]"
+                className="p-1 rounded hover:bg-surface-glass-hover text-foreground-secondary"
               >
                 <Pencil size={12} />
               </button>
@@ -254,7 +254,7 @@ function SessionItem({
                   onFork();
                 }}
                 title="Branch conversation"
-                className="p-1 rounded hover:bg-[var(--surface-glass-hover)] text-[var(--foreground-secondary)]"
+                className="p-1 rounded hover:bg-surface-glass-hover text-foreground-secondary"
               >
                 <GitBranch size={12} />
               </button>
@@ -264,18 +264,18 @@ function SessionItem({
                   onDelete();
                 }}
                 title="Delete"
-                className="p-1 rounded hover:bg-[var(--surface-glass-hover)] text-[var(--destructive)]"
+                className="p-1 rounded hover:bg-surface-glass-hover text-destructive"
               >
                 <Trash2 size={12} />
               </button>
             </div>
           </div>
           {session.lastMessage && (
-            <p className="text-xs text-[var(--foreground-secondary)] truncate mt-0.5 ml-5">
+            <p className="text-xs text-foreground-secondary truncate mt-0.5 ml-5">
               {session.lastMessage}
             </p>
           )}
-          <p className="text-[10px] text-[var(--foreground-tertiary)] mt-0.5 ml-5">
+          <p className="text-[10px] text-foreground-tertiary mt-0.5 ml-5">
             {timeAgo}
           </p>
         </>

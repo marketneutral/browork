@@ -37,7 +37,7 @@ export function AuthGate({ children }: AuthGateProps) {
 
   if (checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <h1 className="text-3xl text-gradient animate-pulse-glow" style={{ fontFamily: "var(--font-display)" }}>Browork</h1>
       </div>
     );
