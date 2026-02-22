@@ -15,19 +15,31 @@ interface AuthState {
   logout: () => void;
 }
 
-const STORAGE_KEY = "browork_token";
+const TOKEN_KEY = "browork_token";
+const USER_KEY = "browork_user";
+
+function loadUser(): User | null {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 export const useAuthStore = create<AuthState>((set) => ({
-  token: localStorage.getItem(STORAGE_KEY),
-  user: null,
+  token: localStorage.getItem(TOKEN_KEY),
+  user: loadUser(),
 
   setAuth: (user, token) => {
-    localStorage.setItem(STORAGE_KEY, token);
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
     set({ user, token });
   },
 
   logout: () => {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     set({ user: null, token: null });
   },
 }));

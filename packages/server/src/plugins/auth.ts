@@ -3,8 +3,12 @@
  *
  * Validates Bearer token on every request (except public routes).
  * Decorates `request.user` with the authenticated UserMeta.
+ *
+ * Wrapped with fastify-plugin so hooks apply to ALL routes,
+ * not just routes registered inside this plugin's scope.
  */
 
+import fp from "fastify-plugin";
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { validateToken } from "../db/user-store.js";
 import type { UserMeta } from "../db/user-store.js";
@@ -22,7 +26,7 @@ declare module "fastify" {
   }
 }
 
-export const authPlugin: FastifyPluginAsync = async (app) => {
+const authPluginImpl: FastifyPluginAsync = async (app) => {
   app.decorateRequest("user", undefined);
 
   app.addHook("onRequest", async (req: FastifyRequest, reply: FastifyReply) => {
@@ -59,3 +63,5 @@ export const authPlugin: FastifyPluginAsync = async (app) => {
     req.user = user;
   });
 };
+
+export const authPlugin = fp(authPluginImpl);

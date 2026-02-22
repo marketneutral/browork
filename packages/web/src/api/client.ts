@@ -16,19 +16,26 @@ function authHeaders(hasBody?: boolean): Record<string, string> {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
+    cache: "no-store",
     headers: authHeaders(!!init?.body),
     ...init,
   });
   if (res.status === 401) {
-    // Token expired or invalid — force logout
     useAuthStore.getState().logout();
-    throw new Error("Session expired. Please log in again.");
+    throw new AuthError("Session expired. Please log in again.");
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `HTTP ${res.status}`);
   }
   return res.json();
+}
+
+export class AuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuthError";
+  }
 }
 
 export interface UserMeta {
