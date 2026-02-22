@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useFilesStore, type SaveStatus } from "../../stores/files";
 import { useSessionStore } from "../../stores/session";
 import { api } from "../../api/client";
@@ -7,6 +7,7 @@ import { MarkdownEditor } from "./editors/MarkdownEditor";
 import { CsvEditor } from "./editors/CsvEditor";
 import { ImageViewer } from "./viewers/ImageViewer";
 import { PdfViewer } from "./viewers/PdfViewer";
+import { HtmlViewer } from "./viewers/HtmlViewer";
 
 interface FileEditorPaneProps {
   onBack: () => void;
@@ -23,6 +24,7 @@ export function FileEditorPane({ onBack, onRefresh }: FileEditorPaneProps) {
   const updateContent = useFilesStore((s) => s.updateOpenFileContent);
   const sessionId = useSessionStore((s) => s.sessionId);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [htmlPreview, setHtmlPreview] = useState(true);
 
   const save = useCallback(async () => {
     const file = useFilesStore.getState().openFile;
@@ -102,6 +104,14 @@ export function FileEditorPane({ onBack, onRefresh }: FileEditorPaneProps) {
         </button>
         <span className="text-xs font-medium truncate flex-1">{fileName}</span>
         <SaveIndicator status={saveStatus} />
+        {ext === "html" && (
+          <button
+            onClick={() => setHtmlPreview((v) => !v)}
+            className="text-[10px] text-primary hover:underline"
+          >
+            {htmlPreview ? "Source" : "Preview"}
+          </button>
+        )}
         <a
           href={sessionId ? api.files.download(openFile.path, sessionId) : "#"}
           download
@@ -124,6 +134,16 @@ export function FileEditorPane({ onBack, onRefresh }: FileEditorPaneProps) {
         )}
         {ext === "md" && (
           <MarkdownEditor content={openFile.content} onChange={handleChange} />
+        )}
+        {ext === "html" && htmlPreview && (
+          <HtmlViewer content={openFile.content} />
+        )}
+        {ext === "html" && !htmlPreview && (
+          <CodeEditor
+            content={openFile.content}
+            onChange={handleChange}
+            language="html"
+          />
         )}
         {isCodeEditable(ext) && (
           <CodeEditor
@@ -155,7 +175,7 @@ function isImage(ext: string) {
 }
 
 function isCodeEditable(ext: string) {
-  return ["json", "txt", "yaml", "yml", "ts", "js", "py", "html", "css", "xml", "toml", "ini", "sh", "sql"].includes(ext);
+  return ["json", "txt", "yaml", "yml", "ts", "js", "py", "css", "xml", "toml", "ini", "sh", "sql"].includes(ext);
 }
 
 function langFromExt(ext: string): string {
