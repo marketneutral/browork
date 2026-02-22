@@ -141,23 +141,26 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
             isStreaming
           />
         )}
-      </div>
 
-      {/* Status bar */}
-      {isStreaming && (
-        <div className="px-4 py-1.5 text-xs text-foreground-secondary border-t border-border bg-background-secondary/50 flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-          {activeSkill
-            ? `Running workflow: ${activeSkill.label}...`
-            : "Agent is working..."}
-          <button
-            onClick={onAbort}
-            className="ml-auto text-destructive hover:underline"
-          >
-            Stop
-          </button>
-        </div>
-      )}
+        {/* Spacer so the last message isn't hidden behind the sticky status bar */}
+        {isStreaming && <div className="h-8 shrink-0" />}
+
+        {/* Status bar — sticky inside scroll area so it doesn't shift the composer */}
+        {isStreaming && (
+          <div className="sticky bottom-0 -mx-4 px-4 py-1.5 text-xs text-foreground-secondary border-t border-border bg-background-secondary/80 backdrop-blur-sm flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            {activeSkill
+              ? `Running workflow: ${activeSkill.label}...`
+              : "Agent is working..."}
+            <button
+              onClick={onAbort}
+              className="ml-auto text-destructive hover:underline"
+            >
+              Stop
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Skills bar (workflow buttons) */}
       <SkillsBar onInvokeSkill={onInvokeSkill} disabled={isStreaming} />

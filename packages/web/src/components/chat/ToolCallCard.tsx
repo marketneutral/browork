@@ -81,10 +81,8 @@ function FormatArgs({ tool, args }: { tool: string; args: unknown }) {
   const a = args as Record<string, unknown> | undefined;
   if (!a) return null;
 
-  if (tool === "bash") {
-    const cmd = (a.command as string) || "";
-    return <CodeBlock content={cmd} />;
-  }
+  // Bash args are redundant — command is shown in BashResult header
+  if (tool === "bash") return null;
 
   if (tool === "read" || tool === "write" || tool === "edit") {
     return (
@@ -100,6 +98,123 @@ function FormatArgs({ tool, args }: { tool: string; args: unknown }) {
 
   // fallback: raw JSON
   return <CodeBlock content={JSON.stringify(a, null, 2)} />;
+}
+
+/* ── Result data helpers ── */
+
+function extractText(result: unknown): string | null {
+  if (typeof result === "string") return result;
+  if (typeof result !== "object" || result === null) return null;
+  const r = result as Record<string, unknown>;
+  // { content: [{ type: "text", text: "..." }] }
+  if (Array.isArray(r.content)) {
+    const first = r.content[0] as Record<string, unknown> | undefined;
+    if (first && typeof first.text === "string") return first.text;
+  }
+  return null;
+}
+
+function extractDetails(result: unknown): Record<string, unknown> | null {
+  if (typeof result !== "object" || result === null) return null;
+  const r = result as Record<string, unknown>;
+  if (typeof r.details === "object" && r.details !== null) {
+    return r.details as Record<string, unknown>;
+  }
+  return null;
+}
+
+function formatBytes(n: unknown): string {
+  if (typeof n !== "number" || n < 0) return "0 B";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/* ── Bash result ── */
+
+function BashResult({ args, result, isError }: { args: unknown; result: unknown; isError?: boolean }) {
+  const a = args as Record<string, unknown> | undefined;
+  const command = (a?.command as string) || "";
+  const details = extractDetails(result);
+  const output = (details?.output as string) ?? extractText(result) ?? "";
+  const exitCode = details?.exitCode as number | undefined;
+
+  return (
+    <div className="space-y-1.5">
+      {/* Command prompt header */}
+      <div className="text-xs font-mono px-3 py-1.5 text-foreground">
+        <span className="text-foreground-tertiary">$ </span>
+        {command}
+      </div>
+
+      {/* Output */}
+      {output && (
+        <TruncatedBlock
+          content={output}
+          isError={isError}
+        />
+      )}
+
+      {/* Exit code badge */}
+      {exitCode !== undefined && (
+        <div className="px-3 pb-0.5">
+          <span
+            className={`inline-block text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+              exitCode === 0
+                ? "bg-success/15 text-green-400"
+                : "bg-destructive/15 text-red-400"
+            }`}
+          >
+            exit {exitCode}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Read result ── */
+
+function ReadResult({ result }: { result: unknown }) {
+  const text = extractText(result);
+  const details = extractDetails(result);
+  const truncation = details?.truncation as Record<string, unknown> | undefined;
+
+  if (!text) return null;
+
+  return (
+    <div className="space-y-1">
+      <TruncatedBlock content={text} />
+      {truncation && (
+        <div className="text-[11px] text-foreground-tertiary px-3">
+          Truncated — showing {Number(truncation.truncatedAt).toLocaleString()} of{" "}
+          {Number(truncation.total).toLocaleString()} lines
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Write result ── */
+
+function WriteResult({ result }: { result: unknown }) {
+  const details = extractDetails(result);
+  if (!details) {
+    // Fallback for simple string results
+    const text = extractText(result);
+    if (text && text !== "ok") return <div className="text-xs text-foreground-tertiary px-3 py-1">{text}</div>;
+    return null;
+  }
+
+  const created = details.created as boolean | undefined;
+  const size = details.size;
+  const label = created ? "Created" : "Updated";
+
+  return (
+    <div className="text-xs text-foreground-tertiary px-3 py-1 font-mono">
+      {label} · {formatBytes(size)}
+    </div>
+  );
 }
 
 /* ── Format result ── */
@@ -119,28 +234,52 @@ function extractDiff(result: unknown): string | null {
 
 function FormatResult({
   tool,
+  args,
   result,
   isError,
 }: {
   tool: string;
+  args: unknown;
   result: unknown;
   isError?: boolean;
 }) {
   if (result === undefined || result === null) return null;
 
+  // Errors: render as plain text
+  if (isError) {
+    const text = typeof result === "string" ? result : extractText(result) ?? JSON.stringify(result, null, 2);
+    return <TruncatedBlock content={text} isError />;
+  }
+
   // Edit tool: render diff with syntax coloring
-  if (tool === "edit" && !isError) {
+  if (tool === "edit") {
     const diff = extractDiff(result);
     if (diff) return <DiffBlock content={diff} />;
   }
 
+  // Bash: terminal-style rendering
+  if (tool === "bash") {
+    return <BashResult args={args} result={result} />;
+  }
+
+  // Read: file content preview
+  if (tool === "read") {
+    return <ReadResult result={result} />;
+  }
+
+  // Write: minimal confirmation
+  if (tool === "write") {
+    return <WriteResult result={result} />;
+  }
+
+  // Generic fallback
   const text =
     typeof result === "string" ? result : JSON.stringify(result, null, 2);
 
   if (!text || text === '""' || text === "ok") return null;
 
   return (
-    <TruncatedBlock content={text} isError={isError} />
+    <TruncatedBlock content={text} />
   );
 }
 
@@ -313,7 +452,7 @@ export function ToolCallCard({ toolCall }: ToolCallCardProps) {
             {/* Result */}
             {status === "done" && result !== undefined && (
               <div className="px-2 pb-2">
-                <FormatResult tool={tool} result={result} isError={isError} />
+                <FormatResult tool={tool} args={args} result={result} isError={isError} />
               </div>
             )}
           </div>
