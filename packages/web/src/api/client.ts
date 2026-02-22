@@ -147,8 +147,21 @@ export const api = {
         method: "PUT",
         body: JSON.stringify({ content, lastModified }),
       }),
-    delete: (path: string, sessionId: string) =>
-      request<{ ok: boolean }>(`/files/${path}?sessionId=${sessionId}`, { method: "DELETE" }),
+    delete: (path: string, sessionId: string, force?: boolean) =>
+      request<{ ok: boolean }>(
+        `/files/${path}?sessionId=${sessionId}${force ? "&force=true" : ""}`,
+        { method: "DELETE" },
+      ),
+    mkdir: (path: string, sessionId: string) =>
+      request<{ ok: boolean }>(`/files/mkdir?sessionId=${sessionId}`, {
+        method: "POST",
+        body: JSON.stringify({ path }),
+      }),
+    move: (from: string, to: string, sessionId: string) =>
+      request<{ ok: boolean }>(`/files/move?sessionId=${sessionId}`, {
+        method: "POST",
+        body: JSON.stringify({ from, to }),
+      }),
     upload: async (
       files: File[],
       sessionId: string,

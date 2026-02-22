@@ -6,6 +6,8 @@ import {
   writeFile,
   unlink,
   mkdir,
+  rm,
+  rename,
 } from "fs/promises";
 import { resolve, relative, extname, dirname } from "path";
 import { createWriteStream } from "fs";
@@ -146,6 +148,66 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
     return { uploaded };
   });
 
+  // POST /api/files/mkdir — create directory
+  app.post("/files/mkdir", async (req, reply) => {
+    const result = workDir(req);
+    if ("error" in result) return reply.code(result.code).send({ error: result.error });
+    const wd = result.dir;
+    const body = req.body as { path?: string };
+    if (!body.path) {
+      return reply.code(400).send({ error: "path is required" });
+    }
+    const resolved = safeWorkPath(body.path, wd);
+    if (!resolved) {
+      return reply.code(400).send({ error: "Invalid path" });
+    }
+    await mkdir(resolved, { recursive: true });
+    return { ok: true };
+  });
+
+  // POST /api/files/move — move or rename a file/directory
+  app.post("/files/move", async (req, reply) => {
+    const result = workDir(req);
+    if ("error" in result) return reply.code(result.code).send({ error: result.error });
+    const wd = result.dir;
+    const body = req.body as { from?: string; to?: string };
+    if (!body.from) {
+      return reply.code(400).send({ error: "from is required" });
+    }
+    if (!body.to) {
+      return reply.code(400).send({ error: "to is required" });
+    }
+    const fromResolved = safeWorkPath(body.from, wd);
+    if (!fromResolved) {
+      return reply.code(400).send({ error: "Invalid from path" });
+    }
+    const toResolved = safeWorkPath(body.to, wd);
+    if (!toResolved) {
+      return reply.code(400).send({ error: "Invalid to path" });
+    }
+    // Prevent moving the workspace root
+    if (fromResolved === wd) {
+      return reply.code(400).send({ error: "Cannot move workspace root" });
+    }
+    // Ensure source exists
+    try {
+      await stat(fromResolved);
+    } catch {
+      return reply.code(404).send({ error: "Source not found" });
+    }
+    // Ensure destination does not already exist
+    try {
+      await stat(toResolved);
+      return reply.code(409).send({ error: "Destination already exists" });
+    } catch {
+      // Good — destination does not exist
+    }
+    // Auto-create parent directories for destination
+    await mkdir(dirname(toResolved), { recursive: true });
+    await rename(fromResolved, toResolved);
+    return { ok: true };
+  });
+
   // GET /api/files/* — download file
   app.get("/files/*", async (req, reply) => {
     const result = workDir(req);
@@ -213,7 +275,7 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
     return { ok: true, modified: s.mtime.toISOString() };
   });
 
-  // DELETE /api/files/* — delete file
+  // DELETE /api/files/* — delete file or directory
   app.delete("/files/*", async (req, reply) => {
     const result = workDir(req);
     if ("error" in result) return reply.code(result.code).send({ error: result.error });
@@ -224,8 +286,26 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(400).send({ error: "Invalid path" });
     }
 
+    // Prevent deleting the workspace root
+    if (resolved === wd) {
+      return reply.code(400).send({ error: "Cannot delete workspace root" });
+    }
+
     try {
-      await unlink(resolved);
+      const s = await stat(resolved);
+      if (s.isDirectory()) {
+        const force = (req.query as Record<string, string>).force === "true";
+        const children = (await readdir(resolved)).filter((n) => !n.startsWith("."));
+        if (children.length > 0 && !force) {
+          return reply.code(409).send({
+            error: "Directory is not empty",
+            childCount: children.length,
+          });
+        }
+        await rm(resolved, { recursive: true, force: true });
+      } else {
+        await unlink(resolved);
+      }
       return { ok: true };
     } catch {
       return reply.code(404).send({ error: "File not found" });

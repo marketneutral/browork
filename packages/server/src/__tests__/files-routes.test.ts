@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import multipart from "@fastify/multipart";
-import { mkdirSync, rmSync, writeFileSync, readFileSync } from "fs";
+import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from "fs";
 import { resolve, join } from "path";
 import { tmpdir } from "os";
 import { randomBytes } from "crypto";
@@ -220,6 +220,231 @@ describe("DELETE /api/files/*", () => {
       url: `/api/files/../../etc/important${q}`,
     });
     expect([400, 404]).toContain(res.statusCode);
+  });
+});
+
+describe("POST /api/files/mkdir", () => {
+  it("returns 400 without sessionId", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/files/mkdir",
+      payload: { path: "newdir" },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("returns 400 without path", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/files/mkdir${q}`,
+      payload: {},
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("creates a directory", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/files/mkdir${q}`,
+      payload: { path: "newdir" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().ok).toBe(true);
+
+    // Verify it appears in the listing
+    const listRes = await app.inject({ method: "GET", url: `/api/files${q}` });
+    const dirs = listRes.json().filter((f: any) => f.name === "newdir");
+    expect(dirs).toHaveLength(1);
+    expect(dirs[0].type).toBe("directory");
+  });
+
+  it("creates nested directories recursively", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/files/mkdir${q}`,
+      payload: { path: "a/b/c" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(existsSync(join(WORK_DIR, "a", "b", "c"))).toBe(true);
+  });
+
+  it("is idempotent for existing directory", async () => {
+    mkdirSync(join(WORK_DIR, "existing"), { recursive: true });
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/files/mkdir${q}`,
+      payload: { path: "existing" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().ok).toBe(true);
+  });
+
+  it("blocks path traversal", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/files/mkdir${q}`,
+      payload: { path: "../../etc/evil" },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+describe("DELETE /api/files/* (directories)", () => {
+  it("deletes an empty directory", async () => {
+    mkdirSync(join(WORK_DIR, "emptydir"), { recursive: true });
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/files/emptydir${q}`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().ok).toBe(true);
+    expect(existsSync(join(WORK_DIR, "emptydir"))).toBe(false);
+  });
+
+  it("returns 409 for non-empty directory without force", async () => {
+    mkdirSync(join(WORK_DIR, "fulldir"), { recursive: true });
+    writeFileSync(join(WORK_DIR, "fulldir", "child.txt"), "data");
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/files/fulldir${q}`,
+    });
+    expect(res.statusCode).toBe(409);
+    const body = res.json();
+    expect(body.error).toContain("not empty");
+    expect(body.childCount).toBe(1);
+  });
+
+  it("deletes non-empty directory with force=true", async () => {
+    mkdirSync(join(WORK_DIR, "forcedir"), { recursive: true });
+    writeFileSync(join(WORK_DIR, "forcedir", "child.txt"), "data");
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/files/forcedir${q}&force=true`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().ok).toBe(true);
+    expect(existsSync(join(WORK_DIR, "forcedir"))).toBe(false);
+  });
+});
+
+describe("POST /api/files/move", () => {
+  it("returns 400 without sessionId", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/files/move",
+      payload: { from: "a.txt", to: "b.txt" },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("returns 400 without from", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/files/move${q}`,
+      payload: { to: "b.txt" },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("returns 400 without to", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/files/move${q}`,
+      payload: { from: "a.txt" },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("moves a file to a new name (rename)", async () => {
+    writeFileSync(join(WORK_DIR, "old.txt"), "content");
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/files/move${q}`,
+      payload: { from: "old.txt", to: "new.txt" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().ok).toBe(true);
+    expect(existsSync(join(WORK_DIR, "old.txt"))).toBe(false);
+    expect(readFileSync(join(WORK_DIR, "new.txt"), "utf-8")).toBe("content");
+  });
+
+  it("moves a file into a subdirectory", async () => {
+    writeFileSync(join(WORK_DIR, "moveme.txt"), "data");
+    mkdirSync(join(WORK_DIR, "subdir"), { recursive: true });
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/files/move${q}`,
+      payload: { from: "moveme.txt", to: "subdir/moveme.txt" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(existsSync(join(WORK_DIR, "moveme.txt"))).toBe(false);
+    expect(readFileSync(join(WORK_DIR, "subdir", "moveme.txt"), "utf-8")).toBe("data");
+  });
+
+  it("moves a directory into another directory", async () => {
+    mkdirSync(join(WORK_DIR, "src"), { recursive: true });
+    writeFileSync(join(WORK_DIR, "src", "index.ts"), "export {}");
+    mkdirSync(join(WORK_DIR, "dest"), { recursive: true });
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/files/move${q}`,
+      payload: { from: "src", to: "dest/src" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(existsSync(join(WORK_DIR, "src"))).toBe(false);
+    expect(readFileSync(join(WORK_DIR, "dest", "src", "index.ts"), "utf-8")).toBe("export {}");
+  });
+
+  it("auto-creates parent directories for destination", async () => {
+    writeFileSync(join(WORK_DIR, "deep.txt"), "deep");
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/files/move${q}`,
+      payload: { from: "deep.txt", to: "a/b/c/deep.txt" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(readFileSync(join(WORK_DIR, "a", "b", "c", "deep.txt"), "utf-8")).toBe("deep");
+  });
+
+  it("returns 404 if source does not exist", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/files/move${q}`,
+      payload: { from: "ghost.txt", to: "new.txt" },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("returns 409 if destination already exists", async () => {
+    writeFileSync(join(WORK_DIR, "src.txt"), "src");
+    writeFileSync(join(WORK_DIR, "dst.txt"), "dst");
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/files/move${q}`,
+      payload: { from: "src.txt", to: "dst.txt" },
+    });
+    expect(res.statusCode).toBe(409);
+    // Source should still exist
+    expect(readFileSync(join(WORK_DIR, "src.txt"), "utf-8")).toBe("src");
+  });
+
+  it("blocks path traversal on from", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/files/move${q}`,
+      payload: { from: "../../etc/passwd", to: "stolen.txt" },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("blocks path traversal on to", async () => {
+    writeFileSync(join(WORK_DIR, "legit.txt"), "data");
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/files/move${q}`,
+      payload: { from: "legit.txt", to: "../../etc/evil" },
+    });
+    expect(res.statusCode).toBe(400);
   });
 });
 
