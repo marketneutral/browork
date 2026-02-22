@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFilesStore, type SaveStatus } from "../../stores/files";
 import { useSessionStore } from "../../stores/session";
+import { useAuthStore } from "../../stores/auth";
 import { api } from "../../api/client";
 import { CodeEditor } from "./editors/CodeEditor";
 import { MarkdownEditor } from "./editors/MarkdownEditor";
@@ -112,13 +113,25 @@ export function FileEditorPane({ onBack, onRefresh }: FileEditorPaneProps) {
             {htmlPreview ? "Source" : "Preview"}
           </button>
         )}
-        <a
-          href={sessionId ? api.files.download(openFile.path, sessionId) : "#"}
-          download
+        <button
+          onClick={async () => {
+            if (!sessionId) return;
+            const token = useAuthStore.getState().token;
+            const res = await fetch(api.files.download(openFile.path, sessionId), {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (!res.ok) return;
+            const blob = await res.blob();
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = openFile.path.split("/").pop() || "download";
+            a.click();
+            URL.revokeObjectURL(a.href);
+          }}
           className="text-[10px] text-primary hover:underline"
         >
           Download
-        </a>
+        </button>
       </div>
 
       {/* Editor/viewer area */}
