@@ -137,18 +137,21 @@ export const api = {
       request<SessionMeta>(`/sessions/${id}/fork`, { method: "POST" }),
   },
   files: {
-    list: () => request<FileEntry[]>("/files"),
-    download: (path: string) => `${BASE}/files/${path}`,
-    preview: (path: string) => request<FilePreview>(`/files-preview/${path}`),
-    save: (path: string, content: string, lastModified?: string) =>
-      request<{ ok: boolean; modified: string }>(`/files/${path}`, {
+    list: (sessionId: string) => request<FileEntry[]>(`/files?sessionId=${sessionId}`),
+    download: (path: string, sessionId: string) =>
+      `${BASE}/files/${path}?sessionId=${sessionId}`,
+    preview: (path: string, sessionId: string) =>
+      request<FilePreview>(`/files-preview/${path}?sessionId=${sessionId}`),
+    save: (path: string, content: string, sessionId: string, lastModified?: string) =>
+      request<{ ok: boolean; modified: string }>(`/files/${path}?sessionId=${sessionId}`, {
         method: "PUT",
         body: JSON.stringify({ content, lastModified }),
       }),
-    delete: (path: string) =>
-      request<{ ok: boolean }>(`/files/${path}`, { method: "DELETE" }),
+    delete: (path: string, sessionId: string) =>
+      request<{ ok: boolean }>(`/files/${path}?sessionId=${sessionId}`, { method: "DELETE" }),
     upload: async (
       files: File[],
+      sessionId: string,
       targetPath = "",
       onProgress?: (pct: number) => void,
     ) => {
@@ -173,7 +176,7 @@ export const api = {
           }
         };
         xhr.onerror = () => reject(new Error("Upload failed"));
-        xhr.open("POST", `${BASE}/files/upload`);
+        xhr.open("POST", `${BASE}/files/upload?sessionId=${sessionId}`);
         if (token) {
           xhr.setRequestHeader("Authorization", `Bearer ${token}`);
         }

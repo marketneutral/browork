@@ -1,5 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { nanoid } from "nanoid";
+import { resolve } from "path";
+import { cp, rm } from "fs/promises";
 import {
   createSession,
   getSessionById,
@@ -10,6 +12,9 @@ import {
   addMessage,
   getMessages,
 } from "../db/session-store.js";
+import { removeFileWatcher } from "../services/file-watcher.js";
+
+const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
 export const sessionRoutes: FastifyPluginAsync = async (app) => {
   // List sessions (scoped to authenticated user)
@@ -41,9 +46,21 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     "/sessions/:id",
     async (req, reply) => {
       const userId = req.user?.id;
+      // Grab workspace dir before deleting
+      const session = getSessionById(req.params.id, userId);
+      if (!session) {
+        return reply.code(404).send({ error: "Session not found" });
+      }
+      const wsDir = resolve(DATA_ROOT, "workspaces", session.workspaceDir);
+
       if (!deleteSession(req.params.id, userId)) {
         return reply.code(404).send({ error: "Session not found" });
       }
+
+      // Clean up workspace directory and file watcher
+      await removeFileWatcher(wsDir);
+      await rm(wsDir, { recursive: true, force: true }).catch(() => {});
+
       return { ok: true };
     },
   );
@@ -82,6 +99,15 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
 
       if (!forked) {
         return reply.code(500).send({ error: "Failed to fork session" });
+      }
+
+      // Copy workspace files from source to forked session
+      const srcDir = resolve(DATA_ROOT, "workspaces", source.workspaceDir);
+      const dstDir = resolve(DATA_ROOT, "workspaces", forked.workspaceDir);
+      try {
+        await cp(srcDir, dstDir, { recursive: true });
+      } catch {
+        // Source workspace may not exist if session had no files
       }
 
       return forked;

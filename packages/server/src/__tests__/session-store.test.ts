@@ -12,6 +12,7 @@ import {
   addMessage,
   getMessages,
 } from "../db/session-store.js";
+import { createUser } from "../db/user-store.js";
 
 const TEST_DIR = resolve(import.meta.dirname, "../../.test-data-sessions");
 
@@ -35,6 +36,14 @@ describe("session-store", () => {
       expect(session.updatedAt).toBeDefined();
       expect(session.lastMessage).toBeNull();
       expect(session.forkedFrom).toBeNull();
+      expect(session.workspaceDir).toBe("s1/workspace");
+    });
+
+    it("should set workspaceDir with userId when provided", () => {
+      // Create user first to satisfy FK constraint
+      createUser("user123", "testuser", "Test User", "password");
+      const session = createSession("s2", "User Session", "user123");
+      expect(session.workspaceDir).toBe("s2/workspace");
     });
   });
 
@@ -65,9 +74,11 @@ describe("session-store", () => {
       expect(listSessions()).toEqual([]);
     });
 
-    it("should return sessions sorted by updated_at descending", () => {
+    it("should return sessions sorted by updated_at descending", async () => {
       createSession("s1", "First");
       createSession("s2", "Second");
+      // Wait to ensure updated_at timestamp differs
+      await new Promise((r) => setTimeout(r, 10));
       // Add a message to s2 to ensure its updated_at is later
       addMessage("s2", "user", "bump", Date.now());
       const sessions = listSessions();
@@ -134,6 +145,7 @@ describe("session-store", () => {
       expect(forked!.id).toBe("s2");
       expect(forked!.name).toBe("Original (fork)");
       expect(forked!.forkedFrom).toBe("s1");
+      expect(forked!.workspaceDir).toBe("s2/workspace");
 
       // Fork should have the same messages
       const messages = getMessages("s2");

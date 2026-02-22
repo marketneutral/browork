@@ -30,6 +30,7 @@ export function initDatabase(dbPath?: string): Database.Database {
   db.pragma("foreign_keys = ON");
 
   createTables();
+  runMigrations();
 
   return db;
 }
@@ -91,6 +92,15 @@ function createTables() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+}
+
+function runMigrations() {
+  // Add workspace_dir column to sessions (SQLite has no IF NOT EXISTS for ADD COLUMN)
+  try {
+    db.exec("ALTER TABLE sessions ADD COLUMN workspace_dir TEXT");
+  } catch {
+    // Column already exists
+  }
 }
 
 export function getDb(): Database.Database {

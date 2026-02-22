@@ -61,9 +61,13 @@ export function App() {
         case "skill_end":
           useSkillsStore.getState().clearActiveSkill();
           break;
-        case "files_changed":
-          api.files.list().then(useFilesStore.getState().setEntries).catch(console.error);
+        case "files_changed": {
+          const currentSessionId = useSessionStore.getState().sessionId;
+          if (currentSessionId) {
+            api.files.list(currentSessionId).then(useFilesStore.getState().setEntries).catch(console.error);
+          }
           break;
+        }
         case "error":
           setError(event.message);
           setStreaming(false);
@@ -115,10 +119,13 @@ export function App() {
       .catch(console.error);
   }, []);
 
-  // Select a session and load its message history
+  // Select a session and load its message history + files
   const selectSession = useCallback(
     (id: string) => {
       setSessionId(id);
+      // Clear file state and reload for the new session
+      useFilesStore.getState().clearAll();
+      api.files.list(id).then(useFilesStore.getState().setEntries).catch(console.error);
       api.sessions.get(id).then((data) => {
         if (data.messages && data.messages.length > 0) {
           useSessionStore.getState().setMessages(

@@ -12,13 +12,22 @@ import { createWriteStream } from "fs";
 import { pipeline } from "stream/promises";
 import { parseCSVLine } from "../utils/csv.js";
 import { safePath } from "../utils/safe-path.js";
+import { getSessionById } from "../db/session-store.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
-/** Resolve the per-user working directory */
-function workDir(req: FastifyRequest): string {
-  const userId = req.user?.id ?? "default";
-  return resolve(DATA_ROOT, "workspaces", userId);
+/** Resolve the session-scoped working directory */
+function workDir(req: FastifyRequest): { dir: string } | { error: string; code: number } {
+  const sessionId = (req.query as Record<string, string>).sessionId;
+  if (!sessionId) {
+    return { error: "sessionId query parameter is required", code: 400 };
+  }
+  const userId = req.user?.id;
+  const session = getSessionById(sessionId, userId);
+  if (!session) {
+    return { error: "Session not found", code: 404 };
+  }
+  return { dir: resolve(DATA_ROOT, "workspaces", session.workspaceDir) };
 }
 
 /** File entry returned by the tree endpoint */
@@ -98,15 +107,19 @@ function mimeType(filePath: string): string {
 
 export const fileRoutes: FastifyPluginAsync = async (app) => {
   // GET /api/files — list file tree
-  app.get("/files", async (req) => {
-    const wd = workDir(req);
+  app.get("/files", async (req, reply) => {
+    const result = workDir(req);
+    if ("error" in result) return reply.code(result.code).send({ error: result.error });
+    const wd = result.dir;
     await mkdir(wd, { recursive: true });
     return listTree(wd, wd);
   });
 
   // POST /api/files/upload — multipart file upload
   app.post("/files/upload", async (req, reply) => {
-    const wd = workDir(req);
+    const result = workDir(req);
+    if ("error" in result) return reply.code(result.code).send({ error: result.error });
+    const wd = result.dir;
     await mkdir(wd, { recursive: true });
     const parts = req.parts();
     const uploaded: string[] = [];
@@ -135,7 +148,9 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/files/* — download file
   app.get("/files/*", async (req, reply) => {
-    const wd = workDir(req);
+    const result = workDir(req);
+    if ("error" in result) return reply.code(result.code).send({ error: result.error });
+    const wd = result.dir;
     const filePath = (req.params as { "*": string })["*"];
 
     if (filePath.endsWith("/preview")) {
@@ -162,7 +177,9 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
 
   // PUT /api/files/* — save file content (from editor)
   app.put("/files/*", async (req, reply) => {
-    const wd = workDir(req);
+    const result = workDir(req);
+    if ("error" in result) return reply.code(result.code).send({ error: result.error });
+    const wd = result.dir;
     const filePath = (req.params as { "*": string })["*"];
     const resolved = safeWorkPath(filePath, wd);
     if (!resolved) {
@@ -198,7 +215,9 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /api/files/* — delete file
   app.delete("/files/*", async (req, reply) => {
-    const wd = workDir(req);
+    const result = workDir(req);
+    if ("error" in result) return reply.code(result.code).send({ error: result.error });
+    const wd = result.dir;
     const filePath = (req.params as { "*": string })["*"];
     const resolved = safeWorkPath(filePath, wd);
     if (!resolved) {
@@ -215,7 +234,9 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/files-preview/* — preview data (CSV→JSON rows, text snippet)
   app.get("/files-preview/*", async (req, reply) => {
-    const wd = workDir(req);
+    const result = workDir(req);
+    if ("error" in result) return reply.code(result.code).send({ error: result.error });
+    const wd = result.dir;
     const filePath = (req.params as { "*": string })["*"];
     const resolved = safeWorkPath(filePath, wd);
     if (!resolved) {
@@ -244,11 +265,13 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
       }
 
       if ([".png", ".jpg", ".jpeg", ".gif", ".svg"].includes(ext)) {
-        return { type: "image", url: `/api/files/${filePath}` };
+        const sessionId = (req.query as Record<string, string>).sessionId;
+        return { type: "image", url: `/api/files/${filePath}?sessionId=${sessionId}` };
       }
 
       if (ext === ".pdf") {
-        return { type: "pdf", url: `/api/files/${filePath}` };
+        const sessionId = (req.query as Record<string, string>).sessionId;
+        return { type: "pdf", url: `/api/files/${filePath}?sessionId=${sessionId}` };
       }
 
       return { type: "binary", message: "Preview not available for this file type" };

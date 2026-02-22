@@ -101,15 +101,16 @@ export const mcpRoutes: FastifyPluginAsync = async (app) => {
 function syncAllWorkspaces() {
   const workspacesDir = resolve(DATA_ROOT, "workspaces");
   try {
-    const entries = readdirSync(workspacesDir);
-    for (const entry of entries) {
-      const full = resolve(workspacesDir, entry);
+    // Structure: workspaces/{sessionId}/workspace/
+    const sessionDirs = readdirSync(workspacesDir);
+    for (const sessionDir of sessionDirs) {
+      const wsPath = resolve(workspacesDir, sessionDir, "workspace");
       try {
-        if (statSync(full).isDirectory()) {
-          writeMcpConfig(full);
+        if (statSync(wsPath).isDirectory()) {
+          writeMcpConfig(wsPath);
         }
       } catch {
-        // skip
+        // skip — workspace subdir may not exist yet
       }
     }
   } catch {

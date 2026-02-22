@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useFilesStore, type SaveStatus } from "../../stores/files";
+import { useSessionStore } from "../../stores/session";
 import { api } from "../../api/client";
 import { CodeEditor } from "./editors/CodeEditor";
 import { MarkdownEditor } from "./editors/MarkdownEditor";
@@ -20,17 +21,20 @@ export function FileEditorPane({ onBack, onRefresh }: FileEditorPaneProps) {
   const openFile = useFilesStore((s) => s.openFile);
   const saveStatus = useFilesStore((s) => s.saveStatus);
   const updateContent = useFilesStore((s) => s.updateOpenFileContent);
+  const sessionId = useSessionStore((s) => s.sessionId);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const save = useCallback(async () => {
     const file = useFilesStore.getState().openFile;
-    if (!file || !file.dirty) return;
+    const sid = useSessionStore.getState().sessionId;
+    if (!file || !file.dirty || !sid) return;
 
     useFilesStore.getState().setSaveStatus("saving");
     try {
       const result = await api.files.save(
         file.path,
         file.content,
+        sid,
         file.lastModified,
       );
       useFilesStore.getState().markSaved(result.modified);
@@ -99,7 +103,7 @@ export function FileEditorPane({ onBack, onRefresh }: FileEditorPaneProps) {
         <span className="text-xs font-medium truncate flex-1">{fileName}</span>
         <SaveIndicator status={saveStatus} />
         <a
-          href={api.files.download(openFile.path)}
+          href={sessionId ? api.files.download(openFile.path, sessionId) : "#"}
           download
           className="text-[10px] text-primary hover:underline"
         >
@@ -109,11 +113,11 @@ export function FileEditorPane({ onBack, onRefresh }: FileEditorPaneProps) {
 
       {/* Editor/viewer area */}
       <div className="flex-1 overflow-hidden">
-        {isImage(ext) && (
-          <ImageViewer url={api.files.download(openFile.path)} />
+        {isImage(ext) && sessionId && (
+          <ImageViewer url={api.files.download(openFile.path, sessionId)} />
         )}
-        {ext === "pdf" && (
-          <PdfViewer url={api.files.download(openFile.path)} />
+        {ext === "pdf" && sessionId && (
+          <PdfViewer url={api.files.download(openFile.path, sessionId)} />
         )}
         {ext === "csv" && (
           <CsvEditor content={openFile.content} onChange={handleChange} />

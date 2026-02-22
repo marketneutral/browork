@@ -24,6 +24,7 @@ interface FilesState {
   uploadProgress: number;
 
   // Actions
+  clearAll: () => void;
   setEntries: (entries: FileEntry[]) => void;
   selectFile: (path: string | null) => void;
   openFileForEdit: (path: string, content: string, lastModified: string) => void;
@@ -41,6 +42,16 @@ export const useFilesStore = create<FilesState>((set) => ({
   saveStatus: "idle",
   uploading: false,
   uploadProgress: 0,
+
+  clearAll: () =>
+    set({
+      entries: [],
+      selectedFile: null,
+      openFile: null,
+      saveStatus: "idle",
+      uploading: false,
+      uploadProgress: 0,
+    }),
 
   setEntries: (entries) => set({ entries }),
 

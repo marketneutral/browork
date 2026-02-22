@@ -4,7 +4,7 @@ import { createPiSession, getSession } from "../services/pi-session.js";
 import type { BroworkCommand } from "../services/pi-session.js";
 import { subscribeWsToFileChanges } from "../services/file-watcher.js";
 import { expandSkillPrompt, getSkill } from "../services/skill-manager.js";
-import { addMessage } from "../db/session-store.js";
+import { addMessage, getSessionById } from "../db/session-store.js";
 import { resolve } from "path";
 import { mkdirSync } from "fs";
 
@@ -17,9 +17,16 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
     async (socket, req) => {
       const { id } = req.params as { id: string };
 
-      // Per-user working directory (falls back to "default" if no auth)
-      const userId = req.user?.id ?? "default";
-      const workDir = resolve(DATA_ROOT, "workspaces", userId);
+      // Per-session working directory
+      const userId = req.user?.id;
+      const sessionMeta = getSessionById(id, userId);
+      if (!sessionMeta) {
+        app.log.warn({ sessionId: id }, "WebSocket: session not found");
+        socket.send(JSON.stringify({ type: "error", message: "Session not found" }));
+        socket.close();
+        return;
+      }
+      const workDir = resolve(DATA_ROOT, "workspaces", sessionMeta.workspaceDir);
       mkdirSync(workDir, { recursive: true });
 
       app.log.info({ sessionId: id }, "WebSocket connected");

@@ -62,15 +62,25 @@ export class FileWatcher {
   }
 }
 
-// Singleton watcher per workspace (for now just default workspace)
-let defaultWatcher: FileWatcher | null = null;
+// Per-directory watcher map
+const watchers = new Map<string, FileWatcher>();
 
 export function getFileWatcher(watchDir: string): FileWatcher {
-  if (!defaultWatcher) {
-    defaultWatcher = new FileWatcher(watchDir);
-    defaultWatcher.start();
+  let watcher = watchers.get(watchDir);
+  if (!watcher) {
+    watcher = new FileWatcher(watchDir);
+    watcher.start();
+    watchers.set(watchDir, watcher);
   }
-  return defaultWatcher;
+  return watcher;
+}
+
+export async function removeFileWatcher(watchDir: string): Promise<void> {
+  const watcher = watchers.get(watchDir);
+  if (watcher) {
+    await watcher.stop();
+    watchers.delete(watchDir);
+  }
 }
 
 /**

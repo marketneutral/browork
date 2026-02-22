@@ -11,6 +11,7 @@ export interface SessionRow {
   created_at: string;
   updated_at: string;
   forked_from: string | null;
+  workspace_dir: string | null;
 }
 
 export interface SessionMeta {
@@ -20,6 +21,7 @@ export interface SessionMeta {
   updatedAt: string;
   lastMessage: string | null;
   forkedFrom: string | null;
+  workspaceDir: string;
 }
 
 export interface MessageRow {
@@ -35,12 +37,13 @@ export interface MessageRow {
 export function createSession(id: string, name: string, userId?: string): SessionMeta {
   const db = getDb();
   const now = new Date().toISOString();
+  const workspaceDir = `${id}/workspace`;
 
   db.prepare(
-    "INSERT INTO sessions (id, user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-  ).run(id, userId ?? null, name, now, now);
+    "INSERT INTO sessions (id, user_id, name, created_at, updated_at, workspace_dir) VALUES (?, ?, ?, ?, ?, ?)",
+  ).run(id, userId ?? null, name, now, now, workspaceDir);
 
-  return { id, name, createdAt: now, updatedAt: now, lastMessage: null, forkedFrom: null };
+  return { id, name, createdAt: now, updatedAt: now, lastMessage: null, forkedFrom: null, workspaceDir };
 }
 
 export function getSessionById(id: string, userId?: string): SessionMeta | undefined {
@@ -65,6 +68,7 @@ export function getSessionById(id: string, userId?: string): SessionMeta | undef
     updatedAt: row.updated_at,
     lastMessage: lastMsg ? truncate(lastMsg.content, 100) : null,
     forkedFrom: row.forked_from,
+    workspaceDir: row.workspace_dir ?? `${row.id}/workspace`,
   };
 }
 
@@ -100,6 +104,7 @@ export function listSessions(userId?: string): SessionMeta[] {
     updatedAt: row.updated_at,
     lastMessage: lastMessages.get(row.id) ?? null,
     forkedFrom: row.forked_from,
+    workspaceDir: row.workspace_dir ?? `${row.id}/workspace`,
   }));
 }
 
@@ -143,11 +148,12 @@ export function forkSession(
   if (!source) return undefined;
 
   const now = new Date().toISOString();
+  const workspaceDir = `${newId}/workspace`;
 
   // Create forked session
   db.prepare(
-    "INSERT INTO sessions (id, user_id, name, created_at, updated_at, forked_from) VALUES (?, ?, ?, ?, ?, ?)",
-  ).run(newId, userId ?? null, newName, now, now, sourceId);
+    "INSERT INTO sessions (id, user_id, name, created_at, updated_at, forked_from, workspace_dir) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).run(newId, userId ?? null, newName, now, now, sourceId, workspaceDir);
 
   // Copy all messages from source to fork
   db.prepare(`
@@ -159,6 +165,14 @@ export function forkSession(
   `).run(newId, sourceId);
 
   return getSessionById(newId);
+}
+
+export function getSessionWorkspaceDir(sessionId: string): string | null {
+  const db = getDb();
+  const row = db.prepare("SELECT workspace_dir FROM sessions WHERE id = ?").get(sessionId) as
+    { workspace_dir: string | null } | undefined;
+  if (!row) return null;
+  return row.workspace_dir ?? `${sessionId}/workspace`;
 }
 
 // ── Messages ──
