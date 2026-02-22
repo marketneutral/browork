@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuthStore } from "../../stores/auth";
 import { LoginPage } from "./LoginPage";
+import { APP_NAME } from "../../config";
 
 interface AuthGateProps {
   children: React.ReactNode;
@@ -55,7 +56,7 @@ export function AuthGate({ children }: AuthGateProps) {
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <h1 className="text-3xl text-gradient animate-pulse" style={{ fontFamily: "var(--font-display)" }}>Browork</h1>
+        <h1 className="text-3xl text-gradient animate-pulse" style={{ fontFamily: "var(--font-display)" }}>{APP_NAME}</h1>
       </div>
     );
   }

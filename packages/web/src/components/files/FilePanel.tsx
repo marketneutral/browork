@@ -5,7 +5,7 @@ import { useFilesStore } from "../../stores/files";
 import { useSessionStore } from "../../stores/session";
 import { useAuthStore } from "../../stores/auth";
 import { api } from "../../api/client";
-import { FileTree } from "./FileTree";
+import { FileTree, FileIcon } from "./FileTree";
 import { FileEditorPane } from "./FileEditorPane";
 import { DropZone, type FileWithPath } from "./DropZone";
 
@@ -247,6 +247,28 @@ export function FilePanel() {
     [refresh, sessionId, handleFileSelect],
   );
 
+  const handleDownload = useCallback(
+    async (path: string) => {
+      if (!sessionId) return;
+      try {
+        const token = useAuthStore.getState().token;
+        const res = await fetch(api.files.download(path, sessionId), {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = path.split("/").pop() || path;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch (err) {
+        console.error("Download failed:", err);
+      }
+    },
+    [sessionId],
+  );
+
   const handleExportZip = useCallback(async () => {
     if (!sessionId) return;
     try {
@@ -325,9 +347,7 @@ export function FilePanel() {
 
       {creatingIn && (
         <div className="px-3 py-2 border-b border-border flex items-center gap-2">
-          <span className="text-xs shrink-0">
-            {creatingIn.type === "folder" ? "\u{1F4C1}" : "\u{1F4C4}"}
-          </span>
+          <FileIcon name={creatingIn.type === "folder" ? "" : "file"} isDir={creatingIn.type === "folder"} />
           <InlineNameInput
             placeholder={creatingIn.type === "folder" ? "folder name" : "file name"}
             onSubmit={handleCreateSubmit}
@@ -373,6 +393,7 @@ export function FilePanel() {
             onSelect={handleFileSelect}
             onDelete={handleDelete}
             onDeleteDir={handleDeleteDir}
+            onDownload={handleDownload}
             onUploadToFolder={handleUploadToFolder}
             onCreateFolder={handleCreateFolder}
             onCreateFile={handleCreateFile}

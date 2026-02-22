@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { SessionSkeleton } from "../ui/Skeleton";
 import type { ConnectionStatus } from "../../hooks/useWebSocket";
+import { APP_NAME } from "../../config";
 
 interface SessionSidebarProps {
   connectionStatus: ConnectionStatus;
@@ -57,7 +58,7 @@ export function SessionSidebar({
     }`}>
       {/* Header */}
       <div className="p-4 border-b border-border flex items-center justify-between">
-        <h1 className="text-xl text-gradient" style={{ fontFamily: "var(--font-display)" }}>Browork</h1>
+        <h1 className="text-xl text-gradient" style={{ fontFamily: "var(--font-display)" }}>{APP_NAME}</h1>
         <div className="flex items-center gap-0.5">
           <button
             onClick={onNewSession}

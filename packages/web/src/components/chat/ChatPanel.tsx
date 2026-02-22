@@ -8,6 +8,7 @@ import { ToolCallCard } from "./ToolCallCard";
 import { SkillsBar } from "./SkillsBar";
 import { SkillBadge } from "./SkillBadge";
 import { Sparkles, FileSpreadsheet, BarChart3, Merge } from "lucide-react";
+import { APP_NAME } from "../../config";
 
 type TimelineItem =
   | { kind: "message"; data: ChatMessage }
@@ -83,7 +84,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
         {messages.length === 0 && !currentText && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center max-w-lg mx-auto">
-              <h2 className="text-4xl text-gradient mb-3 animate-fade-in-up" style={{ fontFamily: "var(--font-display)" }}>Welcome to Browork</h2>
+              <h2 className="text-4xl text-gradient mb-3 animate-fade-in-up" style={{ fontFamily: "var(--font-display)" }}>{`Welcome to ${APP_NAME}`}</h2>
               <p className="text-sm text-foreground-secondary mb-8 animate-fade-in-up stagger-1">
                 Your AI-powered analyst. Upload data, run workflows, get insights.
               </p>

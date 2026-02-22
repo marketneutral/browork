@@ -12,10 +12,10 @@ import {
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const darkTheme = themeQuartz.withParams({
-  backgroundColor: "#1a1a2e",
-  foregroundColor: "#e0e0e0",
-  headerBackgroundColor: "#16162a",
-  borderColor: "#2a2a4a",
+  backgroundColor: "#1a1a19",
+  foregroundColor: "#faf9f5",
+  headerBackgroundColor: "#1c1b1a",
+  borderColor: "#2a2926",
   rowHoverColor: "#ffffff10",
 });
 

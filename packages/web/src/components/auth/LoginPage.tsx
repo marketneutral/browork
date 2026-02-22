@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../../api/client";
 import { useAuthStore } from "../../stores/auth";
 import { LogIn, UserPlus } from "lucide-react";
+import { APP_NAME } from "../../config";
 
 export function LoginPage() {
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -38,15 +39,10 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
-      {/* Animated gradient orbs */}
-      <div className="absolute top-1/4 -left-32 w-[500px] h-[500px] rounded-full bg-accent-start/20 blur-[150px] pointer-events-none animate-float animate-gradient-shift" />
-      <div className="absolute bottom-1/4 -right-32 w-[400px] h-[400px] rounded-full bg-accent-end/15 blur-[130px] pointer-events-none animate-float-slow animate-gradient-shift" />
-      <div className="absolute top-1/2 left-1/3 w-[300px] h-[300px] rounded-full bg-accent-mid/12 blur-[120px] pointer-events-none animate-float-slower animate-gradient-shift" />
-
       <div className="w-full max-w-sm mx-4 relative z-10">
         <div className="text-center mb-8">
           <h1 className="text-5xl text-gradient animate-fade-in-up" style={{ fontFamily: "var(--font-display)" }}>
-            Browork
+            {APP_NAME}
           </h1>
           <p className="text-sm text-foreground-secondary mt-2 animate-fade-in-up stagger-1">
             AI-powered data analysis for your team
@@ -55,7 +51,7 @@ export function LoginPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="glass-strong glow-accent rounded-[var(--radius-lg)] p-6 space-y-4 animate-fade-in-up stagger-2"
+          className="bg-background-tertiary border border-border rounded-[var(--radius-lg)] p-6 space-y-4 animate-fade-in-up stagger-2"
         >
           <h2 className="text-lg font-semibold text-center">
             {mode === "login" ? "Sign In" : "Create Account"}

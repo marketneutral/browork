@@ -111,7 +111,7 @@ async function main() {
   await app.register(sessionStreamHandler);
 
   await app.listen({ port: PORT, host: HOST });
-  console.log(`Browork server listening on http://${HOST}:${PORT}`);
+  console.log(`Server listening on http://${HOST}:${PORT}`);
 }
 
 main().catch((err) => {

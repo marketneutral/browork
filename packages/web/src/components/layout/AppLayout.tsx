@@ -5,6 +5,7 @@ import { SessionSidebar } from "./SessionSidebar";
 import { McpSettings } from "../settings/McpSettings";
 import { Menu, FolderOpen, PanelLeftOpen } from "lucide-react";
 import type { ConnectionStatus } from "../../hooks/useWebSocket";
+import { APP_NAME } from "../../config";
 
 interface AppLayoutProps {
   connectionStatus: ConnectionStatus;
@@ -69,12 +70,8 @@ export function AppLayout({
 
   return (
     <div className="flex h-screen overflow-hidden bg-background relative">
-      {/* Atmospheric gradient orbs */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-accent-start/20 blur-[150px] animate-float" />
-        <div className="absolute -bottom-32 -right-32 w-[400px] h-[400px] rounded-full bg-accent-end/15 blur-[130px] animate-float-slow" />
-        <div className="absolute top-1/3 right-1/4 w-[300px] h-[300px] rounded-full bg-accent-mid/12 blur-[120px] animate-float-slower" />
-      </div>
+      {/* Subtle warm gradient backdrop */}
+      <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-[#1a1917] to-[#141413]" />
 
       {/* Sessions sidebar */}
       <SessionSidebar
@@ -114,7 +111,7 @@ export function AppLayout({
           >
             {sidebarCollapsed ? <PanelLeftOpen size={20} /> : <Menu size={20} />}
           </button>
-          <span className="text-lg font-medium truncate flex-1 text-gradient" style={{ fontFamily: "var(--font-display)" }}>Browork</span>
+          <span className="text-lg font-medium truncate flex-1 text-gradient" style={{ fontFamily: "var(--font-display)" }}>{APP_NAME}</span>
           <button
             onClick={() => setFilesPanelOpen((v) => !v)}
             className="p-1.5 rounded-md hover:bg-surface-glass-hover text-muted-foreground lg:hidden"
@@ -137,7 +134,7 @@ export function AppLayout({
             title="Drag to resize"
           />
           <aside
-            className="shrink-0 bg-background-secondary max-lg:hidden lg:block"
+            className="shrink-0 bg-background-secondary max-lg:hidden lg:block relative z-10"
             style={{ width: filesPanelWidth }}
           >
             <FilePanel />

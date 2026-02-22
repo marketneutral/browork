@@ -7,6 +7,15 @@ import {
   FilePlus,
   Upload,
   Trash2,
+  Folder,
+  File,
+  FileText,
+  FileCode,
+  Table,
+  Braces,
+  Image,
+  Code,
+  Download,
 } from "lucide-react";
 import type { FileEntry } from "../../stores/files";
 
@@ -24,6 +33,7 @@ interface FileTreeProps {
   onSelect: (path: string) => void;
   onDelete: (path: string) => void;
   onDeleteDir: (path: string) => void;
+  onDownload: (path: string) => void;
   onUploadToFolder: (parentPath: string) => void;
   onCreateFolder: (parentPath: string) => void;
   onCreateFile: (parentPath: string) => void;
@@ -37,6 +47,7 @@ export function FileTree({
   onSelect,
   onDelete,
   onDeleteDir,
+  onDownload,
   onUploadToFolder,
   onCreateFolder,
   onCreateFile,
@@ -103,6 +114,7 @@ export function FileTree({
         onSelect={onSelect}
         onDelete={onDelete}
         onDeleteDir={onDeleteDir}
+        onDownload={onDownload}
         onUploadToFolder={onUploadToFolder}
         onCreateFolder={onCreateFolder}
         onCreateFile={onCreateFile}
@@ -122,6 +134,7 @@ function AutoSizedTree({
   onSelect,
   onDelete,
   onDeleteDir,
+  onDownload,
   onUploadToFolder,
   onCreateFolder,
   onCreateFile,
@@ -135,6 +148,7 @@ function AutoSizedTree({
   onSelect: (path: string) => void;
   onDelete: (path: string) => void;
   onDeleteDir: (path: string) => void;
+  onDownload: (path: string) => void;
   onUploadToFolder: (parentPath: string) => void;
   onCreateFolder: (parentPath: string) => void;
   onCreateFile: (parentPath: string) => void;
@@ -170,6 +184,7 @@ function AutoSizedTree({
           onSelect={onSelect}
           onDelete={onDelete}
           onDeleteDir={onDeleteDir}
+          onDownload={onDownload}
           onUploadToFolder={onUploadToFolder}
           onCreateFolder={onCreateFolder}
           onCreateFile={onCreateFile}
@@ -186,6 +201,7 @@ function Node({
   onSelect,
   onDelete,
   onDeleteDir,
+  onDownload,
   onUploadToFolder,
   onCreateFolder,
   onCreateFile,
@@ -193,6 +209,7 @@ function Node({
   onSelect: (path: string) => void;
   onDelete: (path: string) => void;
   onDeleteDir: (path: string) => void;
+  onDownload: (path: string) => void;
   onUploadToFolder: (parentPath: string) => void;
   onCreateFolder: (parentPath: string) => void;
   onCreateFile: (parentPath: string) => void;
@@ -286,9 +303,7 @@ function Node({
         />
       ) : (
         <>
-          <span className="text-xs shrink-0">
-            {isDir ? "\u{1F4C1}" : fileIcon(data.name)}
-          </span>
+          <FileIcon name={data.name} isDir={isDir} />
           <span className="truncate flex-1 text-xs">{data.name}</span>
           {!isDir && (
             <span className="text-[10px] text-muted-foreground shrink-0">
@@ -340,16 +355,28 @@ function Node({
             </span>
           )}
           {!isDir && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setConfirming(true);
-              }}
-              className="p-0.5 text-destructive opacity-0 group-hover:opacity-100 shrink-0"
-              title="Delete"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
+            <span className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDownload(data.path);
+                }}
+                className="p-0.5 text-muted-foreground hover:text-foreground"
+                title="Download"
+              >
+                <Download className="w-3 h-3" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setConfirming(true);
+                }}
+                className="p-0.5 text-destructive hover:text-destructive"
+                title="Delete"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </span>
           )}
         </>
       )}
@@ -448,29 +475,52 @@ function buildTree(entries: FileEntry[]): TreeNode[] {
   return roots;
 }
 
-function fileIcon(name: string): string {
+const ICON_CLS = "w-3.5 h-3.5 shrink-0";
+
+export function FileIcon({ name, isDir }: { name: string; isDir?: boolean }) {
+  if (isDir) return <Folder className={`${ICON_CLS} text-amber-400/80`} />;
+
   const ext = name.split(".").pop()?.toLowerCase();
   switch (ext) {
     case "csv":
     case "xlsx":
     case "xls":
-      return "\u{1F4CA}";
+    case "tsv":
+      return <Table className={`${ICON_CLS} text-emerald-400/80`} />;
     case "json":
     case "yaml":
     case "yml":
-      return "\u{1F4CB}";
+    case "toml":
+    case "ini":
+      return <Braces className={`${ICON_CLS} text-sky-400/70`} />;
     case "md":
-      return "\u{1F4DD}";
+    case "mdx":
+      return <FileText className={`${ICON_CLS} text-violet-400/70`} />;
     case "png":
     case "jpg":
     case "jpeg":
     case "gif":
     case "svg":
-      return "\u{1F5BC}";
+    case "webp":
+      return <Image className={`${ICON_CLS} text-pink-400/70`} />;
     case "pdf":
-      return "\u{1F4C4}";
+      return <FileText className={`${ICON_CLS} text-red-400/70`} />;
+    case "py":
+    case "js":
+    case "ts":
+    case "tsx":
+    case "jsx":
+    case "sh":
+    case "sql":
+    case "css":
+    case "html":
+    case "xml":
+      return <FileCode className={`${ICON_CLS} text-cyan-400/70`} />;
+    case "txt":
+    case "log":
+      return <FileText className={`${ICON_CLS} text-foreground-tertiary`} />;
     default:
-      return "\u{1F4C4}";
+      return <File className={`${ICON_CLS} text-foreground-tertiary`} />;
   }
 }
 
