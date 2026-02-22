@@ -38,7 +38,7 @@ export function Composer({ onSend, disabled }: ComposerProps) {
 
   return (
     <div className="p-4">
-      <div className="glass rounded-[var(--radius-xl)] p-3 focus-within:shadow-[var(--glow-primary)] transition-shadow">
+      <div className="glass-strong rounded-[var(--radius-xl)] p-3 focus-glow transition-all focus-within:scale-[1.005]">
         <div className="flex gap-2 items-end">
           <textarea
             ref={textareaRef}

@@ -9,7 +9,7 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
   const isUser = message.role === "user";
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"} animate-fade-in-up`}>
       <div
         className={`max-w-[75%] rounded-lg px-4 py-2.5 text-sm leading-relaxed ${
           isUser

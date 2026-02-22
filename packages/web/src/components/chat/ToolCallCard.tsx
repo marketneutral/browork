@@ -28,7 +28,7 @@ export function ToolCallCard({ toolCall }: ToolCallCardProps) {
               : `Using ${toolCall.tool}...`;
 
   return (
-    <div className="flex justify-start">
+    <div className="flex justify-start animate-fade-in">
       <div className="glass rounded-[var(--radius)] px-3 py-2 text-xs text-[var(--foreground-secondary)] flex items-center gap-2">
         {toolCall.status === "running" && (
           <span className="w-3 h-3 border-2 border-[var(--primary)]/30 border-t-[var(--primary)] rounded-full animate-spin" />

@@ -43,8 +43,8 @@ export function McpSettings({ onClose }: McpSettingsProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-[var(--background-tertiary)] border border-[var(--border)] rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+      <div className="bg-[var(--background-tertiary)] border border-[var(--border)] rounded-[var(--radius-xl)] shadow-lg w-full max-w-2xl max-h-[80vh] flex flex-col animate-fade-in-up">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
           <div className="flex items-center gap-2">

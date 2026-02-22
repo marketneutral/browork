@@ -6,7 +6,7 @@
 export function Skeleton({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`animate-pulse bg-[var(--surface-glass)] rounded ${className}`}
+      className={`animate-shimmer rounded ${className}`}
       aria-hidden="true"
     />
   );

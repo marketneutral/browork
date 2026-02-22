@@ -34,7 +34,14 @@ export function AppLayout({
   const [filesPanelOpen, setFilesPanelOpen] = useState(true);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--background)]">
+    <div className="flex h-screen overflow-hidden bg-[var(--background)] relative">
+      {/* Atmospheric gradient orbs */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-[var(--accent-start)]/20 blur-[150px] animate-float" />
+        <div className="absolute -bottom-32 -right-32 w-[400px] h-[400px] rounded-full bg-[var(--accent-end)]/15 blur-[130px] animate-float-slow" />
+        <div className="absolute top-1/3 right-1/4 w-[300px] h-[300px] rounded-full bg-[var(--accent-mid)]/12 blur-[120px] animate-float-slower" />
+      </div>
+
       {/* Sessions sidebar */}
       <SessionSidebar
         connectionStatus={connectionStatus}
@@ -61,7 +68,7 @@ export function AppLayout({
       )}
 
       {/* Center: mobile header + chat */}
-      <main className="flex-1 flex flex-col min-w-0">
+      <main className="flex-1 flex flex-col min-w-0 relative z-10">
         {/* Mobile top bar — only shown when sidebar is collapsed on mobile */}
         <div className="md:hidden flex items-center gap-2 p-2 border-b border-[var(--border)] bg-[var(--background-secondary)]">
           <button
@@ -71,7 +78,7 @@ export function AppLayout({
           >
             <Menu size={20} />
           </button>
-          <span className="text-sm font-medium truncate flex-1 text-gradient">Browork</span>
+          <span className="text-lg font-medium truncate flex-1 text-gradient" style={{ fontFamily: "var(--font-display)" }}>Browork</span>
           <button
             onClick={() => setFilesPanelOpen((v) => !v)}
             className="p-1.5 rounded-md hover:bg-[var(--surface-glass-hover)] text-[var(--muted-foreground)] lg:hidden"

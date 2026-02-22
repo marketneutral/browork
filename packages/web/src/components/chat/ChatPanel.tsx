@@ -64,18 +64,22 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
         {messages.length === 0 && !currentText && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center max-w-lg mx-auto">
-              <h2 className="text-3xl font-bold text-gradient mb-3">Welcome to Browork</h2>
-              <p className="text-sm text-[var(--foreground-secondary)] mb-8">
+              <h2 className="text-4xl text-gradient mb-3 animate-fade-in-up" style={{ fontFamily: "var(--font-display)" }}>Welcome to Browork</h2>
+              <p className="text-sm text-[var(--foreground-secondary)] mb-8 animate-fade-in-up stagger-1">
                 Your AI-powered analyst. Upload data, run workflows, get insights.
               </p>
 
+              {/* Decorative gradient line */}
+              <div className="h-px w-24 mx-auto mb-8 bg-gradient-accent animate-fade-in stagger-2" />
+
               {/* Suggestion cards 2x2 grid */}
               <div className="grid grid-cols-2 gap-3 mb-6">
-                {SUGGESTIONS.map((s) => (
+                {SUGGESTIONS.map((s, i) => (
                   <button
                     key={s.title}
                     onClick={() => onSendMessage(s.prompt)}
-                    className="glass glass-hover rounded-[var(--radius-lg)] p-4 text-left transition-colors group"
+                    className="glass glass-hover hover-lift rounded-[var(--radius-lg)] p-5 text-left transition-all group animate-fade-in-up"
+                    style={{ animationDelay: `${0.1 + i * 0.05}s` }}
                   >
                     <s.icon size={18} className="text-[var(--primary)] mb-2 group-hover:text-[var(--primary-hover)] transition-colors" />
                     <div className="text-sm font-medium text-[var(--foreground)] mb-1">{s.title}</div>
@@ -84,7 +88,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
                 ))}
               </div>
 
-              <p className="text-xs text-[var(--foreground-tertiary)]">
+              <p className="text-xs text-[var(--foreground-tertiary)] animate-fade-in stagger-5">
                 Type a message or click a suggestion to get started
               </p>
             </div>

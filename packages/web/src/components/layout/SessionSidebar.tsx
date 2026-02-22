@@ -51,13 +51,13 @@ export function SessionSidebar({
     logout();
   };
 
-  if (collapsed) return null;
-
   return (
-    <aside className="w-64 shrink-0 border-r border-[var(--border)] bg-[var(--background-secondary)] flex flex-col max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:shadow-lg">
+    <aside className={`shrink-0 border-r bg-[var(--background-secondary)] flex flex-col max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:shadow-lg transition-all duration-300 ease-in-out overflow-hidden relative z-10 ${
+      collapsed ? "w-0 opacity-0 border-r-0" : "w-64 opacity-100 border-r-[var(--border)]"
+    }`}>
       {/* Header */}
       <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gradient">Browork</h1>
+        <h1 className="text-xl text-gradient" style={{ fontFamily: "var(--font-display)" }}>Browork</h1>
         <div className="flex items-center gap-0.5">
           <button
             onClick={onNewSession}

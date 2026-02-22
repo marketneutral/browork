@@ -38,23 +38,24 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--background)] relative overflow-hidden">
-      {/* Decorative gradient orbs */}
-      <div className="absolute top-1/4 -left-32 w-96 h-96 rounded-full bg-[var(--accent-start)]/20 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-32 w-96 h-96 rounded-full bg-[var(--accent-end)]/15 blur-[120px] pointer-events-none" />
+      {/* Animated gradient orbs */}
+      <div className="absolute top-1/4 -left-32 w-[500px] h-[500px] rounded-full bg-[var(--accent-start)]/20 blur-[150px] pointer-events-none animate-float animate-gradient-shift" />
+      <div className="absolute bottom-1/4 -right-32 w-[400px] h-[400px] rounded-full bg-[var(--accent-end)]/15 blur-[130px] pointer-events-none animate-float-slow animate-gradient-shift" />
+      <div className="absolute top-1/2 left-1/3 w-[300px] h-[300px] rounded-full bg-[var(--accent-mid)]/12 blur-[120px] pointer-events-none animate-float-slower animate-gradient-shift" />
 
       <div className="w-full max-w-sm mx-4 relative z-10">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gradient">
+          <h1 className="text-5xl text-gradient animate-fade-in-up" style={{ fontFamily: "var(--font-display)" }}>
             Browork
           </h1>
-          <p className="text-sm text-[var(--foreground-secondary)] mt-1">
+          <p className="text-sm text-[var(--foreground-secondary)] mt-2 animate-fade-in-up stagger-1">
             AI-powered data analysis for your team
           </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="glass glow-accent rounded-[var(--radius-lg)] p-6 space-y-4"
+          className="glass-strong glow-accent rounded-[var(--radius-lg)] p-6 space-y-4 animate-fade-in-up stagger-2"
         >
           <h2 className="text-lg font-semibold text-center">
             {mode === "login" ? "Sign In" : "Create Account"}
@@ -72,7 +73,7 @@ export function LoginPage() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-[var(--muted)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              className="w-full px-3 py-2.5 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--muted)] text-[var(--foreground)] text-sm focus:outline-none focus:shadow-[var(--glow-focus)] transition-shadow"
               placeholder="Enter username"
               required
               autoFocus
@@ -88,7 +89,7 @@ export function LoginPage() {
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-[var(--muted)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className="w-full px-3 py-2.5 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--muted)] text-[var(--foreground)] text-sm focus:outline-none focus:shadow-[var(--glow-focus)] transition-shadow"
                 placeholder="How others will see you"
               />
             </div>
@@ -100,7 +101,7 @@ export function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-[var(--muted)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              className="w-full px-3 py-2.5 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--muted)] text-[var(--foreground)] text-sm focus:outline-none focus:shadow-[var(--glow-focus)] transition-shadow"
               placeholder="Enter password"
               required
             />
