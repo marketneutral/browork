@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, type KeyboardEvent } from "react";
+import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from "react";
 
 interface ComposerProps {
   onSend: (text: string) => void;
@@ -9,15 +9,25 @@ export function Composer({ onSend, disabled }: ComposerProps) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Re-focus textarea when it becomes enabled again (e.g. after streaming ends)
+  useEffect(() => {
+    if (!disabled) {
+      textareaRef.current?.focus();
+    }
+  }, [disabled]);
+
   const handleSend = useCallback(() => {
     const trimmed = text.trim();
     if (!trimmed || disabled) return;
     onSend(trimmed);
     setText("");
-    // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
+    // Refocus after React re-render completes
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
   }, [text, disabled, onSend]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -38,7 +48,7 @@ export function Composer({ onSend, disabled }: ComposerProps) {
 
   return (
     <div className="p-4">
-      <div className="glass-strong rounded-[var(--radius-xl)] p-3 focus-glow transition-all focus-within:scale-[1.005]">
+      <div className="bg-background-tertiary border border-border rounded-[var(--radius-xl)] p-3 focus-glow transition-all">
         <div className="flex gap-2 items-end">
           <textarea
             ref={textareaRef}
@@ -54,6 +64,7 @@ export function Composer({ onSend, disabled }: ComposerProps) {
             className="flex-1 resize-none bg-transparent border-0 px-2 py-1.5 text-sm text-foreground placeholder:text-foreground-tertiary outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <button
+            onMouseDown={(e) => e.preventDefault()}
             onClick={handleSend}
             disabled={disabled || !text.trim()}
             className="rounded-[var(--radius)] bg-gradient-primary text-white px-4 py-2 text-sm font-medium hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
