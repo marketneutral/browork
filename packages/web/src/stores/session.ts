@@ -5,6 +5,7 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
+  seq: number;
 }
 
 export interface ToolCall {
@@ -13,6 +14,7 @@ export interface ToolCall {
   result?: unknown;
   isError?: boolean;
   status: "running" | "done";
+  seq: number;
 }
 
 export interface SessionListItem {
@@ -36,7 +38,7 @@ interface SessionState {
   // Actions
   setSessionId: (id: string | null) => void;
   setSessions: (sessions: SessionListItem[]) => void;
-  setMessages: (messages: ChatMessage[]) => void;
+  setMessages: (messages: Omit<ChatMessage, "seq">[]) => void;
   addUserMessage: (text: string) => void;
   appendAssistantDelta: (text: string) => void;
   finalizeAssistantMessage: () => void;
@@ -49,6 +51,7 @@ interface SessionState {
 }
 
 let msgCounter = 0;
+let seqCounter = 0;
 
 export const useSessionStore = create<SessionState>((set) => ({
   sessionId: null,
@@ -72,7 +75,11 @@ export const useSessionStore = create<SessionState>((set) => ({
 
   setSessions: (sessions) => set({ sessions }),
 
-  setMessages: (messages) => set({ messages }),
+  setMessages: (messages) => {
+    // Assign seq to loaded history so timeline ordering works
+    const seqd = messages.map((m) => ({ ...m, seq: ++seqCounter }));
+    set({ messages: seqd });
+  },
 
   addUserMessage: (text) =>
     set((s) => ({
@@ -83,6 +90,7 @@ export const useSessionStore = create<SessionState>((set) => ({
           role: "user",
           content: text,
           timestamp: Date.now(),
+          seq: ++seqCounter,
         },
       ],
     })),
@@ -101,6 +109,7 @@ export const useSessionStore = create<SessionState>((set) => ({
             role: "assistant",
             content: s.currentAssistantText,
             timestamp: Date.now(),
+            seq: ++seqCounter,
           },
         ],
         currentAssistantText: "",
@@ -113,7 +122,7 @@ export const useSessionStore = create<SessionState>((set) => ({
 
   addToolStart: (tool, args) =>
     set((s) => ({
-      activeToolCalls: [...s.activeToolCalls, { tool, args, status: "running" }],
+      activeToolCalls: [...s.activeToolCalls, { tool, args, status: "running", seq: ++seqCounter }],
     })),
 
   completeToolCall: (tool, result, isError) =>

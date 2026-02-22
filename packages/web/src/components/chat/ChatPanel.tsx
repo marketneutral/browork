@@ -1,5 +1,6 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo } from "react";
 import { useSessionStore } from "../../stores/session";
+import type { ChatMessage, ToolCall } from "../../stores/session";
 import { useSkillsStore } from "../../stores/skills";
 import { MessageBubble } from "./MessageBubble";
 import { Composer } from "./Composer";
@@ -7,6 +8,10 @@ import { ToolCallCard } from "./ToolCallCard";
 import { SkillsBar } from "./SkillsBar";
 import { SkillBadge } from "./SkillBadge";
 import { Sparkles, FileSpreadsheet, BarChart3, Merge } from "lucide-react";
+
+type TimelineItem =
+  | { kind: "message"; data: ChatMessage }
+  | { kind: "tool"; data: ToolCall; index: number };
 
 interface ChatPanelProps {
   onSendMessage: (text: string) => void;
@@ -49,13 +54,27 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
   const activeSkill = useSkillsStore((s) => s.activeSkill);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Merge messages and tool calls into a single timeline sorted by seq
+  const timeline = useMemo<TimelineItem[]>(() => {
+    const items: TimelineItem[] = [
+      ...messages.map((m): TimelineItem => ({ kind: "message", data: m })),
+      ...activeToolCalls.map((tc, i): TimelineItem => ({ kind: "tool", data: tc, index: i })),
+    ];
+    items.sort((a, b) => {
+      const seqA = a.kind === "message" ? a.data.seq : a.data.seq;
+      const seqB = b.kind === "message" ? b.data.seq : b.data.seq;
+      return seqA - seqB;
+    });
+    return items;
+  }, [messages, activeToolCalls]);
+
   // Auto-scroll to bottom on new content
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages, currentText]);
+  }, [messages, currentText, activeToolCalls]);
 
   return (
     <div className="flex flex-col h-full">
@@ -70,7 +89,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
               </p>
 
               {/* Decorative gradient line */}
-              <div className="h-px w-24 mx-auto mb-8 bg-gradient-accent animate-fade-in stagger-2" />
+              <div className="h-px w-24 mx-auto mb-8 bg-border animate-fade-in stagger-2" />
 
               {/* Suggestion cards 2x2 grid */}
               <div className="grid grid-cols-2 gap-3 mb-6">
@@ -95,21 +114,19 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
           </div>
         )}
 
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
-        ))}
+        {/* Unified timeline: messages and tool calls in sequence order */}
+        {timeline.map((item) =>
+          item.kind === "message" ? (
+            <MessageBubble key={item.data.id} message={item.data} />
+          ) : (
+            <ToolCallCard key={`tool-${item.index}`} toolCall={item.data} />
+          ),
+        )}
 
         {/* Active skill badge */}
         {activeSkill && (
           <SkillBadge skill={activeSkill.skill} label={activeSkill.label} />
         )}
-
-        {/* Active tool calls */}
-        {activeToolCalls
-          .filter((tc) => tc.status === "running")
-          .map((tc, i) => (
-            <ToolCallCard key={`tool-${i}`} toolCall={tc} />
-          ))}
 
         {/* Streaming assistant text */}
         {currentText && (
@@ -119,6 +136,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
               role: "assistant",
               content: currentText,
               timestamp: Date.now(),
+              seq: Infinity,
             }}
             isStreaming
           />
