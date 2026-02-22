@@ -7,6 +7,7 @@ import { css } from "@codemirror/lang-css";
 import { xml } from "@codemirror/lang-xml";
 import { sql } from "@codemirror/lang-sql";
 import { yaml } from "@codemirror/lang-yaml";
+import { tokyoNight } from "@uiw/codemirror-theme-tokyo-night";
 import { useMemo } from "react";
 
 interface CodeEditorProps {
@@ -45,6 +46,7 @@ export function CodeEditor({ content, onChange, language }: CodeEditorProps) {
       value={content}
       onChange={onChange}
       extensions={extensions}
+      theme={tokyoNight}
       height="100%"
       className="h-full text-sm"
       basicSetup={{

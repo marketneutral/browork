@@ -136,10 +136,10 @@ export function FileEditorPane({ onBack, onRefresh }: FileEditorPaneProps) {
 function SaveIndicator({ status }: { status: SaveStatus }) {
   const styles: Record<SaveStatus, { text: string; color: string }> = {
     idle: { text: "", color: "" },
-    saved: { text: "Saved", color: "text-green-600" },
-    saving: { text: "Saving...", color: "text-yellow-600" },
-    unsaved: { text: "Unsaved", color: "text-orange-500" },
-    conflict: { text: "Conflict!", color: "text-red-500" },
+    saved: { text: "Saved", color: "text-[var(--success)]" },
+    saving: { text: "Saving...", color: "text-[var(--warning)]" },
+    unsaved: { text: "Unsaved", color: "text-[var(--warning)]" },
+    conflict: { text: "Conflict!", color: "text-[var(--destructive)]" },
   };
   const s = styles[status];
   if (!s.text) return null;

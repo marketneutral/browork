@@ -34,7 +34,7 @@ export function AppLayout({
   const [filesPanelOpen, setFilesPanelOpen] = useState(true);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-[var(--background)]">
       {/* Sessions sidebar */}
       <SessionSidebar
         connectionStatus={connectionStatus}
@@ -55,7 +55,7 @@ export function AppLayout({
       {/* Backdrop for mobile sidebar */}
       {!sidebarCollapsed && (
         <div
-          className="md:hidden fixed inset-0 bg-black/30 z-30"
+          className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-30"
           onClick={() => setSidebarCollapsed(true)}
         />
       )}
@@ -63,18 +63,18 @@ export function AppLayout({
       {/* Center: mobile header + chat */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar — only shown when sidebar is collapsed on mobile */}
-        <div className="md:hidden flex items-center gap-2 p-2 border-b border-[var(--border)]">
+        <div className="md:hidden flex items-center gap-2 p-2 border-b border-[var(--border)] bg-[var(--background-secondary)]">
           <button
             onClick={() => setSidebarCollapsed(false)}
-            className="p-1.5 rounded-md hover:bg-[var(--accent)] text-[var(--muted-foreground)]"
+            className="p-1.5 rounded-md hover:bg-[var(--surface-glass-hover)] text-[var(--muted-foreground)]"
             title="Open sessions"
           >
             <Menu size={20} />
           </button>
-          <span className="text-sm font-medium truncate flex-1">Browork</span>
+          <span className="text-sm font-medium truncate flex-1 text-gradient">Browork</span>
           <button
             onClick={() => setFilesPanelOpen((v) => !v)}
-            className="p-1.5 rounded-md hover:bg-[var(--accent)] text-[var(--muted-foreground)] lg:hidden"
+            className="p-1.5 rounded-md hover:bg-[var(--surface-glass-hover)] text-[var(--muted-foreground)] lg:hidden"
             title="Toggle files"
           >
             <FolderOpen size={20} />
@@ -86,19 +86,19 @@ export function AppLayout({
 
       {/* File panel — hidden on mobile, togglable on tablet */}
       {filesPanelOpen && (
-        <aside className="w-80 shrink-0 border-l border-[var(--border)] bg-[var(--muted)] max-lg:hidden lg:block">
+        <aside className="w-80 shrink-0 border-l border-[var(--border)] bg-[var(--background-secondary)] max-lg:hidden lg:block">
           <FilePanel />
         </aside>
       )}
 
       {/* File panel overlay on tablet (when toggled via button) */}
       {filesPanelOpen && (
-        <aside className="lg:hidden max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:w-80 max-lg:shadow-lg max-lg:bg-[var(--muted)] max-lg:border-l max-lg:border-[var(--border)] hidden max-md:hidden md:max-lg:block">
+        <aside className="lg:hidden max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:w-80 max-lg:shadow-lg max-lg:bg-[var(--background-secondary)] max-lg:border-l max-lg:border-[var(--border)] hidden max-md:hidden md:max-lg:block">
           <div className="flex items-center justify-between p-2 border-b border-[var(--border)] md:hidden">
             <span className="text-sm font-medium">Files</span>
             <button
               onClick={() => setFilesPanelOpen(false)}
-              className="p-1 rounded-md hover:bg-[var(--accent)] text-[var(--muted-foreground)]"
+              className="p-1 rounded-md hover:bg-[var(--surface-glass-hover)] text-[var(--muted-foreground)]"
             >
               &times;
             </button>

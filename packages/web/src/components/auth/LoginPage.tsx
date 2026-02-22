@@ -37,38 +37,42 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
-      <div className="w-full max-w-sm mx-4">
+    <div className="min-h-screen flex items-center justify-center bg-[var(--background)] relative overflow-hidden">
+      {/* Decorative gradient orbs */}
+      <div className="absolute top-1/4 -left-32 w-96 h-96 rounded-full bg-[var(--accent-start)]/20 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-32 w-96 h-96 rounded-full bg-[var(--accent-end)]/15 blur-[120px] pointer-events-none" />
+
+      <div className="w-full max-w-sm mx-4 relative z-10">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-[var(--foreground)]">
+          <h1 className="text-3xl font-bold text-gradient">
             Browork
           </h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-1">
+          <p className="text-sm text-[var(--foreground-secondary)] mt-1">
             AI-powered data analysis for your team
           </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-6 space-y-4"
+          className="glass glow-accent rounded-[var(--radius-lg)] p-6 space-y-4"
         >
           <h2 className="text-lg font-semibold text-center">
             {mode === "login" ? "Sign In" : "Create Account"}
           </h2>
 
           {error && (
-            <div className="text-sm text-[var(--destructive)] bg-red-50 border border-red-200 rounded px-3 py-2">
+            <div className="text-sm text-[var(--destructive)] bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 rounded px-3 py-2">
               {error}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-1">Username</label>
+            <label className="block text-sm font-medium mb-1 text-[var(--foreground-secondary)]">Username</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-[var(--background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-[var(--muted)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               placeholder="Enter username"
               required
               autoFocus
@@ -77,26 +81,26 @@ export function LoginPage() {
 
           {mode === "register" && (
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className="block text-sm font-medium mb-1 text-[var(--foreground-secondary)]">
                 Display Name
               </label>
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-[var(--background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-[var(--muted)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 placeholder="How others will see you"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
+            <label className="block text-sm font-medium mb-1 text-[var(--foreground-secondary)]">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-[var(--background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-[var(--muted)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               placeholder="Enter password"
               required
             />
@@ -105,7 +109,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[var(--primary)] text-[var(--primary-foreground)] rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-primary text-white rounded-md text-sm font-medium hover:brightness-110 disabled:opacity-50 transition-all"
           >
             {mode === "login" ? (
               <>
@@ -118,7 +122,7 @@ export function LoginPage() {
             )}
           </button>
 
-          <div className="text-center text-sm text-[var(--muted-foreground)]">
+          <div className="text-center text-sm text-[var(--foreground-secondary)]">
             {mode === "login" ? (
               <>
                 Don't have an account?{" "}
@@ -128,7 +132,7 @@ export function LoginPage() {
                     setMode("register");
                     setError("");
                   }}
-                  className="text-[var(--primary)] hover:underline"
+                  className="text-[var(--primary)] hover:text-[var(--primary-hover)] hover:underline"
                 >
                   Register
                 </button>
@@ -142,7 +146,7 @@ export function LoginPage() {
                     setMode("login");
                     setError("");
                   }}
-                  className="text-[var(--primary)] hover:underline"
+                  className="text-[var(--primary)] hover:text-[var(--primary-hover)] hover:underline"
                 >
                   Sign in
                 </button>

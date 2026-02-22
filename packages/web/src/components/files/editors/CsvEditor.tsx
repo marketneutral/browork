@@ -54,7 +54,7 @@ export function CsvEditor({ content, onChange }: CsvEditorProps) {
   );
 
   return (
-    <div className="h-full w-full ag-theme-alpine" style={{ fontSize: "12px" }}>
+    <div className="h-full w-full ag-theme-alpine-dark" style={{ fontSize: "12px" }}>
       <AgGridReact
         ref={gridRef}
         columnDefs={columnDefs}

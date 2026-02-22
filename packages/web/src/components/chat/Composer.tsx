@@ -37,30 +37,32 @@ export function Composer({ onSend, disabled }: ComposerProps) {
   };
 
   return (
-    <div className="border-t border-[var(--border)] p-4">
-      <div className="flex gap-2 items-end">
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            handleInput();
-          }}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask me to analyze your data..."
-          disabled={disabled}
-          rows={1}
-          className="flex-1 resize-none rounded-lg border border-[var(--border)] bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] disabled:opacity-50 disabled:cursor-not-allowed"
-        />
-        <button
-          onClick={handleSend}
-          disabled={disabled || !text.trim()}
-          className="rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] px-4 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-        >
-          Send
-        </button>
+    <div className="p-4">
+      <div className="glass rounded-[var(--radius-xl)] p-3 focus-within:shadow-[var(--glow-primary)] transition-shadow">
+        <div className="flex gap-2 items-end">
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              handleInput();
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask me to analyze your data..."
+            disabled={disabled}
+            rows={1}
+            className="flex-1 resize-none bg-transparent border-0 px-2 py-1.5 text-sm text-[var(--foreground)] placeholder:text-[var(--foreground-tertiary)] outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+          <button
+            onClick={handleSend}
+            disabled={disabled || !text.trim()}
+            className="rounded-[var(--radius)] bg-gradient-primary text-white px-4 py-2 text-sm font-medium hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            Send
+          </button>
+        </div>
       </div>
-      <p className="mt-1.5 text-xs text-[var(--muted-foreground)]">
+      <p className="mt-1.5 text-xs text-[var(--foreground-tertiary)] px-1">
         Press Enter to send, Shift+Enter for a new line
       </p>
     </div>

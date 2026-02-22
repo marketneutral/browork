@@ -64,7 +64,7 @@ function TreeNodeRow({
   return (
     <>
       <div
-        className="flex items-center gap-1.5 py-1 px-1.5 rounded hover:bg-[var(--accent)] cursor-pointer group"
+        className="flex items-center gap-1.5 py-1 px-1.5 rounded hover:bg-[var(--surface-glass-hover)] cursor-pointer group"
         style={{ paddingLeft: `${depth * 16 + 6}px` }}
         onClick={() => !isDir && onSelect(node.path)}
       >

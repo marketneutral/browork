@@ -7,7 +7,7 @@ interface MarkdownEditorProps {
 
 export function MarkdownEditor({ content, onChange }: MarkdownEditorProps) {
   return (
-    <div className="h-full" data-color-mode="light">
+    <div className="h-full" data-color-mode="dark">
       <MDEditor
         value={content}
         onChange={(v) => onChange(v || "")}
