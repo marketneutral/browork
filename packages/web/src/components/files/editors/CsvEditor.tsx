@@ -1,6 +1,23 @@
 import { useMemo, useCallback, useRef } from "react";
 import { AgGridReact } from "ag-grid-react";
-import type { ColDef, CellValueChangedEvent } from "ag-grid-community";
+import {
+  type ColDef,
+  type CellValueChangedEvent,
+  AllCommunityModule,
+  ModuleRegistry,
+  themeQuartz,
+} from "ag-grid-community";
+
+// Register AG Grid modules (idempotent)
+ModuleRegistry.registerModules([AllCommunityModule]);
+
+const darkTheme = themeQuartz.withParams({
+  backgroundColor: "#1a1a2e",
+  foregroundColor: "#e0e0e0",
+  headerBackgroundColor: "#16162a",
+  borderColor: "#2a2a4a",
+  rowHoverColor: "#ffffff10",
+});
 
 interface CsvEditorProps {
   content: string;
@@ -54,13 +71,13 @@ export function CsvEditor({ content, onChange }: CsvEditorProps) {
   );
 
   return (
-    <div className="h-full w-full ag-theme-alpine-dark" style={{ fontSize: "12px" }}>
+    <div style={{ height: "100%", width: "100%" }}>
       <AgGridReact
         ref={gridRef}
+        theme={darkTheme}
         columnDefs={columnDefs}
         rowData={rowData}
         onCellValueChanged={handleCellChange}
-        domLayout="normal"
         getRowId={(params) => params.data.__rowIndex}
         defaultColDef={{
           flex: 1,
