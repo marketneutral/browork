@@ -20,15 +20,11 @@ describe("skill-manager", () => {
   describe("initSkills", () => {
     it("should discover all bundled skills", () => {
       const skills = listSkills();
-      expect(skills.length).toBe(6);
+      expect(skills.length).toBe(2);
       const names = skills.map((s) => s.name).sort();
       expect(names).toEqual([
         "chart-generator",
-        "data-cleaning",
-        "data-validation",
-        "excel-merge",
         "financial-report",
-        "pivot-table",
       ]);
     });
 
@@ -36,13 +32,13 @@ describe("skill-manager", () => {
       await initSkills([SKILLS_DIR], { globalSkillsDir: mkdtempSync(join(tmpdir(), "pi-skills-test-")) });
       // Should not duplicate — same dir scanned twice
       const skills = listSkills();
-      expect(skills.length).toBe(6);
+      expect(skills.length).toBe(2);
     });
 
     it("should ignore non-existent directories", async () => {
       await initSkills(["/tmp/nonexistent-skill-dir-12345"], { globalSkillsDir: mkdtempSync(join(tmpdir(), "pi-skills-test-")) });
       const skills = listSkills();
-      expect(skills.length).toBe(6);
+      expect(skills.length).toBe(2);
     });
   });
 
@@ -67,18 +63,18 @@ describe("skill-manager", () => {
 
   describe("getSkill", () => {
     it("should return full skill content", () => {
-      const skill = getSkill("data-cleaning");
+      const skill = getSkill("chart-generator");
       expect(skill).toBeDefined();
-      expect(skill!.name).toBe("data-cleaning");
-      expect(skill!.description).toContain("Clean and standardize");
-      expect(skill!.body).toContain("# Data Cleaning");
+      expect(skill!.name).toBe("chart-generator");
+      expect(skill!.description).toContain("charts and visualizations");
+      expect(skill!.body).toBeTruthy();
       expect(skill!.enabled).toBe(true);
     });
 
     it("should include dirPath", () => {
-      const skill = getSkill("data-cleaning");
+      const skill = getSkill("chart-generator");
       expect(skill).toBeDefined();
-      expect(skill!.dirPath).toContain("data-cleaning");
+      expect(skill!.dirPath).toContain("chart-generator");
       expect(existsSync(skill!.dirPath)).toBe(true);
     });
 
@@ -89,17 +85,17 @@ describe("skill-manager", () => {
 
   describe("setSkillEnabled", () => {
     it("should disable a skill", () => {
-      const result = setSkillEnabled("data-cleaning", false);
+      const result = setSkillEnabled("chart-generator", false);
       expect(result).toBeDefined();
       expect(result!.enabled).toBe(false);
 
-      const skill = getSkill("data-cleaning");
+      const skill = getSkill("chart-generator");
       expect(skill!.enabled).toBe(false);
     });
 
     it("should re-enable a skill", () => {
-      setSkillEnabled("data-cleaning", false);
-      const result = setSkillEnabled("data-cleaning", true);
+      setSkillEnabled("chart-generator", false);
+      const result = setSkillEnabled("chart-generator", true);
       expect(result!.enabled).toBe(true);
     });
 
@@ -133,11 +129,11 @@ describe("skill-manager", () => {
       }
     });
 
-    it("should create 6 symlinks", async () => {
+    it("should create 2 symlinks", async () => {
       await symlinkGlobalSkills(tempDir);
       const { readdirSync } = await import("fs");
       const entries = readdirSync(tempDir);
-      expect(entries.length).toBe(6);
+      expect(entries.length).toBe(2);
     });
 
     it("should be idempotent — re-running does not fail", async () => {
@@ -148,7 +144,7 @@ describe("skill-manager", () => {
 
     it("should replace stale symlinks", async () => {
       const { unlinkSync, symlinkSync } = await import("fs");
-      const stalePath = join(tempDir, "data-cleaning");
+      const stalePath = join(tempDir, "chart-generator");
       // Remove the correct symlink created by initSkills, replace with stale one
       unlinkSync(stalePath);
       symlinkSync("/tmp/stale-target", stalePath, "dir");
@@ -158,7 +154,7 @@ describe("skill-manager", () => {
 
       const target = readlinkSync(stalePath);
       expect(target).not.toBe("/tmp/stale-target");
-      expect(target).toContain("data-cleaning");
+      expect(target).toContain("chart-generator");
     });
 
     it("should create target directory if it does not exist", async () => {
@@ -170,16 +166,15 @@ describe("skill-manager", () => {
 
   describe("frontmatter parsing", () => {
     it("should parse name and description from skill files", () => {
-      const skill = getSkill("excel-merge");
+      const skill = getSkill("financial-report");
       expect(skill).toBeDefined();
-      expect(skill!.name).toBe("excel-merge");
-      expect(skill!.description).toContain("Merge multiple");
+      expect(skill!.name).toBe("financial-report");
+      expect(skill!.description).toContain("financial metrics");
     });
 
-    it("should handle multiline description in frontmatter", () => {
-      const skill = getSkill("data-cleaning");
+    it("should handle description from frontmatter", () => {
+      const skill = getSkill("chart-generator");
       expect(skill).toBeDefined();
-      // Description spans multiple lines in the YAML
       expect(skill!.description.length).toBeGreaterThan(20);
     });
   });

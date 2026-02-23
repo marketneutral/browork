@@ -68,13 +68,9 @@ browork/
 │   │       ├── utils/                # Testable utilities (CSV, safePath, events)
 │   │       ├── __tests__/            # Vitest tests (85 tests)
 │   │       └── ws/session-stream.ts  # WebSocket handler
-│   ├── skills/          # Bundled financial analyst workflow skills
-│   │   ├── data-cleaning/SKILL.md
-│   │   ├── excel-merge/SKILL.md
-│   │   ├── financial-report/SKILL.md
+│   ├── skills/          # Bundled workflow skills
 │   │   ├── chart-generator/SKILL.md
-│   │   ├── pivot-table/SKILL.md
-│   │   └── data-validation/SKILL.md
+│   │   └── financial-report/SKILL.md
 │   └── web/             # React frontend (Vite + Tailwind)
 │       └── src/
 │           ├── App.tsx               # Root component + WebSocket wiring
@@ -86,6 +82,28 @@ browork/
 │           └── stores/               # Zustand stores (session, files, skills)
 ├── package.json         # Workspace root
 └── tsconfig.base.json   # Shared TypeScript config
+```
+
+## Installing Skills
+
+Install individual skills from any remote repo that contains `<skill-name>/SKILL.md` directories:
+
+```bash
+npm run install-skill -- <repo-url> <skill-name>
+```
+
+For example, to install the `skill-creator` skill from Anthropic's skills repo:
+
+```bash
+npm run install-skill -- https://github.com/anthropics/skills skill-creator
+```
+
+This shallow-clones the repo, locates the skill directory (checking both `<name>/SKILL.md` and `skills/<name>/SKILL.md`), copies it to `~/.pi/agent/skills/<name>/`, and cleans up.
+
+To overwrite an already-installed skill, pass `--force`:
+
+```bash
+npm run install-skill -- https://github.com/anthropics/skills skill-creator --force
 ```
 
 ## Tests

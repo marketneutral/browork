@@ -18,6 +18,7 @@ npm run dev:web          # Frontend only (Vite dev server, proxies /api to :3001
 npm test                 # Run server-side Vitest tests (~167 tests)
 npm run build            # Build server (tsc) then web (tsc + vite build)
 npm run lint             # ESLint across all packages
+npm run install-skill -- <repo-url> <skill-name>  # Install a single skill from a remote repo
 ```
 
 Single test file: `npx vitest run packages/server/src/__tests__/safe-path.test.ts`
@@ -51,7 +52,7 @@ Watch mode: `npm run test:watch --workspace=packages/server`
 - **API client**: `src/api/client.ts` — centralized REST + WebSocket URL helpers
 
 ### `packages/skills` — Bundled workflow definitions
-Markdown files with YAML frontmatter (`SKILL.md`) for data-cleaning, excel-merge, financial-report, etc. At server startup, these are symlinked into `~/.pi/agent/skills/` so Pi's `DefaultResourceLoader` discovers them natively.
+Markdown files with YAML frontmatter (`SKILL.md`) for chart-generator, financial-report, etc. At server startup, these are symlinked into `~/.pi/agent/skills/` so Pi's `DefaultResourceLoader` discovers them natively. Additional skills can be installed from remote repos via `npm run install-skill`.
 
 ## Key Patterns
 

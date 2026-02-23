@@ -112,8 +112,14 @@ export async function initSkills(
     await scanSkillDirectory(dir);
   }
 
-  // Symlink discovered skills to Pi's global skills directory
+  // Symlink bundled skills to Pi's global skills directory
   await symlinkGlobalSkills(opts?.globalSkillsDir);
+
+  // Scan global skills dir to pick up externally-installed skills (e.g. via install-skill)
+  const globalDir = opts?.globalSkillsDir ?? GLOBAL_SKILLS_DIR;
+  if (existsSync(globalDir)) {
+    await scanSkillDirectory(globalDir);
+  }
 
   console.log(
     `Loaded ${skills.size} skills: ${Array.from(skills.keys()).join(", ")}`,
