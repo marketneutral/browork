@@ -27,8 +27,7 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
   app.post("/sessions", async (req) => {
     const userId = req.user?.id;
     const id = nanoid(12);
-    const sessions = listSessions(userId);
-    const session = createSession(id, `Session ${sessions.length + 1}`, userId);
+    const session = createSession(id, "Untitled Session", userId);
 
     // Write AGENTS.md into the workspace so Pi keeps intermediates out of sight
     const wsDir = resolve(DATA_ROOT, "workspaces", session.workspaceDir);
