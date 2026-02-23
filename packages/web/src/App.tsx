@@ -38,12 +38,14 @@ export function App() {
           setStreaming(true);
           break;
         case "message_delta":
+          if (!useSessionStore.getState().isStreaming) setStreaming(true);
           appendAssistantDelta(event.text);
           break;
         case "message_end":
           finalizeAssistantMessage();
           break;
         case "tool_start":
+          if (!useSessionStore.getState().isStreaming) setStreaming(true);
           addToolStart(event.tool, event.args);
           break;
         case "tool_end":
