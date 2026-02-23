@@ -8,6 +8,12 @@ declare module "@mariozechner/pi-coding-agent" {
     thinkingLevel?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
     extensions?: string[];
     customTools?: any[];
+    sessionManager?: any;
+  }
+
+  export class SessionManager {
+    static continueRecent(cwd: string): SessionManager;
+    static create(cwd: string): SessionManager;
   }
 
   export interface AgentSession {

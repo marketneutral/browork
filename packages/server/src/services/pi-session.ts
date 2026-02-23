@@ -101,6 +101,8 @@ export async function createPiSession(
     console.log(`[pi-session] registering custom tools: ${webTools.map((t) => t.name).join(", ")}`);
   }
 
+  const sessionManager = piSdk.SessionManager.continueRecent(workDir);
+
   const { session } = await piSdk.createAgentSession({
     cwd: workDir,
     model: piAi.getModel(
@@ -109,6 +111,7 @@ export async function createPiSession(
     ),
     thinkingLevel,
     customTools: webTools,
+    sessionManager,
   });
 
   // When sandbox is active, redirect bash execution into the Docker container.
