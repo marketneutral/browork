@@ -18,14 +18,16 @@
  */
 
 import { execSync, execFile, spawn } from "child_process";
-import { resolve } from "path";
+import { resolve, join } from "path";
+import { homedir } from "os";
 import type { BashOperations } from "@mariozechner/pi-coding-agent";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE || "opentowork-sandbox:latest";
 const SANDBOX_MEMORY = process.env.SANDBOX_MEMORY || "512m";
 const SANDBOX_CPUS = process.env.SANDBOX_CPUS || "1.0";
-const SANDBOX_NETWORK = process.env.SANDBOX_NETWORK || "none";
+const SANDBOX_NETWORK = process.env.SANDBOX_NETWORK || "bridge";
+const PI_SKILLS_DIR = process.env.PI_SKILLS_DIR || join(homedir(), ".pi", "agent", "skills");
 
 export interface SandboxInfo {
   userId: string;
@@ -329,6 +331,8 @@ function createContainer(userId: string): string {
     "--network", SANDBOX_NETWORK,
     // Mount entire workspaces root so all sessions are accessible
     "-v", `${workspacesRoot}:/workspaces`,
+    // Mount Pi skills so bash commands can access skill scripts at their host paths
+    "-v", `${PI_SKILLS_DIR}:${PI_SKILLS_DIR}:ro`,
     "-w", "/workspaces",
     // Security: drop all capabilities, no new privileges
     "--cap-drop", "ALL",

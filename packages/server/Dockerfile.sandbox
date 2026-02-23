@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
     jq \
+    ripgrep \
     unzip \
     # PDF skill: poppler (pdftotext, pdftoppm, pdfimages), qpdf, tesseract OCR, ImageMagick
     poppler-utils \
@@ -29,7 +30,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice-calc \
     libreoffice-writer \
     libreoffice-impress \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3 /usr/bin/python
 
 # ── Python packages ─────────────────────────────────────────────
 # Data analysis (original) + PDF / PPTX / DOCX / XLSX skill deps
@@ -58,6 +60,9 @@ RUN pip3 install --no-cache-dir --break-system-packages \
 # ── NPM global packages ────────────────────────────────────────
 # PPTX: pptxgenjs | DOCX: docx | PDF: pdf-lib, pdfjs-dist
 RUN npm install -g pptxgenjs docx pdf-lib pdfjs-dist
+
+# Make globally installed npm packages resolvable from any working directory
+ENV NODE_PATH=/usr/local/lib/node_modules
 
 # Create a non-root user for safer execution
 RUN useradd -m -s /bin/bash analyst

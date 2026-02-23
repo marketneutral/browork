@@ -152,4 +152,4 @@ npm run build
 | `SANDBOX_IMAGE` | `opentowork-sandbox:latest` | Docker image for sandbox containers |
 | `SANDBOX_MEMORY` | `512m` | Memory limit per sandbox container |
 | `SANDBOX_CPUS` | `1.0` | CPU limit per sandbox container |
-| `SANDBOX_NETWORK` | `none` | Docker network for sandbox containers |
+| `SANDBOX_NETWORK` | `bridge` | Docker network for sandbox containers (`none` to fully isolate) |
