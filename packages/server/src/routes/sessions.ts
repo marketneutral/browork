@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { nanoid } from "nanoid";
-import { resolve } from "path";
-import { cp, rm } from "fs/promises";
+import { resolve, join } from "path";
+import { cp, rm, mkdir, writeFile } from "fs/promises";
 import {
   createSession,
   getSessionById,
@@ -28,7 +28,14 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     const userId = req.user?.id;
     const id = nanoid(12);
     const sessions = listSessions(userId);
-    return createSession(id, `Session ${sessions.length + 1}`, userId);
+    const session = createSession(id, `Session ${sessions.length + 1}`, userId);
+
+    // Write AGENTS.md into the workspace so Pi keeps intermediates out of sight
+    const wsDir = resolve(DATA_ROOT, "workspaces", session.workspaceDir);
+    await mkdir(wsDir, { recursive: true });
+    await writeFile(join(wsDir, "AGENTS.md"), AGENTS_MD, "utf-8").catch(() => {});
+
+    return session;
   });
 
   // Get session (includes messages)
@@ -144,3 +151,15 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     return { ok: true };
   });
 };
+
+const AGENTS_MD = `# Project Instructions
+
+## Workspace Instructions
+
+### Intermediate files
+
+Write all intermediate and temporary files to a \`.pi-work/\` subdirectory
+(e.g. helper scripts, thumbnail images, intermediate PDFs, conversion artifacts).
+
+Only final deliverables belong in the workspace root. If the user asks for a document, powerpoint, plot, Excel sheet, etc. and doesn't specify a path, put it in the workspace root.
+`;
