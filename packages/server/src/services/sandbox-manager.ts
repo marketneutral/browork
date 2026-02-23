@@ -271,22 +271,22 @@ export function createSandboxBashOps(userId: string): BashOperations {
           stdio: ["ignore", "pipe", "pipe"],
         });
 
-        let settled = false;
+        let timedOut = false;
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
         if (options.timeout && options.timeout > 0) {
           timeoutId = setTimeout(() => {
+            timedOut = true;
             child.kill("SIGKILL");
-          }, options.timeout);
+          }, options.timeout * 1000); // Pi SDK passes timeout in seconds
         }
 
+        const onAbort = () => child.kill("SIGKILL");
         if (options.signal) {
           if (options.signal.aborted) {
             child.kill("SIGKILL");
           } else {
-            options.signal.addEventListener("abort", () => {
-              child.kill("SIGKILL");
-            }, { once: true });
+            options.signal.addEventListener("abort", onAbort, { once: true });
           }
         }
 
@@ -298,17 +298,19 @@ export function createSandboxBashOps(userId: string): BashOperations {
         child.on("error", (err) => {
           console.error(`[sandbox-exec] spawn error: ${err.message}`);
           if (timeoutId) clearTimeout(timeoutId);
-          if (!settled) {
-            settled = true;
-            promiseReject(err);
-          }
+          options.signal?.removeEventListener("abort", onAbort);
+          promiseReject(err);
         });
 
         child.on("close", (code) => {
-          console.log(`[sandbox-exec] exit=${code} chunks=${dataChunks} bytes=${dataBytes}`);
+          console.log(`[sandbox-exec] exit=${code} timedOut=${timedOut} chunks=${dataChunks} bytes=${dataBytes}`);
           if (timeoutId) clearTimeout(timeoutId);
-          if (!settled) {
-            settled = true;
+          options.signal?.removeEventListener("abort", onAbort);
+          if (options.signal?.aborted) {
+            promiseReject(new Error("aborted"));
+          } else if (timedOut) {
+            promiseReject(new Error(`timeout:${options.timeout}`));
+          } else {
             promiseResolve({ exitCode: code });
           }
         });

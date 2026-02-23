@@ -379,8 +379,7 @@ describe("sandbox-manager", () => {
       // Simulate process exit after kill
       child.emit("close", null);
 
-      const result = await execPromise;
-      expect(result).toEqual({ exitCode: null });
+      await expect(execPromise).rejects.toThrow("aborted");
     });
   });
 });
