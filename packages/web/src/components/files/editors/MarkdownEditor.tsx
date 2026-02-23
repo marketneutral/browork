@@ -1,3 +1,4 @@
+import { useState } from "react";
 import MDEditor from "@uiw/react-md-editor";
 
 interface MarkdownEditorProps {
@@ -6,13 +7,17 @@ interface MarkdownEditorProps {
 }
 
 export function MarkdownEditor({ content, onChange }: MarkdownEditorProps) {
+  const [preview] = useState<"edit" | "preview">(() =>
+    content.trim() ? "preview" : "edit",
+  );
+
   return (
     <div className="h-full" data-color-mode="dark">
       <MDEditor
         value={content}
         onChange={(v) => onChange(v || "")}
         height="100%"
-        preview="live"
+        preview={preview}
         visibleDragbar={false}
       />
     </div>
