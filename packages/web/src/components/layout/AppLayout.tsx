@@ -136,7 +136,7 @@ export function AppLayout({
           {/* Drag handle */}
           <div
             onMouseDown={handleResizeStart}
-            className="shrink-0 w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors max-lg:hidden lg:block relative z-10 before:absolute before:inset-y-0 before:-left-2 before:-right-2 before:content-['']"
+            className="shrink-0 w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors max-lg:hidden lg:block relative z-10"
             title="Drag to resize"
           />
           <aside
