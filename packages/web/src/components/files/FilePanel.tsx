@@ -9,7 +9,7 @@ import { FileTree, FileIcon } from "./FileTree";
 import { FileEditorPane } from "./FileEditorPane";
 import { DropZone, type FileWithPath } from "./DropZone";
 
-const DEFAULT_TREE_STATE: Record<string, boolean> = { ".pi": false };
+const DEFAULT_TREE_STATE: Record<string, boolean> = { ".pi": false, ".pi-work": false };
 
 export function FilePanel() {
   const entries = useFilesStore((s) => s.entries);
