@@ -6,7 +6,7 @@ export function HtmlViewer({ content }: HtmlViewerProps) {
   return (
     <iframe
       srcDoc={content}
-      sandbox="allow-scripts"
+      sandbox="allow-scripts allow-same-origin"
       title="HTML Preview"
       className="w-full h-full border-0 bg-white"
     />
