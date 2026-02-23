@@ -109,7 +109,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
       </div>
 
       {/* Agent status bar — always visible above composer */}
-      <div className="px-4 py-1.5 text-xs text-foreground-tertiary border-t border-border flex items-center gap-2">
+      <div className="px-4 pt-1.5 text-xs text-foreground-tertiary border-t border-border flex items-center gap-2">
         {isStreaming ? (
           <>
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />

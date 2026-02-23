@@ -143,7 +143,7 @@ export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
   };
 
   return (
-    <div className="p-4">
+    <div className="px-4 pt-2 pb-3">
       <div className="relative">
         {/* Slash command popup */}
         {showSlash && (
