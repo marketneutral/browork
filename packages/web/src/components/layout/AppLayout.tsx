@@ -45,18 +45,22 @@ export function AppLayout({
     dragStartWidth.current = filesPanelWidth;
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
+    setIsResizing(true);
   }, [filesPanelWidth]);
+
+  const [isResizing, setIsResizing] = useState(false);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging.current) return;
       const delta = dragStartX.current - e.clientX;
-      const newWidth = Math.min(Math.max(dragStartWidth.current + delta, 200), 600);
+      const newWidth = Math.min(Math.max(dragStartWidth.current + delta, 200), 1200);
       setFilesPanelWidth(newWidth);
     };
     const handleMouseUp = () => {
       if (!isDragging.current) return;
       isDragging.current = false;
+      setIsResizing(false);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     };
@@ -70,6 +74,8 @@ export function AppLayout({
 
   return (
     <div className="flex h-screen overflow-hidden bg-background relative">
+      {/* Transparent overlay to prevent iframes from stealing mouse events during resize */}
+      {isResizing && <div className="fixed inset-0 z-50 cursor-col-resize" />}
       {/* Subtle warm gradient backdrop */}
       <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-[#1a1917] to-[#141413]" />
 
@@ -130,7 +136,7 @@ export function AppLayout({
           {/* Drag handle */}
           <div
             onMouseDown={handleResizeStart}
-            className="shrink-0 w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors max-lg:hidden lg:block relative z-10"
+            className="shrink-0 w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors max-lg:hidden lg:block relative z-10 before:absolute before:inset-y-0 before:-left-2 before:-right-2 before:content-['']"
             title="Drag to resize"
           />
           <aside
