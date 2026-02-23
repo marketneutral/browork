@@ -18,7 +18,8 @@
  */
 
 import { execSync, execFile, spawn } from "child_process";
-import { resolve, join } from "path";
+import { readdirSync, lstatSync, realpathSync } from "fs";
+import { resolve, join, dirname } from "path";
 import { homedir } from "os";
 import type { BashOperations } from "@mariozechner/pi-coding-agent";
 
@@ -324,6 +325,41 @@ function sandboxName(userId: string): string {
   return `opentowork-sandbox-${safe}`;
 }
 
+/**
+ * Scan PI_SKILLS_DIR for symlinks, resolve their targets, and return
+ * `-v` flag pairs so the symlink targets are accessible inside the container.
+ */
+function getSkillSymlinkMounts(): string[] {
+  try {
+    const entries = readdirSync(PI_SKILLS_DIR);
+    const resolvedDirs = new Set<string>();
+
+    for (const entry of entries) {
+      const fullPath = join(PI_SKILLS_DIR, entry);
+      try {
+        const stat = lstatSync(fullPath);
+        if (!stat.isSymbolicLink()) continue;
+        const realPath = realpathSync(fullPath);
+        const parentDir = dirname(realPath);
+        // Skip if already under PI_SKILLS_DIR (already mounted)
+        if (parentDir.startsWith(PI_SKILLS_DIR)) continue;
+        resolvedDirs.add(parentDir);
+      } catch {
+        // Skip unresolvable symlinks
+      }
+    }
+
+    const flags: string[] = [];
+    for (const dir of resolvedDirs) {
+      flags.push("-v", `${dir}:${dir}:ro`);
+    }
+    return flags;
+  } catch {
+    // PI_SKILLS_DIR may not exist yet
+    return [];
+  }
+}
+
 function createContainer(userId: string): string {
   const name = sandboxName(userId);
   const workspacesRoot = resolve(DATA_ROOT, "workspaces");
@@ -342,6 +378,8 @@ function createContainer(userId: string): string {
     "-v", `${workspacesRoot}:/workspaces`,
     // Mount Pi skills so bash commands can access skill scripts at their host paths
     "-v", `${PI_SKILLS_DIR}:${PI_SKILLS_DIR}:ro`,
+    // Mount symlink targets so skills resolve correctly inside the container
+    ...getSkillSymlinkMounts(),
     "-w", "/workspaces",
     // Security: drop all capabilities, no new privileges
     "--cap-drop", "ALL",
