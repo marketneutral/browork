@@ -22,6 +22,7 @@ interface FilesState {
   saveStatus: SaveStatus;
   uploading: boolean;
   uploadProgress: number;
+  treeOpenState: Record<string, Record<string, boolean>>;
 
   // Actions
   clearAll: () => void;
@@ -33,15 +34,18 @@ interface FilesState {
   setSaveStatus: (status: SaveStatus) => void;
   closeFile: () => void;
   setUploading: (v: boolean, progress?: number) => void;
+  saveTreeState: (sessionId: string, openState: Record<string, boolean>) => void;
+  getTreeState: (sessionId: string) => Record<string, boolean> | undefined;
 }
 
-export const useFilesStore = create<FilesState>((set) => ({
+export const useFilesStore = create<FilesState>((set, get) => ({
   entries: [],
   selectedFile: null,
   openFile: null,
   saveStatus: "idle",
   uploading: false,
   uploadProgress: 0,
+  treeOpenState: {},
 
   clearAll: () =>
     set({
@@ -83,4 +87,11 @@ export const useFilesStore = create<FilesState>((set) => ({
 
   setUploading: (v, progress = 0) =>
     set({ uploading: v, uploadProgress: progress }),
+
+  saveTreeState: (sessionId, openState) =>
+    set((s) => ({
+      treeOpenState: { ...s.treeOpenState, [sessionId]: openState },
+    })),
+
+  getTreeState: (sessionId) => get().treeOpenState[sessionId],
 }));

@@ -40,6 +40,8 @@ interface FileTreeProps {
   onMove: (from: string, to: string) => void;
   onRename: (oldPath: string, newName: string) => void;
   treeRef?: React.MutableRefObject<TreeApi<TreeNode> | null | undefined>;
+  initialOpenState?: Record<string, boolean>;
+  onToggle?: (id: string) => void;
 }
 
 export function FileTree({
@@ -54,6 +56,8 @@ export function FileTree({
   onMove,
   onRename,
   treeRef,
+  initialOpenState,
+  onToggle,
 }: FileTreeProps) {
   const tree = useMemo(() => buildTree(entries), [entries]);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -118,6 +122,8 @@ export function FileTree({
         onUploadToFolder={onUploadToFolder}
         onCreateFolder={onCreateFolder}
         onCreateFile={onCreateFile}
+        initialOpenState={initialOpenState}
+        onToggle={onToggle}
       />
     </div>
   );
@@ -138,6 +144,8 @@ function AutoSizedTree({
   onUploadToFolder,
   onCreateFolder,
   onCreateFile,
+  initialOpenState,
+  onToggle,
 }: {
   data: TreeNode[];
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -152,6 +160,8 @@ function AutoSizedTree({
   onUploadToFolder: (parentPath: string) => void;
   onCreateFolder: (parentPath: string) => void;
   onCreateFile: (parentPath: string) => void;
+  initialOpenState?: Record<string, boolean>;
+  onToggle?: (id: string) => void;
 }) {
   const localRef = useRef<TreeApi<TreeNode> | null>(null);
 
@@ -167,7 +177,9 @@ function AutoSizedTree({
     <Tree<TreeNode>
       ref={setRef}
       data={data}
-      openByDefault
+      openByDefault={!initialOpenState}
+      initialOpenState={initialOpenState}
+      onToggle={onToggle}
       width="100%"
       height={containerRef.current?.clientHeight || 600}
       rowHeight={28}

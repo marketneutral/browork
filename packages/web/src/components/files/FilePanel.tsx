@@ -13,9 +13,14 @@ export function FilePanel() {
   const entries = useFilesStore((s) => s.entries);
   const openFile = useFilesStore((s) => s.openFile);
   const setEntries = useFilesStore((s) => s.setEntries);
+  const saveTreeState = useFilesStore((s) => s.saveTreeState);
   const sessionId = useSessionStore((s) => s.sessionId);
+  const initialOpenState = useFilesStore((s) =>
+    sessionId ? s.treeOpenState[sessionId] : undefined,
+  );
 
   const treeRef = useRef<TreeApi<any> | null | undefined>(null);
+  const prevSessionRef = useRef<string | null>(null);
   const folderUploadRef = useRef<HTMLInputElement>(null);
   const folderUploadTargetRef = useRef<string>("");
   const [creatingIn, setCreatingIn] = useState<{ parentPath: string; type: "folder" | "file" } | null>(null);
@@ -30,6 +35,25 @@ export function FilePanel() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Save tree open state when switching sessions
+  useEffect(() => {
+    const prev = prevSessionRef.current;
+    if (prev && prev !== sessionId && treeRef.current) {
+      saveTreeState(prev, treeRef.current.openState);
+    }
+    prevSessionRef.current = sessionId;
+  }, [sessionId, saveTreeState]);
+
+  // Save tree open state on every toggle so it's always current
+  const handleTreeToggle = useCallback(
+    (_id: string) => {
+      if (sessionId && treeRef.current) {
+        saveTreeState(sessionId, treeRef.current.openState);
+      }
+    },
+    [sessionId, saveTreeState],
+  );
 
   const handleFileSelect = useCallback(
     async (path: string) => {
@@ -400,6 +424,8 @@ export function FilePanel() {
             onMove={handleMove}
             onRename={handleRename}
             treeRef={treeRef}
+            initialOpenState={initialOpenState}
+            onToggle={handleTreeToggle}
           />
         </DropZone>
       )}
