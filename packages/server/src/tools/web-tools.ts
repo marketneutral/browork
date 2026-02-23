@@ -92,7 +92,7 @@ function createWebSearchTool(apiKey: string): ToolDefinitionLike {
           "Accept-Encoding": "gzip",
           "X-Subscription-Token": apiKey,
         },
-        signal: signal ?? AbortSignal.timeout(15_000),
+        signal: AbortSignal.any([AbortSignal.timeout(15_000), ...(signal ? [signal] : [])]),
       });
 
       if (!res.ok) {
@@ -163,7 +163,7 @@ function createWebFetchTool(): ToolDefinitionLike {
           Accept: "text/html,application/json,text/plain,*/*",
         },
         redirect: "follow",
-        signal: signal ?? AbortSignal.timeout(30_000),
+        signal: AbortSignal.any([AbortSignal.timeout(30_000), ...(signal ? [signal] : [])]),
       });
 
       if (!res.ok) {
