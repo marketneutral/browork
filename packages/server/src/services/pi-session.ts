@@ -11,7 +11,7 @@
 import type { WebSocket } from "ws";
 import { translatePiEvent } from "../utils/event-translator.js";
 import { writeMcpConfig } from "./mcp-manager.js";
-import { isSandboxEnabled, ensureSandbox } from "./sandbox-manager.js";
+import { isSandboxEnabled, ensureSandbox, createSandboxBashOps } from "./sandbox-manager.js";
 
 // ── Browork event types sent to the frontend over WebSocket ──
 
@@ -63,9 +63,11 @@ export async function createPiSession(
   userId?: string,
 ): Promise<PiSessionHandle> {
   // Provision sandbox container when enabled
+  let sandboxUserId: string | undefined;
   if (isSandboxEnabled() && userId) {
     try {
-      const containerId = ensureSandbox(userId, workDir);
+      const containerId = ensureSandbox(userId);
+      sandboxUserId = userId;
       console.log(`Sandbox ready for user ${userId}: ${containerId.slice(0, 12)}`);
     } catch (err) {
       console.error(`Sandbox provisioning failed for user ${userId}:`, err);
@@ -100,8 +102,31 @@ export async function createPiSession(
       process.env.PI_MODEL || "gpt-4",
     ),
     thinkingLevel,
-    extensions: ["pi-mcp-adapter"],
   });
+
+  // When sandbox is active, redirect bash execution into the Docker container.
+  // cwd stays as the host path so read/edit/write tools operate on the host
+  // filesystem (shared via bind mount).
+  //
+  // We patch the session's internal tool registry after creation because
+  // createAgentSession doesn't expose baseToolsOverride. The _baseToolRegistry
+  // and _buildRuntime are conventional-private (not #private), so this is safe
+  // at runtime.
+  if (sandboxUserId) {
+    const s = session as any;
+    // Set _baseToolsOverride so _buildRuntime uses our tools instead of
+    // calling createAllTools() which would recreate the default bash tool.
+    s._baseToolsOverride = {
+      read: piSdk.createReadTool(workDir),
+      bash: piSdk.createBashTool(workDir, {
+        operations: createSandboxBashOps(sandboxUserId),
+      }),
+      edit: piSdk.createEditTool(workDir),
+      write: piSdk.createWriteTool(workDir),
+    };
+    s._buildRuntime({ activeToolNames: ["read", "bash", "edit", "write"], includeAllExtensionTools: true });
+    console.log(`[pi-session] patched bash tool for sandbox user ${sandboxUserId}`);
+  }
 
   // Translate Pi events → Browork events → WebSocket
   // Keep a mutable reference so rebindSocket can swap it

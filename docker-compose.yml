@@ -17,7 +17,7 @@ services:
       - DATA_ROOT=/data
       - PORT=3001
       - SANDBOX_ENABLED=${SANDBOX_ENABLED:-false}
-      - SANDBOX_IMAGE=${SANDBOX_IMAGE:-browork-sandbox:latest}
+      - SANDBOX_IMAGE=${SANDBOX_IMAGE:-opentowork-sandbox:latest}
       - SANDBOX_MEMORY=${SANDBOX_MEMORY:-512m}
       - SANDBOX_CPUS=${SANDBOX_CPUS:-1.0}
       - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-100}

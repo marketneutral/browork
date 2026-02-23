@@ -48,6 +48,22 @@ AZURE_OPENAI_RESOURCE_NAME=<your-resource>
 DEFAULT_THINKING_LEVEL=medium
 ```
 
+## Docker Sandbox
+
+When `SANDBOX_ENABLED=true`, each user gets an isolated Docker container. Currently **only Pi's bash tool** is routed into the container via `createSandboxBashOps()`. Pi's **read, write, and edit tools still execute on the host** — this works because the workspaces directory is bind-mounted into the container (`-v {DATA_ROOT}/workspaces:/workspaces`), so file changes are visible from both sides immediately.
+
+> **Note:** If you need full isolation (read/write/edit inside the container too), add custom tool implementations to the `_baseToolsOverride` record in `pi-session.ts`. See the CLAUDE.md "Docker sandbox — implementation details" section for how the Pi SDK session patching works — it's non-obvious and important to understand before changing.
+
+```bash
+# Build the sandbox image
+docker build -f packages/server/Dockerfile.sandbox -t opentowork-sandbox:latest .
+
+# Enable in .env
+SANDBOX_ENABLED=true
+```
+
+Containers are provisioned on first session creation and reused across sessions for the same user. Resource limits (`SANDBOX_MEMORY`, `SANDBOX_CPUS`) and network isolation (`SANDBOX_NETWORK`) are configurable via environment variables.
+
 ## Project Structure
 
 ```
@@ -61,6 +77,7 @@ browork/
 │   │       ├── routes/files.ts       # File management API
 │   │       ├── routes/skills.ts      # Skills CRUD + invoke
 │   │       ├── services/pi-session.ts # Pi SDK wrapper + mock mode
+│   │       ├── services/sandbox-manager.ts # Docker container-per-user isolation
 │   │       ├── services/skill-manager.ts # Skill discovery, loading, invocation
 │   │       ├── services/file-watcher.ts # Chokidar file watching
 │   │       ├── db/database.ts        # SQLite init (better-sqlite3, WAL mode)
@@ -112,7 +129,7 @@ npm run install-skill -- https://github.com/anthropics/skills skill-creator --fo
 npm test
 ```
 
-Runs Vitest server-side tests (85 tests): file routes, CSV parser, path traversal, Pi event translation, skill manager, session store.
+Runs Vitest server-side tests (173 tests): file routes, CSV parser, path traversal, Pi event translation, skill manager, session store, sandbox manager.
 
 ## Build
 
@@ -131,3 +148,8 @@ npm run build
 | `PI_PROVIDER` | `azure-openai-responses` | LLM provider for Pi |
 | `PI_MODEL` | `gpt-4` | Model ID |
 | `DEFAULT_THINKING_LEVEL` | `medium` | Default thinking depth (`low` / `medium` / `high`) |
+| `SANDBOX_ENABLED` | `false` | Enable Docker container isolation per user |
+| `SANDBOX_IMAGE` | `opentowork-sandbox:latest` | Docker image for sandbox containers |
+| `SANDBOX_MEMORY` | `512m` | Memory limit per sandbox container |
+| `SANDBOX_CPUS` | `1.0` | CPU limit per sandbox container |
+| `SANDBOX_NETWORK` | `none` | Docker network for sandbox containers |

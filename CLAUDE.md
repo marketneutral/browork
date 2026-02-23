@@ -15,7 +15,7 @@ npm install              # Install all workspace dependencies
 npm run dev              # Run both server (:3001) and web (:5173) concurrently
 npm run dev:server       # Backend only (tsx watch, hot reload)
 npm run dev:web          # Frontend only (Vite dev server, proxies /api to :3001)
-npm test                 # Run server-side Vitest tests (~167 tests)
+npm test                 # Run server-side Vitest tests (~173 tests)
 npm run build            # Build server (tsc) then web (tsc + vite build)
 npm run lint             # ESLint across all packages
 npm run install-skill -- <repo-url> <skill-name>  # Install a single skill from a remote repo
@@ -61,6 +61,15 @@ Markdown files with YAML frontmatter (`SKILL.md`) for chart-generator, financial
 - **WebSocket event protocol**: JSON messages with `type` discriminator (`message_delta`, `tool_start`, `agent_end`, `files_changed`). Events flow: Pi SDK → `translatePiEvent()` → WebSocket → Zustand store → React.
 - **Per-session workspaces**: Files isolated at `{DATA_ROOT}/workspaces/{sessionId}/workspace`. All file operations go through `safePath()` to prevent path traversal.
 - **Session rebinding**: Pi sessions persist in-memory across WebSocket reconnects via `rebindSocket()`.
+- **Docker sandbox**: When `SANDBOX_ENABLED=true`, each user gets an isolated Docker container. **Only bash** is currently routed into the container. **Read, write, and edit tools still execute on the host** — the workspaces directory is bind-mounted (`-v {DATA_ROOT}/workspaces:/workspaces`) so file changes are visible from both sides. To route those tools into the container too, add custom tool implementations to `_baseToolsOverride` in `pi-session.ts` (see implementation note below). The sandbox manager (`sandbox-manager.ts`) handles container lifecycle.
+- **Docker sandbox — implementation details** (important for future changes):
+  - `createSandboxBashOps(userId)` in `sandbox-manager.ts` returns a Pi SDK `BashOperations` object that routes commands through `docker exec` with host→container path translation.
+  - **Pi SDK limitation**: `createAgentSession()` does NOT forward `options.tools` to the internal `AgentSession` for execution. It only uses `options.tools` to derive active tool **names**. The actual tool implementations come from `AgentSession._baseToolsOverride` (if set) or `createAllTools()` (default). Since `createAgentSession` doesn't expose `baseToolsOverride`, we **patch the session after creation** in `pi-session.ts`:
+    1. Call `createAgentSession()` normally (default tools)
+    2. Set `session._baseToolsOverride` to a record containing `createReadTool`, our custom `createBashTool(workDir, { operations: sandboxBashOps })`, `createEditTool`, and `createWriteTool`
+    3. Call `session._buildRuntime()` to rebuild the tool registry from the override
+  - These fields (`_baseToolsOverride`, `_buildRuntime`) are conventional-private (underscore prefix, not JS `#private`), so they're accessible at runtime but not in the TypeScript types — we cast via `as any`.
+  - If the Pi SDK adds a public `baseToolsOverride` option to `createAgentSession` in the future, this patch can be replaced with a direct option pass.
 - **MCP config**: Stored in SQLite, written to `{workspace}/.pi/mcp.json` for Pi to discover tools.
 
 ## Tech Stack Summary

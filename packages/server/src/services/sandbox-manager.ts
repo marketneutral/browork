@@ -1,24 +1,28 @@
 /**
  * Sandbox Manager — Docker container-per-user isolation
  *
- * Each user gets a Docker container with:
+ * Each user gets a single Docker container with:
  *   - Python 3, pip, pandas, openpyxl, matplotlib
  *   - Node.js 20
- *   - Their workspace mounted at /workspace
+ *   - The workspaces root mounted at /workspaces
  *
  * Pi agent sessions run inside these containers so that
  * `pip install`, `npm install`, bash commands, etc. are
- * fully isolated between users.
+ * fully isolated between users. One container serves all
+ * of a user's sessions — the per-session working directory
+ * is set at exec time via `docker exec -w`.
  *
  * When SANDBOX_ENABLED=true (default false), Pi sessions
  * are created inside the container. When disabled, Pi runs
  * directly on the host (development mode).
  */
 
-import { execSync, execFile } from "child_process";
+import { execSync, execFile, spawn } from "child_process";
 import { resolve } from "path";
+import type { BashOperations } from "@mariozechner/pi-coding-agent";
 
-const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE || "browork-sandbox:latest";
+const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
+const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE || "opentowork-sandbox:latest";
 const SANDBOX_MEMORY = process.env.SANDBOX_MEMORY || "512m";
 const SANDBOX_CPUS = process.env.SANDBOX_CPUS || "1.0";
 const SANDBOX_NETWORK = process.env.SANDBOX_NETWORK || "none";
@@ -42,9 +46,11 @@ export function isSandboxEnabled(): boolean {
 /**
  * Ensure a sandbox container is running for the given user.
  * Creates one if it doesn't exist, starts it if stopped.
+ * The container mounts the entire workspaces root so it can
+ * serve any of the user's sessions.
  * Returns the container ID.
  */
-export function ensureSandbox(userId: string, workDir: string): string {
+export function ensureSandbox(userId: string): string {
   // Check in-memory cache first
   const cached = containers.get(userId);
   if (cached && isContainerRunning(cached)) {
@@ -64,18 +70,21 @@ export function ensureSandbox(userId: string, workDir: string): string {
   }
 
   // Create a new container
-  const containerId = createContainer(userId, workDir);
+  const containerId = createContainer(userId);
   containers.set(userId, containerId);
   return containerId;
 }
 
 /**
  * Execute a command inside the user's sandbox container.
+ * Optionally set the working directory (container-relative path,
+ * e.g. "/workspaces/{sessionId}/workspace").
  * Returns stdout. Throws on non-zero exit.
  */
 export function execInSandbox(
   userId: string,
   command: string,
+  cwd?: string,
   timeoutMs = 120_000,
 ): string {
   const containerId = containers.get(userId);
@@ -83,19 +92,22 @@ export function execInSandbox(
     throw new Error(`No sandbox container for user ${userId}`);
   }
 
+  const cwdFlag = cwd ? `-w ${cwd} ` : "";
   return execSync(
-    `docker exec ${containerId} /bin/bash -c ${shellEscape(command)}`,
+    `docker exec ${cwdFlag}${containerId} /bin/bash -c ${shellEscape(command)}`,
     { timeout: timeoutMs, encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 },
   );
 }
 
 /**
  * Execute a command inside the sandbox asynchronously.
+ * Optionally set the working directory (container-relative path).
  * Returns a promise that resolves with { stdout, stderr, exitCode }.
  */
 export function execInSandboxAsync(
   userId: string,
   command: string,
+  cwd?: string,
   timeoutMs = 120_000,
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
@@ -104,15 +116,17 @@ export function execInSandboxAsync(
       return reject(new Error(`No sandbox container for user ${userId}`));
     }
 
-    let stdout = "";
-    let stderr = "";
-    const child = execFile(
+    const args = ["exec"];
+    if (cwd) args.push("-w", cwd);
+    args.push(containerId, "/bin/bash", "-c", command);
+
+    execFile(
       "docker",
-      ["exec", containerId, "/bin/bash", "-c", command],
+      args,
       { timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 },
       (err, out, errOut) => {
-        stdout = out || "";
-        stderr = errOut || "";
+        const stdout = out || "";
+        const stderr = errOut || "";
         const exitCode = err && "code" in err ? (err as any).code : 0;
         resolve({ stdout, stderr, exitCode: typeof exitCode === "number" ? exitCode : 1 });
       },
@@ -160,7 +174,7 @@ export function getSandboxInfo(userId: string): SandboxInfo {
 export function listSandboxes(): SandboxInfo[] {
   try {
     const output = execSync(
-      `docker ps -a --filter "label=browork.sandbox=true" --format "{{.Names}}\\t{{.ID}}\\t{{.Status}}"`,
+      `docker ps -a --filter "label=opentowork.sandbox=true" --format "{{.Names}}\\t{{.ID}}\\t{{.Status}}"`,
       { encoding: "utf-8" },
     ).trim();
 
@@ -168,7 +182,7 @@ export function listSandboxes(): SandboxInfo[] {
 
     return output.split("\n").map((line) => {
       const [name, id, status] = line.split("\t");
-      const userId = name.replace("browork-sandbox-", "");
+      const userId = name.replace("opentowork-sandbox-", "");
       return {
         userId,
         containerId: id,
@@ -186,7 +200,7 @@ export function listSandboxes(): SandboxInfo[] {
 export function removeAllSandboxes(): void {
   try {
     execSync(
-      `docker rm -f $(docker ps -aq --filter "label=browork.sandbox=true") 2>/dev/null`,
+      `docker rm -f $(docker ps -aq --filter "label=opentowork.sandbox=true") 2>/dev/null`,
       { stdio: "ignore" },
     );
   } catch {
@@ -222,31 +236,100 @@ export function isSandboxImageAvailable(): boolean {
   }
 }
 
+/**
+ * Create a BashOperations-compatible object that routes commands
+ * through `docker exec` into the user's sandbox container.
+ * Used by Pi's createCodingTools to redirect bash execution.
+ */
+export function createSandboxBashOps(userId: string): BashOperations {
+  return {
+    async exec(command, cwd, options) {
+      const containerId = containers.get(userId);
+      if (!containerId) {
+        throw new Error(`No sandbox container for user ${userId}`);
+      }
+
+      // Translate host path → container path
+      const workspacesRoot = resolve(DATA_ROOT, "workspaces");
+      const containerCwd = cwd.replace(workspacesRoot, "/workspaces");
+
+      const args = [
+        "exec", "-w", containerCwd, containerId,
+        "/bin/bash", "-c", command,
+      ];
+
+      return new Promise((promiseResolve, promiseReject) => {
+        const child = spawn("docker", args, {
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+
+        let settled = false;
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+        if (options.timeout && options.timeout > 0) {
+          timeoutId = setTimeout(() => {
+            child.kill("SIGKILL");
+          }, options.timeout);
+        }
+
+        if (options.signal) {
+          if (options.signal.aborted) {
+            child.kill("SIGKILL");
+          } else {
+            options.signal.addEventListener("abort", () => {
+              child.kill("SIGKILL");
+            }, { once: true });
+          }
+        }
+
+        child.stdout.on("data", (data: Buffer) => options.onData(data));
+        child.stderr.on("data", (data: Buffer) => options.onData(data));
+
+        child.on("error", (err) => {
+          if (timeoutId) clearTimeout(timeoutId);
+          if (!settled) {
+            settled = true;
+            promiseReject(err);
+          }
+        });
+
+        child.on("close", (code) => {
+          if (timeoutId) clearTimeout(timeoutId);
+          if (!settled) {
+            settled = true;
+            promiseResolve({ exitCode: code });
+          }
+        });
+      });
+    },
+  };
+}
+
 // ── Internal helpers ──
 
 function sandboxName(userId: string): string {
   // Sanitize userId for Docker container naming (alphanumeric + hyphens)
   const safe = userId.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 60);
-  return `browork-sandbox-${safe}`;
+  return `opentowork-sandbox-${safe}`;
 }
 
-function createContainer(userId: string, workDir: string): string {
+function createContainer(userId: string): string {
   const name = sandboxName(userId);
-  const absWorkDir = resolve(workDir);
+  const workspacesRoot = resolve(DATA_ROOT, "workspaces");
 
   const args = [
     "docker", "create",
     "--name", name,
-    "--label", "browork.sandbox=true",
-    "--label", `browork.user=${userId}`,
+    "--label", "opentowork.sandbox=true",
+    "--label", `opentowork.user=${userId}`,
     // Resource limits
     "--memory", SANDBOX_MEMORY,
     "--cpus", SANDBOX_CPUS,
     // Network isolation (no network by default)
     "--network", SANDBOX_NETWORK,
-    // Mount workspace
-    "-v", `${absWorkDir}:/workspace`,
-    "-w", "/workspace",
+    // Mount entire workspaces root so all sessions are accessible
+    "-v", `${workspacesRoot}:/workspaces`,
+    "-w", "/workspaces",
     // Security: drop all capabilities, no new privileges
     "--cap-drop", "ALL",
     "--security-opt", "no-new-privileges",

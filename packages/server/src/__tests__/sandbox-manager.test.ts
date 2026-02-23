@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { execSync } from "child_process";
+import { execSync, spawn } from "child_process";
+import { EventEmitter } from "events";
 
 // Mock child_process before importing the module
 vi.mock("child_process", () => ({
   execSync: vi.fn(),
   execFile: vi.fn(),
+  spawn: vi.fn(),
 }));
 
 // Import after mocking
@@ -17,9 +19,11 @@ import {
   removeAllSandboxes,
   isDockerAvailable,
   isSandboxImageAvailable,
+  createSandboxBashOps,
 } from "../services/sandbox-manager.js";
 
 const mockExecSync = vi.mocked(execSync);
+const mockSpawn = vi.mocked(spawn);
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -93,14 +97,14 @@ describe("sandbox-manager", () => {
       // docker start succeeds
       mockExecSync.mockReturnValueOnce(Buffer.from(""));
 
-      const containerId = ensureSandbox("user1", "/data/workspaces/user1");
+      const containerId = ensureSandbox("user1");
       expect(containerId).toBe("abc123");
 
       // Verify docker create was called with correct arguments
       const createCall = mockExecSync.mock.calls[1][0] as string;
       expect(createCall).toContain("docker create");
-      expect(createCall).toContain("browork-sandbox-user1");
-      expect(createCall).toContain("/data/workspaces/user1:/workspace");
+      expect(createCall).toContain("opentowork-sandbox-user1");
+      expect(createCall).toContain(":/workspaces");
       expect(createCall).toContain("--cap-drop");
       expect(createCall).toContain("--memory");
     });
@@ -111,12 +115,12 @@ describe("sandbox-manager", () => {
       mockExecSync.mockReturnValueOnce("abc123\n");
       mockExecSync.mockReturnValueOnce(Buffer.from(""));
 
-      ensureSandbox("user1", "/data/workspaces/user1");
+      ensureSandbox("user1");
 
       // Second call: should check if running and return cached
       mockExecSync.mockReturnValueOnce("true\n"); // isContainerRunning
 
-      const containerId = ensureSandbox("user1", "/data/workspaces/user1");
+      const containerId = ensureSandbox("user1");
       expect(containerId).toBe("abc123");
     });
 
@@ -128,7 +132,7 @@ describe("sandbox-manager", () => {
       // docker start succeeds
       mockExecSync.mockReturnValueOnce(Buffer.from(""));
 
-      const containerId = ensureSandbox("user2", "/data/workspaces/user2");
+      const containerId = ensureSandbox("user2");
       expect(containerId).toBe("existing123");
     });
 
@@ -137,10 +141,10 @@ describe("sandbox-manager", () => {
       mockExecSync.mockReturnValueOnce("abc123\n");
       mockExecSync.mockReturnValueOnce(Buffer.from(""));
 
-      ensureSandbox("user@example.com", "/data/workspaces/test");
+      ensureSandbox("user@example.com");
 
       const createCall = mockExecSync.mock.calls[1][0] as string;
-      expect(createCall).toContain("browork-sandbox-user-example-com");
+      expect(createCall).toContain("opentowork-sandbox-user-example-com");
     });
   });
 
@@ -150,7 +154,7 @@ describe("sandbox-manager", () => {
       mockExecSync.mockReturnValueOnce("");
       mockExecSync.mockReturnValueOnce("abc123\n");
       mockExecSync.mockReturnValueOnce(Buffer.from(""));
-      ensureSandbox("user1", "/data/workspaces/user1");
+      ensureSandbox("user1");
 
       // Remove
       removeSandbox("user1");
@@ -201,8 +205,8 @@ describe("sandbox-manager", () => {
 
     it("should parse docker ps output", () => {
       mockExecSync.mockReturnValueOnce(
-        "browork-sandbox-user1\tabc123\tUp 2 hours\n" +
-        "browork-sandbox-user2\tdef456\tExited (0) 1 hour ago\n",
+        "opentowork-sandbox-user1\tabc123\tUp 2 hours\n" +
+        "opentowork-sandbox-user2\tdef456\tExited (0) 1 hour ago\n",
       );
 
       const sandboxes = listSandboxes();
@@ -241,6 +245,142 @@ describe("sandbox-manager", () => {
       });
       // Should not throw
       removeAllSandboxes();
+    });
+  });
+
+  describe("createSandboxBashOps", () => {
+    /** Helper: create a fake child process with piped stdout/stderr */
+    function createMockChild() {
+      const child = new EventEmitter() as EventEmitter & {
+        stdout: EventEmitter;
+        stderr: EventEmitter;
+        kill: ReturnType<typeof vi.fn>;
+      };
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      child.kill = vi.fn();
+      return child;
+    }
+
+    /** Provision a sandbox so the container map has an entry */
+    function provisionUser(userId: string, containerId: string) {
+      mockExecSync.mockReturnValueOnce(""); // findContainer
+      mockExecSync.mockReturnValueOnce(`${containerId}\n`); // docker create
+      mockExecSync.mockReturnValueOnce(Buffer.from("")); // docker start
+      ensureSandbox(userId);
+      mockExecSync.mockReset();
+    }
+
+    it("should return an object with an exec function", () => {
+      const ops = createSandboxBashOps("user1");
+      expect(ops).toHaveProperty("exec");
+      expect(typeof ops.exec).toBe("function");
+    });
+
+    it("should throw when no sandbox container exists for user", async () => {
+      const ops = createSandboxBashOps("no-container-user");
+      await expect(
+        ops.exec("ls", "/tmp", { onData: vi.fn() }),
+      ).rejects.toThrow("No sandbox container for user no-container-user");
+    });
+
+    it("should call docker exec with correct container path translation", async () => {
+      provisionUser("user1", "abc123");
+
+      const child = createMockChild();
+      mockSpawn.mockReturnValueOnce(child as any);
+
+      const ops = createSandboxBashOps("user1");
+      const onData = vi.fn();
+
+      const dataRoot = process.env.DATA_ROOT || `${process.cwd()}/data`;
+      const hostCwd = `${dataRoot}/workspaces/session1/workspace`;
+      const execPromise = ops.exec("echo hello", hostCwd, { onData });
+
+      // Verify spawn was called with correct args
+      expect(mockSpawn).toHaveBeenCalledWith(
+        "docker",
+        ["exec", "-w", "/workspaces/session1/workspace", "abc123", "/bin/bash", "-c", "echo hello"],
+        { stdio: ["ignore", "pipe", "pipe"] },
+      );
+
+      // Simulate process completing
+      child.emit("close", 0);
+
+      const result = await execPromise;
+      expect(result).toEqual({ exitCode: 0 });
+    });
+
+    it("should stream stdout and stderr via onData callback", async () => {
+      provisionUser("user2", "def456");
+
+      const child = createMockChild();
+      mockSpawn.mockReturnValueOnce(child as any);
+
+      const ops = createSandboxBashOps("user2");
+      const onData = vi.fn();
+
+      const dataRoot = process.env.DATA_ROOT || `${process.cwd()}/data`;
+      const hostCwd = `${dataRoot}/workspaces/s1/workspace`;
+      const execPromise = ops.exec("ls", hostCwd, { onData });
+
+      // Simulate stdout and stderr data
+      const stdoutData = Buffer.from("file1.txt\n");
+      const stderrData = Buffer.from("warning: something\n");
+      child.stdout.emit("data", stdoutData);
+      child.stderr.emit("data", stderrData);
+      child.emit("close", 0);
+
+      await execPromise;
+
+      expect(onData).toHaveBeenCalledTimes(2);
+      expect(onData).toHaveBeenCalledWith(stdoutData);
+      expect(onData).toHaveBeenCalledWith(stderrData);
+    });
+
+    it("should return non-zero exit code on failure", async () => {
+      provisionUser("user3", "ghi789");
+
+      const child = createMockChild();
+      mockSpawn.mockReturnValueOnce(child as any);
+
+      const ops = createSandboxBashOps("user3");
+
+      const dataRoot = process.env.DATA_ROOT || `${process.cwd()}/data`;
+      const execPromise = ops.exec("false", `${dataRoot}/workspaces/s1/workspace`, {
+        onData: vi.fn(),
+      });
+
+      child.emit("close", 1);
+
+      const result = await execPromise;
+      expect(result).toEqual({ exitCode: 1 });
+    });
+
+    it("should kill child process when abort signal fires", async () => {
+      provisionUser("user4", "jkl012");
+
+      const child = createMockChild();
+      mockSpawn.mockReturnValueOnce(child as any);
+
+      const controller = new AbortController();
+      const ops = createSandboxBashOps("user4");
+
+      const dataRoot = process.env.DATA_ROOT || `${process.cwd()}/data`;
+      const execPromise = ops.exec("sleep 100", `${dataRoot}/workspaces/s1/workspace`, {
+        onData: vi.fn(),
+        signal: controller.signal,
+      });
+
+      // Abort the command
+      controller.abort();
+      expect(child.kill).toHaveBeenCalledWith("SIGKILL");
+
+      // Simulate process exit after kill
+      child.emit("close", null);
+
+      const result = await execPromise;
+      expect(result).toEqual({ exitCode: null });
     });
   });
 });

@@ -3,7 +3,7 @@
 # Each user gets a container from this image so that
 # pip install, npm install, and bash commands are isolated.
 #
-# Build:  docker build -f packages/server/Dockerfile.sandbox -t browork-sandbox .
+# Build:  docker build -f packages/server/Dockerfile.sandbox -t opentowork-sandbox .
 # Usage:  Managed automatically by sandbox-manager.ts
 
 FROM node:20-slim
@@ -63,7 +63,7 @@ RUN npm install -g pptxgenjs docx pdf-lib pdfjs-dist
 RUN useradd -m -s /bin/bash analyst
 USER analyst
 
-WORKDIR /workspace
+WORKDIR /workspaces
 
 # Default: sleep forever — container stays alive for docker exec
 CMD ["sleep", "infinity"]
