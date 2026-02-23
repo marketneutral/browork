@@ -1,17 +1,17 @@
 import { useRef, useEffect, useMemo } from "react";
 import { useSessionStore } from "../../stores/session";
-import type { ChatMessage, ToolCall } from "../../stores/session";
+import type { ChatMessage, ToolCallGroup as ToolCallGroupType } from "../../stores/session";
 import { useSkillsStore } from "../../stores/skills";
 import { MessageBubble } from "./MessageBubble";
 import { Composer } from "./Composer";
-import { ToolCallCard } from "./ToolCallCard";
+import { ToolCallGroup } from "./ToolCallGroup";
 import { SkillBadge } from "./SkillBadge";
 import { APP_NAME } from "../../config";
 import { toolLabel } from "../../utils/tool-labels";
 
 type TimelineItem =
   | { kind: "message"; data: ChatMessage }
-  | { kind: "tool"; data: ToolCall; index: number };
+  | { kind: "tool_group"; data: ToolCallGroupType };
 
 interface ChatPanelProps {
   onSendMessage: (text: string) => void;
@@ -24,22 +24,26 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
   const currentText = useSessionStore((s) => s.currentAssistantText);
   const isStreaming = useSessionStore((s) => s.isStreaming);
   const activeToolCalls = useSessionStore((s) => s.activeToolCalls);
+  const completedToolGroups = useSessionStore((s) => s.completedToolGroups);
   const activeSkill = useSkillsStore((s) => s.activeSkill);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Merge messages and tool calls into a single timeline sorted by seq
+  // Merge messages and tool call groups into a single timeline sorted by seq
   const timeline = useMemo<TimelineItem[]>(() => {
     const items: TimelineItem[] = [
       ...messages.map((m): TimelineItem => ({ kind: "message", data: m })),
-      ...activeToolCalls.map((tc, i): TimelineItem => ({ kind: "tool", data: tc, index: i })),
+      ...completedToolGroups.map((g): TimelineItem => ({ kind: "tool_group", data: g })),
     ];
-    items.sort((a, b) => {
-      const seqA = a.kind === "message" ? a.data.seq : a.data.seq;
-      const seqB = b.kind === "message" ? b.data.seq : b.data.seq;
-      return seqA - seqB;
-    });
+    // Wrap live activeToolCalls in a synthetic group so they render inside a group too
+    if (activeToolCalls.length > 0) {
+      items.push({
+        kind: "tool_group",
+        data: { id: "live", toolCalls: activeToolCalls, seq: activeToolCalls[0].seq },
+      });
+    }
+    items.sort((a, b) => a.data.seq - b.data.seq);
     return items;
-  }, [messages, activeToolCalls]);
+  }, [messages, completedToolGroups, activeToolCalls]);
 
   // Derive the latest running tool label for the status bar
   const runningToolLabel = useMemo(() => {
@@ -53,7 +57,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages, currentText, activeToolCalls]);
+  }, [messages, currentText, activeToolCalls, completedToolGroups]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -78,12 +82,15 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
           </div>
         )}
 
-        {/* Unified timeline: messages and tool calls in sequence order */}
+        {/* Unified timeline: messages and tool call groups in sequence order */}
         {timeline.map((item) =>
           item.kind === "message" ? (
             <MessageBubble key={item.data.id} message={item.data} />
           ) : (
-            <ToolCallCard key={`tool-${item.index}`} toolCall={item.data} />
+            <ToolCallGroup
+              key={item.data.id}
+              group={item.data}
+            />
           ),
         )}
 

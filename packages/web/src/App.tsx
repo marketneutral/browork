@@ -29,6 +29,7 @@ export function App() {
   );
   const addToolStart = useSessionStore((s) => s.addToolStart);
   const completeToolCall = useSessionStore((s) => s.completeToolCall);
+  const finalizeToolCalls = useSessionStore((s) => s.finalizeToolCalls);
 
   // Handle incoming WebSocket events from the server
   const handleMessage = useCallback(
@@ -53,6 +54,7 @@ export function App() {
           break;
         case "agent_end":
           finalizeAssistantMessage();
+          finalizeToolCalls();
           setStreaming(false);
           // Refresh session list to update lastMessage preview
           refreshSessions();
@@ -83,6 +85,7 @@ export function App() {
       finalizeAssistantMessage,
       addToolStart,
       completeToolCall,
+      finalizeToolCalls,
     ],
   );
 

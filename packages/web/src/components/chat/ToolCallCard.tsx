@@ -17,6 +17,7 @@ import { toolLabel, getPath } from "../../utils/tool-labels";
 
 interface ToolCallCardProps {
   toolCall: ToolCall;
+  nested?: boolean;
 }
 
 const MAX_RESULT_LINES = 20;
@@ -444,7 +445,7 @@ function TruncatedBlock({
 
 /* ── Main component ── */
 
-export function ToolCallCard({ toolCall }: ToolCallCardProps) {
+export function ToolCallCard({ toolCall, nested }: ToolCallCardProps) {
   const { tool, args, result, isError, status } = toolCall;
   const [expanded, setExpanded] = useState(false);
 
@@ -470,49 +471,55 @@ export function ToolCallCard({ toolCall }: ToolCallCardProps) {
       ? "border-l-destructive/40"
       : "border-l-transparent";
 
+  const card = (
+    <div
+      className={`w-full rounded-[var(--radius)] border border-border/50 border-l-2 ${borderClass} bg-background-secondary/40 overflow-hidden transition-colors ${nested ? "" : "max-w-xl"}`}
+    >
+      {/* Header */}
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-surface-glass-hover transition-colors cursor-pointer"
+      >
+        {StatusIcon}
+        <ToolIcon tool={tool} />
+        <span
+          className={`flex-1 text-left truncate ${
+            status === "done" && !isError
+              ? "text-foreground-secondary"
+              : isError
+                ? "text-destructive"
+                : "text-foreground"
+          }`}
+        >
+          {label}
+        </span>
+        <Chevron className="w-3.5 h-3.5 text-foreground-tertiary shrink-0" />
+      </button>
+
+      {/* Detail */}
+      {expanded && (
+        <div className="border-t border-border/30 space-y-0">
+          {/* Args */}
+          <div className="px-2 py-1.5">
+            <FormatArgs tool={tool} args={args} />
+          </div>
+
+          {/* Result */}
+          {status === "done" && result !== undefined && (
+            <div className="px-2 pb-2">
+              <FormatResult tool={tool} args={args} result={result} isError={isError} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  if (nested) return card;
+
   return (
     <div className="flex justify-start animate-fade-in">
-      <div
-        className={`w-full max-w-xl rounded-[var(--radius)] border border-border/50 border-l-2 ${borderClass} bg-background-secondary/40 overflow-hidden transition-colors`}
-      >
-        {/* Header */}
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-surface-glass-hover transition-colors cursor-pointer"
-        >
-          {StatusIcon}
-          <ToolIcon tool={tool} />
-          <span
-            className={`flex-1 text-left truncate ${
-              status === "done" && !isError
-                ? "text-foreground-secondary"
-                : isError
-                  ? "text-destructive"
-                  : "text-foreground"
-            }`}
-          >
-            {label}
-          </span>
-          <Chevron className="w-3.5 h-3.5 text-foreground-tertiary shrink-0" />
-        </button>
-
-        {/* Detail */}
-        {expanded && (
-          <div className="border-t border-border/30 space-y-0">
-            {/* Args */}
-            <div className="px-2 py-1.5">
-              <FormatArgs tool={tool} args={args} />
-            </div>
-
-            {/* Result */}
-            {status === "done" && result !== undefined && (
-              <div className="px-2 pb-2">
-                <FormatResult tool={tool} args={args} result={result} isError={isError} />
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      {card}
     </div>
   );
 }

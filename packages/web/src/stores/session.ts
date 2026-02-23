@@ -17,6 +17,12 @@ export interface ToolCall {
   seq: number;
 }
 
+export interface ToolCallGroup {
+  id: string;
+  toolCalls: ToolCall[];
+  seq: number;
+}
+
 export interface SessionListItem {
   id: string;
   name: string;
@@ -34,6 +40,7 @@ interface SessionState {
   isLoading: boolean;
   error: string | null;
   activeToolCalls: ToolCall[];
+  completedToolGroups: ToolCallGroup[];
 
   // Actions
   setSessionId: (id: string | null) => void;
@@ -47,11 +54,13 @@ interface SessionState {
   setError: (msg: string | null) => void;
   addToolStart: (tool: string, args: unknown) => void;
   completeToolCall: (tool: string, result: unknown, isError: boolean) => void;
+  finalizeToolCalls: () => void;
   reset: () => void;
 }
 
 let msgCounter = 0;
 let seqCounter = 0;
+let turnCounter = 0;
 
 export const useSessionStore = create<SessionState>((set) => ({
   sessionId: null,
@@ -62,6 +71,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   isLoading: true,
   error: null,
   activeToolCalls: [],
+  completedToolGroups: [],
 
   setSessionId: (id) =>
     set({
@@ -71,6 +81,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       currentAssistantText: "",
       isStreaming: false,
       activeToolCalls: [],
+      completedToolGroups: [],
     }),
 
   setSessions: (sessions) => set({ sessions }),
@@ -78,7 +89,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   setMessages: (messages) => {
     // Assign seq to loaded history so timeline ordering works
     const seqd = messages.map((m) => ({ ...m, seq: ++seqCounter }));
-    set({ messages: seqd });
+    set({ messages: seqd, completedToolGroups: [] });
   },
 
   addUserMessage: (text) =>
@@ -134,11 +145,26 @@ export const useSessionStore = create<SessionState>((set) => ({
       ),
     })),
 
+  finalizeToolCalls: () =>
+    set((s) => {
+      if (s.activeToolCalls.length === 0) return s;
+      const group: ToolCallGroup = {
+        id: `turn-${++turnCounter}`,
+        toolCalls: s.activeToolCalls,
+        seq: s.activeToolCalls[0].seq,
+      };
+      return {
+        completedToolGroups: [...s.completedToolGroups, group],
+        activeToolCalls: [],
+      };
+    }),
+
   reset: () =>
     set({
       messages: [],
       currentAssistantText: "",
       isStreaming: false,
       activeToolCalls: [],
+      completedToolGroups: [],
     }),
 }));
