@@ -21,7 +21,13 @@ import { execSync, execFile, spawn } from "child_process";
 import { readdirSync, lstatSync, realpathSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { homedir } from "os";
-import type { BashOperations } from "@mariozechner/pi-coding-agent";
+import * as fs from "fs/promises";
+import type {
+  BashOperations,
+  ReadOperations,
+  WriteOperations,
+  EditOperations,
+} from "@mariozechner/pi-coding-agent";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE || "opentowork-sandbox:latest";
@@ -317,6 +323,40 @@ export function createSandboxBashOps(userId: string): BashOperations {
           }
         });
       });
+    },
+  };
+}
+
+/**
+ * Create file operations (read/write/edit) that translate container paths
+ * to host paths. Files are bind-mounted, so we use normal fs — no Docker
+ * exec overhead. This lets Pi see container paths while we access the host fs.
+ */
+export function createSandboxFileOps(): {
+  read: ReadOperations;
+  write: WriteOperations;
+  edit: EditOperations;
+} {
+  const workspacesRoot = resolve(DATA_ROOT, "workspaces");
+
+  /** Translate /workspaces/... → {DATA_ROOT}/workspaces/... */
+  function toHost(containerPath: string): string {
+    return containerPath.replace("/workspaces", workspacesRoot);
+  }
+
+  return {
+    read: {
+      readFile: (p) => fs.readFile(toHost(p)),
+      access: (p) => fs.access(toHost(p)),
+    },
+    write: {
+      writeFile: (p, content) => fs.writeFile(toHost(p), content),
+      mkdir: (dir) => fs.mkdir(toHost(dir), { recursive: true }).then(() => {}),
+    },
+    edit: {
+      readFile: (p) => fs.readFile(toHost(p)),
+      writeFile: (p, content) => fs.writeFile(toHost(p), content),
+      access: (p) => fs.access(toHost(p)),
     },
   };
 }

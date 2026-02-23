@@ -10,9 +10,12 @@
 
 import type { WebSocket } from "ws";
 import { translatePiEvent } from "../utils/event-translator.js";
+import { resolve } from "path";
 import { writeMcpConfig } from "./mcp-manager.js";
-import { isSandboxEnabled, ensureSandbox, createSandboxBashOps } from "./sandbox-manager.js";
+import { isSandboxEnabled, ensureSandbox, createSandboxBashOps, createSandboxFileOps } from "./sandbox-manager.js";
 import { createWebTools } from "../tools/web-tools.js";
+
+const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
 // ── Browork event types sent to the frontend over WebSocket ──
 
@@ -124,19 +127,24 @@ export async function createPiSession(
   // at runtime.
   if (sandboxUserId) {
     const s = session as any;
-    // Set _baseToolsOverride so _buildRuntime uses our tools instead of
-    // calling createAllTools() which would recreate the default bash tool.
+    const workspacesRoot = resolve(DATA_ROOT, "workspaces");
+    const containerWorkDir = workDir.replace(workspacesRoot, "/workspaces");
+    const fileOps = createSandboxFileOps();
+
+    // Switch Pi's cwd to the container path so the system prompt and tool
+    // descriptions show /workspaces/... instead of host paths.
+    s._cwd = containerWorkDir;
     s._baseToolsOverride = {
-      read: piSdk.createReadTool(workDir),
-      bash: piSdk.createBashTool(workDir, {
+      read: piSdk.createReadTool(containerWorkDir, { operations: fileOps.read }),
+      bash: piSdk.createBashTool(containerWorkDir, {
         operations: createSandboxBashOps(sandboxUserId),
       }),
-      edit: piSdk.createEditTool(workDir),
-      write: piSdk.createWriteTool(workDir),
+      edit: piSdk.createEditTool(containerWorkDir, { operations: fileOps.edit }),
+      write: piSdk.createWriteTool(containerWorkDir, { operations: fileOps.write }),
     };
     const activeToolNames = ["read", "bash", "edit", "write", ...webTools.map((t) => t.name)];
     s._buildRuntime({ activeToolNames, includeAllExtensionTools: true });
-    console.log(`[pi-session] patched bash tool for sandbox user ${sandboxUserId}`);
+    console.log(`[pi-session] sandbox patched for user ${sandboxUserId}, cwd=${containerWorkDir}`);
   }
 
   // Translate Pi events → Browork events → WebSocket
