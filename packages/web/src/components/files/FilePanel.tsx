@@ -16,7 +16,7 @@ export function FilePanel() {
   const saveTreeState = useFilesStore((s) => s.saveTreeState);
   const sessionId = useSessionStore((s) => s.sessionId);
   const initialOpenState = useFilesStore((s) =>
-    sessionId ? s.treeOpenState[sessionId] : undefined,
+    sessionId ? (s.treeOpenState[sessionId] ?? { ".pi": false }) : undefined,
   );
 
   const treeRef = useRef<TreeApi<any> | null | undefined>(null);

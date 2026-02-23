@@ -78,13 +78,13 @@ describe("GET /api/files", () => {
     );
   });
 
-  it("skips hidden files", async () => {
+  it("shows hidden files", async () => {
     writeFileSync(join(WORK_DIR, ".hidden"), "secret");
     writeFileSync(join(WORK_DIR, "visible.txt"), "public");
     const res = await app.inject({ method: "GET", url: `/api/files${q}` });
     const files = res.json();
-    expect(files).toHaveLength(1);
-    expect(files[0].name).toBe("visible.txt");
+    expect(files).toHaveLength(2);
+    expect(files.map((f: any) => f.name).sort()).toEqual([".hidden", "visible.txt"]);
   });
 });
 

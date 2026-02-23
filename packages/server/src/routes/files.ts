@@ -56,7 +56,7 @@ async function listTree(dir: string, base: string): Promise<FileEntry[]> {
   }
 
   for (const name of items) {
-    if (name.startsWith(".")) continue; // skip hidden files
+    // no filtering — show all files including dotfiles
     const full = resolve(dir, name);
     try {
       const s = await stat(full);
@@ -314,7 +314,7 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
       const s = await stat(resolved);
       if (s.isDirectory()) {
         const force = (req.query as Record<string, string>).force === "true";
-        const children = (await readdir(resolved)).filter((n) => !n.startsWith("."));
+        const children = await readdir(resolved);
         if (children.length > 0 && !force) {
           return reply.code(409).send({
             error: "Directory is not empty",

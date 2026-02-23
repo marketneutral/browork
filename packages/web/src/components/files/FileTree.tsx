@@ -177,7 +177,7 @@ function AutoSizedTree({
     <Tree<TreeNode>
       ref={setRef}
       data={data}
-      openByDefault={!initialOpenState}
+      openByDefault
       initialOpenState={initialOpenState}
       onToggle={onToggle}
       width="100%"

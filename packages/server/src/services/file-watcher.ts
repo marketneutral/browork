@@ -24,7 +24,7 @@ export class FileWatcher {
 
     this.watcher = watch(this.watchDir, {
       ignoreInitial: true,
-      ignored: /(^|[\/\\])\../, // ignore dotfiles
+      // no ignore pattern — watch all files including dotfiles
       persistent: true,
     });
 
