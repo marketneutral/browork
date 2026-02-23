@@ -1,8 +1,9 @@
-import { memo } from "react";
+import { memo, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { Copy, Check } from "lucide-react";
 import type { CSSProperties } from "react";
 import type { ChatMessage } from "../../stores/session";
 
@@ -24,18 +25,34 @@ export const MessageBubble = memo(function MessageBubble({
   isStreaming,
 }: MessageBubbleProps) {
   const isUser = message.role === "user";
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }, [message.content]);
 
   return (
     <div
       className={`flex ${isUser ? "justify-end" : "justify-start"} animate-fade-in-up`}
     >
       <div
-        className={`max-w-[75%] rounded-lg px-4 py-2.5 text-sm leading-relaxed ${
+        className={`relative group max-w-[75%] rounded-lg px-4 py-2.5 text-sm leading-relaxed ${
           isUser
             ? "bg-gradient-primary text-white"
             : "glass text-foreground"
         }`}
       >
+        {!isUser && (
+          <button
+            onClick={handleCopy}
+            className="absolute top-1.5 right-1.5 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground hover:bg-white/10"
+            title="Copy to clipboard"
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+        )}
         {isUser ? (
           <p className="whitespace-pre-wrap">{message.content}</p>
         ) : (
