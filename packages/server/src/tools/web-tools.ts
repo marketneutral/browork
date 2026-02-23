@@ -72,15 +72,15 @@ function createWebSearchTool(apiKey: string): ToolDefinitionLike {
       query: Type.String({ description: "The search query" }),
       count: Type.Optional(
         Type.Number({
-          description: "Number of results (1-10, default 5)",
+          description: "Number of results (1-10, default 10)",
           minimum: 1,
           maximum: 10,
-          default: 5,
+          default: 10,
         }),
       ),
     }),
     async execute(_toolCallId, params, signal) {
-      const { query, count = 5 } = params as { query: string; count?: number };
+      const { query, count = 10 } = params as { query: string; count?: number };
 
       const url = new URL("https://api.search.brave.com/res/v1/web/search");
       url.searchParams.set("q", query);
