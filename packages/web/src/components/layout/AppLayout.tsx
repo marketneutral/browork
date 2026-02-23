@@ -99,7 +99,7 @@ export function AppLayout({
       )}
 
       {/* Center: header + chat */}
-      <main className="flex-1 flex flex-col min-w-0 relative z-10">
+      <main className="flex-1 flex flex-col min-w-0 relative z-10 bg-background">
         {/* Top bar — mobile: always shown; desktop: only when sidebar collapsed */}
         <div className={`flex items-center gap-2 p-2 border-b border-border bg-background-secondary ${
           sidebarCollapsed ? "" : "md:hidden"
