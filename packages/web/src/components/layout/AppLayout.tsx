@@ -146,7 +146,7 @@ export function AppLayout({
       {filesPanelOpen && (
         <aside className="lg:hidden max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:w-80 max-lg:shadow-lg max-lg:bg-background-secondary max-lg:border-l max-lg:border-border hidden max-md:hidden md:max-lg:block">
           <div className="flex items-center justify-between p-2 border-b border-border md:hidden">
-            <span className="text-sm font-medium">Files</span>
+            <span className="text-sm font-medium">Session Files</span>
             <button
               onClick={() => setFilesPanelOpen(false)}
               className="p-1 rounded-md hover:bg-surface-glass-hover text-muted-foreground"

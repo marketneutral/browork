@@ -291,7 +291,7 @@ export function FilePanel() {
   return (
     <div className="flex flex-col h-full">
       <div className="p-3 border-b border-border flex items-center justify-between">
-        <h2 className="text-sm font-medium" style={{ fontFamily: "var(--font-display)" }}>Files</h2>
+        <h2 className="text-sm font-medium" style={{ fontFamily: "var(--font-display)" }}>Session Files</h2>
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleCreateFolder("")}
