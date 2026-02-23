@@ -255,6 +255,11 @@ export function createSandboxBashOps(userId: string): BashOperations {
       const workspacesRoot = resolve(DATA_ROOT, "workspaces");
       const containerCwd = cwd.replace(workspacesRoot, "/workspaces");
 
+      console.log(`[sandbox-exec] container=${containerId.slice(0, 12)} cwd=${containerCwd} cmd=${command.slice(0, 80)}`);
+      if (containerCwd === cwd) {
+        console.warn(`[sandbox-exec] WARNING: cwd was not translated! host=${cwd} workspacesRoot=${workspacesRoot}`);
+      }
+
       const args = [
         "exec", "-w", containerCwd, containerId,
         "/bin/bash", "-c", command,
@@ -284,10 +289,13 @@ export function createSandboxBashOps(userId: string): BashOperations {
           }
         }
 
-        child.stdout.on("data", (data: Buffer) => options.onData(data));
-        child.stderr.on("data", (data: Buffer) => options.onData(data));
+        let dataChunks = 0;
+        let dataBytes = 0;
+        child.stdout.on("data", (data: Buffer) => { dataChunks++; dataBytes += data.length; options.onData(data); });
+        child.stderr.on("data", (data: Buffer) => { dataChunks++; dataBytes += data.length; options.onData(data); });
 
         child.on("error", (err) => {
+          console.error(`[sandbox-exec] spawn error: ${err.message}`);
           if (timeoutId) clearTimeout(timeoutId);
           if (!settled) {
             settled = true;
@@ -296,6 +304,7 @@ export function createSandboxBashOps(userId: string): BashOperations {
         });
 
         child.on("close", (code) => {
+          console.log(`[sandbox-exec] exit=${code} chunks=${dataChunks} bytes=${dataBytes}`);
           if (timeoutId) clearTimeout(timeoutId);
           if (!settled) {
             settled = true;

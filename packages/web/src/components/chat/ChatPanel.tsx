@@ -7,6 +7,7 @@ import { Composer } from "./Composer";
 import { ToolCallCard } from "./ToolCallCard";
 import { SkillBadge } from "./SkillBadge";
 import { APP_NAME } from "../../config";
+import { toolLabel } from "../../utils/tool-labels";
 
 type TimelineItem =
   | { kind: "message"; data: ChatMessage }
@@ -39,6 +40,12 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
     });
     return items;
   }, [messages, activeToolCalls]);
+
+  // Derive the latest running tool label for the status bar
+  const runningToolLabel = useMemo(() => {
+    const running = [...activeToolCalls].reverse().find((tc) => tc.status === "running");
+    return running ? toolLabel(running.tool, running.args, "running") + "..." : null;
+  }, [activeToolCalls]);
 
   // Auto-scroll to bottom on new content
   useEffect(() => {
@@ -108,7 +115,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
             {activeSkill
               ? `Running workflow: ${activeSkill.label}...`
-              : "Agent is working..."}
+              : runningToolLabel ?? "Agent is working..."}
             <button
               onClick={onAbort}
               className="ml-auto text-destructive hover:underline"

@@ -134,8 +134,11 @@ export async function createPiSession(
 
   const unsubscribe = session.subscribe((event) => {
     const broworkEvent = translatePiEvent(event);
-    if (broworkEvent && activeWs.readyState === activeWs.OPEN) {
-      activeWs.send(JSON.stringify(broworkEvent));
+    if (broworkEvent) {
+      console.log(`[pi-event] ${broworkEvent.type} ${(broworkEvent as any).tool ?? ""}`);
+      if (activeWs.readyState === activeWs.OPEN) {
+        activeWs.send(JSON.stringify(broworkEvent));
+      }
     }
   });
 
@@ -186,6 +189,20 @@ function createMockSession(
       const skillMatch = text.match(/^\/skill:(\S+)/);
       const isSkill = !!skillMatch;
       const skillName = skillMatch?.[1] ?? "";
+
+      // Simulate tool calls so the status bar and tool cards are testable
+      const mockTools: { tool: string; args: unknown; result: unknown; ms: number }[] = [
+        { tool: "read", args: { path: "data.csv" }, result: { content: [{ type: "text", text: "col1,col2\n1,2\n3,4" }] }, ms: 400 },
+        { tool: "bash", args: { command: "echo analysis complete" }, result: { details: { output: "analysis complete\n", exitCode: 0 } }, ms: 800 },
+        { tool: "write", args: { file_path: "output/results.md" }, result: { details: { created: true, size: 256 } }, ms: 300 },
+      ];
+
+      for (const mt of mockTools) {
+        send(activeWs, { type: "tool_start", tool: mt.tool, args: mt.args });
+        await sleep(mt.ms);
+        send(activeWs, { type: "tool_end", tool: mt.tool, result: mt.result, isError: false });
+        await sleep(100);
+      }
 
       const response = isSkill
         ? `I'm executing the **${skillName}** workflow.\n\nIn mock mode, I can't actually process files, but here's what I would do:\n\n1. Read the input files from your working directory\n2. Follow the skill instructions step by step\n3. Save the results to the output/ directory\n\nInstall the Pi SDK to run real workflows!`
