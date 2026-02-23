@@ -7,6 +7,7 @@ declare module "@mariozechner/pi-coding-agent" {
     model?: any;
     thinkingLevel?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
     extensions?: string[];
+    customTools?: any[];
   }
 
   export interface AgentSession {

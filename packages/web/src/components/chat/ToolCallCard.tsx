@@ -9,6 +9,8 @@ import {
   Pencil,
   Play,
   Wrench,
+  Search,
+  Globe,
 } from "lucide-react";
 import type { ToolCall } from "../../stores/session";
 import { toolLabel, getPath } from "../../utils/tool-labels";
@@ -31,6 +33,10 @@ function ToolIcon({ tool }: { tool: string }) {
       return <Pencil className={cls} />;
     case "bash":
       return <Terminal className={cls} />;
+    case "web_search":
+      return <Search className={cls} />;
+    case "web_fetch":
+      return <Globe className={cls} />;
     case "mcp":
       return <Wrench className={cls} />;
     default:
@@ -51,6 +57,23 @@ function FormatArgs({ tool, args }: { tool: string; args: unknown }) {
     return (
       <div className="text-xs text-foreground-secondary font-mono px-3 py-1.5">
         {getPath(args)}
+      </div>
+    );
+  }
+
+  if (tool === "web_search") {
+    return (
+      <div className="text-xs text-foreground-secondary px-3 py-1.5">
+        {(a?.query as string) || ""}
+      </div>
+    );
+  }
+
+  if (tool === "web_fetch") {
+    const url = (a?.url as string) || "";
+    return (
+      <div className="text-xs text-foreground-secondary font-mono px-3 py-1.5 truncate">
+        {url}
       </div>
     );
   }
@@ -180,6 +203,64 @@ function WriteResult({ result }: { result: unknown }) {
   );
 }
 
+/* ── Web search result ── */
+
+interface SearchResultEntry {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+function parseSearchResults(text: string): SearchResultEntry[] {
+  const entries: SearchResultEntry[] = [];
+  // Format: "1. Title\n   URL\n   Description"
+  const blocks = text.split(/\n\n+/);
+  for (const block of blocks) {
+    const lines = block.split("\n").map((l) => l.trim());
+    if (lines.length >= 3) {
+      const title = lines[0].replace(/^\d+\.\s*/, "");
+      const url = lines[1];
+      const snippet = lines.slice(2).join(" ");
+      if (title && url) entries.push({ title, url, snippet });
+    }
+  }
+  return entries;
+}
+
+function WebSearchResult({ result }: { result: unknown }) {
+  const text = extractText(result);
+  if (!text) return null;
+
+  const entries = parseSearchResults(text);
+  if (entries.length === 0) {
+    return <TruncatedBlock content={text} />;
+  }
+
+  return (
+    <div className="space-y-1.5 px-3 py-1.5">
+      {entries.map((entry, i) => (
+        <a
+          key={i}
+          href={entry.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block rounded-md bg-background/60 px-3 py-2 hover:bg-surface-glass-hover transition-colors"
+        >
+          <div className="text-xs font-medium text-primary truncate">{entry.title}</div>
+          <div className="text-[10px] text-foreground-tertiary font-mono truncate mt-0.5">
+            {entry.url}
+          </div>
+          {entry.snippet && (
+            <div className="text-xs text-foreground-secondary mt-1 line-clamp-2">
+              {entry.snippet}
+            </div>
+          )}
+        </a>
+      ))}
+    </div>
+  );
+}
+
 /* ── Format result ── */
 
 function extractDiff(result: unknown): string | null {
@@ -218,6 +299,17 @@ function FormatResult({
   if (tool === "edit") {
     const diff = extractDiff(result);
     if (diff) return <DiffBlock content={diff} />;
+  }
+
+  // Web search: clickable result cards
+  if (tool === "web_search") {
+    return <WebSearchResult result={result} />;
+  }
+
+  // Web fetch: markdown content
+  if (tool === "web_fetch") {
+    const text = extractText(result);
+    if (text) return <TruncatedBlock content={text} />;
   }
 
   // Bash: terminal-style rendering

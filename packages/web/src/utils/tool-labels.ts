@@ -24,6 +24,19 @@ export function toolLabel(tool: string, args: unknown, status: "running" | "done
       const short = truncate(cmd.split("\n")[0], 40);
       return past ? `Ran ${short}` : `Running ${short}`;
     }
+    case "web_search": {
+      const a = args as Record<string, unknown> | undefined;
+      const q = truncate((a?.query as string) || "web", 30);
+      return past ? `Searched '${q}'` : `Searching '${q}'`;
+    }
+    case "web_fetch": {
+      const a = args as Record<string, unknown> | undefined;
+      let host = "url";
+      try {
+        host = new URL((a?.url as string) || "").hostname;
+      } catch { /* keep default */ }
+      return past ? `Fetched ${host}` : `Fetching ${host}`;
+    }
     case "mcp": {
       const a = args as Record<string, unknown> | undefined;
       if (a?.tool) return `MCP: ${a.tool}`;

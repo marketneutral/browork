@@ -12,6 +12,7 @@ import type { WebSocket } from "ws";
 import { translatePiEvent } from "../utils/event-translator.js";
 import { writeMcpConfig } from "./mcp-manager.js";
 import { isSandboxEnabled, ensureSandbox, createSandboxBashOps } from "./sandbox-manager.js";
+import { createWebTools } from "../tools/web-tools.js";
 
 // ── Browork event types sent to the frontend over WebSocket ──
 
@@ -92,8 +93,13 @@ export async function createPiSession(
     (process.env.DEFAULT_THINKING_LEVEL as "low" | "medium" | "high") ||
     "medium";
 
-  // Write MCP server config to the workspace before creating the session
+  // Write MCP server config before creating the session
   writeMcpConfig(workDir);
+
+  const webTools = createWebTools();
+  if (webTools.length > 0) {
+    console.log(`[pi-session] registering custom tools: ${webTools.map((t) => t.name).join(", ")}`);
+  }
 
   const { session } = await piSdk.createAgentSession({
     cwd: workDir,
@@ -102,6 +108,7 @@ export async function createPiSession(
       process.env.PI_MODEL || "gpt-4",
     ),
     thinkingLevel,
+    customTools: webTools,
   });
 
   // When sandbox is active, redirect bash execution into the Docker container.
@@ -124,7 +131,8 @@ export async function createPiSession(
       edit: piSdk.createEditTool(workDir),
       write: piSdk.createWriteTool(workDir),
     };
-    s._buildRuntime({ activeToolNames: ["read", "bash", "edit", "write"], includeAllExtensionTools: true });
+    const activeToolNames = ["read", "bash", "edit", "write", ...webTools.map((t) => t.name)];
+    s._buildRuntime({ activeToolNames, includeAllExtensionTools: true });
     console.log(`[pi-session] patched bash tool for sandbox user ${sandboxUserId}`);
   }
 
@@ -192,6 +200,8 @@ function createMockSession(
 
       // Simulate tool calls so the status bar and tool cards are testable
       const mockTools: { tool: string; args: unknown; result: unknown; ms: number }[] = [
+        { tool: "web_search", args: { query: "financial analysis best practices 2025" }, result: { content: [{ type: "text", text: "1. Financial Analysis Guide\n   https://example.com/finance-guide\n   Comprehensive guide to financial analysis techniques and best practices.\n\n2. Modern Portfolio Theory\n   https://example.com/mpt\n   An overview of modern portfolio theory and risk management.\n\n3. Data-Driven Finance\n   https://example.com/data-finance\n   How data analytics is transforming financial decision making." }], details: { resultCount: 3 } }, ms: 600 },
+        { tool: "web_fetch", args: { url: "https://example.com/finance-guide" }, result: { content: [{ type: "text", text: "# Financial Analysis Guide\n\nThis guide covers the fundamentals of financial analysis...\n\n## Key Metrics\n- Revenue Growth\n- Profit Margins\n- Return on Equity" }], details: { url: "https://example.com/finance-guide", truncated: false, length: 180 } }, ms: 800 },
         { tool: "read", args: { path: "data.csv" }, result: { content: [{ type: "text", text: "col1,col2\n1,2\n3,4" }] }, ms: 400 },
         { tool: "bash", args: { command: "echo analysis complete" }, result: { details: { output: "analysis complete\n", exitCode: 0 } }, ms: 800 },
         { tool: "write", args: { file_path: "output/results.md" }, result: { details: { created: true, size: 256 } }, ms: 300 },
@@ -245,3 +255,4 @@ function send(ws: WebSocket, event: BroworkEvent) {
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
