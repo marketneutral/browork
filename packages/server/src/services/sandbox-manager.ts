@@ -256,6 +256,7 @@ export function createSandboxBashOps(userId: string): BashOperations {
       const workspacesRoot = resolve(DATA_ROOT, "workspaces");
       const containerCwd = cwd.replace(workspacesRoot, "/workspaces");
 
+      const startTime = Date.now();
       console.log(`[sandbox-exec] container=${containerId.slice(0, 12)} cwd=${containerCwd} cmd=${command.slice(0, 80)}`);
       if (containerCwd === cwd) {
         console.warn(`[sandbox-exec] WARNING: cwd was not translated! host=${cwd} workspacesRoot=${workspacesRoot}`);
@@ -303,7 +304,8 @@ export function createSandboxBashOps(userId: string): BashOperations {
         });
 
         child.on("close", (code) => {
-          console.log(`[sandbox-exec] exit=${code} timedOut=${timedOut} chunks=${dataChunks} bytes=${dataBytes}`);
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+          console.log(`[sandbox-exec] exit=${code} timedOut=${timedOut} chunks=${dataChunks} bytes=${dataBytes} elapsed=${elapsed}s`);
           if (timeoutId) clearTimeout(timeoutId);
           options.signal?.removeEventListener("abort", onAbort);
           if (options.signal?.aborted) {
