@@ -123,7 +123,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
             <span className="text-foreground-secondary">
               {activeSkill
                 ? `Running workflow: ${activeSkill.label}...`
-                : runningToolLabel ?? "Agent is working..."}
+                : runningToolLabel ?? "Thinking..."}
             </span>
             <button
               onClick={onAbort}
