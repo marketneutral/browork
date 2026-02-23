@@ -1,18 +1,20 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { resolve } from "path";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { resolve, join } from "path";
+import { mkdtempSync, existsSync, readlinkSync, rmSync } from "fs";
+import { tmpdir } from "os";
 import {
   initSkills,
   listSkills,
   getSkill,
   setSkillEnabled,
-  expandSkillPrompt,
+  symlinkGlobalSkills,
 } from "../services/skill-manager.js";
 
 const SKILLS_DIR = resolve(import.meta.dirname, "../../../skills");
 
 describe("skill-manager", () => {
   beforeEach(async () => {
-    await initSkills();
+    await initSkills(undefined, { globalSkillsDir: mkdtempSync(join(tmpdir(), "pi-skills-test-")) });
   });
 
   describe("initSkills", () => {
@@ -31,14 +33,14 @@ describe("skill-manager", () => {
     });
 
     it("should load skills from extra directories", async () => {
-      await initSkills([SKILLS_DIR]);
+      await initSkills([SKILLS_DIR], { globalSkillsDir: mkdtempSync(join(tmpdir(), "pi-skills-test-")) });
       // Should not duplicate — same dir scanned twice
       const skills = listSkills();
       expect(skills.length).toBe(6);
     });
 
     it("should ignore non-existent directories", async () => {
-      await initSkills(["/tmp/nonexistent-skill-dir-12345"]);
+      await initSkills(["/tmp/nonexistent-skill-dir-12345"], { globalSkillsDir: mkdtempSync(join(tmpdir(), "pi-skills-test-")) });
       const skills = listSkills();
       expect(skills.length).toBe(6);
     });
@@ -73,6 +75,13 @@ describe("skill-manager", () => {
       expect(skill!.enabled).toBe(true);
     });
 
+    it("should include dirPath", () => {
+      const skill = getSkill("data-cleaning");
+      expect(skill).toBeDefined();
+      expect(skill!.dirPath).toContain("data-cleaning");
+      expect(existsSync(skill!.dirPath)).toBe(true);
+    });
+
     it("should return undefined for unknown skills", () => {
       expect(getSkill("nonexistent")).toBeUndefined();
     });
@@ -99,37 +108,63 @@ describe("skill-manager", () => {
     });
   });
 
-  describe("expandSkillPrompt", () => {
-    it("should wrap skill body in <skill> tags", () => {
-      const prompt = expandSkillPrompt("data-cleaning");
-      expect(prompt).not.toBeNull();
-      expect(prompt).toContain('<skill name="data-cleaning">');
-      expect(prompt).toContain("</skill>");
-      expect(prompt).toContain("# Data Cleaning");
+  describe("symlinkGlobalSkills", () => {
+    let tempDir: string;
+
+    beforeEach(async () => {
+      tempDir = mkdtempSync(join(tmpdir(), "pi-skills-symlink-"));
+      // Ensure skills are loaded
+      await initSkills(undefined, { globalSkillsDir: tempDir });
     });
 
-    it("should append user args when provided", () => {
-      const prompt = expandSkillPrompt(
-        "data-cleaning",
-        "Focus on Q4_revenue.csv",
-      );
-      expect(prompt).toContain("User request: Focus on Q4_revenue.csv");
+    afterEach(() => {
+      rmSync(tempDir, { recursive: true, force: true });
     });
 
-    it("should return null for disabled skills", () => {
-      setSkillEnabled("data-cleaning", false);
-      const prompt = expandSkillPrompt("data-cleaning");
-      expect(prompt).toBeNull();
+    it("should create symlinks for all skills", async () => {
+      await symlinkGlobalSkills(tempDir);
+      const skills = listSkills();
+      for (const skill of skills) {
+        const linkPath = join(tempDir, skill.name);
+        expect(existsSync(linkPath)).toBe(true);
+
+        const target = readlinkSync(linkPath);
+        expect(existsSync(target)).toBe(true);
+      }
     });
 
-    it("should return null for unknown skills", () => {
-      expect(expandSkillPrompt("nonexistent")).toBeNull();
+    it("should create 6 symlinks", async () => {
+      await symlinkGlobalSkills(tempDir);
+      const { readdirSync } = await import("fs");
+      const entries = readdirSync(tempDir);
+      expect(entries.length).toBe(6);
     });
 
-    it("should handle empty args gracefully", () => {
-      const prompt = expandSkillPrompt("data-cleaning", "  ");
-      expect(prompt).not.toBeNull();
-      expect(prompt).not.toContain("User request:");
+    it("should be idempotent — re-running does not fail", async () => {
+      await symlinkGlobalSkills(tempDir);
+      // Run again — should skip existing correct symlinks
+      await expect(symlinkGlobalSkills(tempDir)).resolves.not.toThrow();
+    });
+
+    it("should replace stale symlinks", async () => {
+      const { unlinkSync, symlinkSync } = await import("fs");
+      const stalePath = join(tempDir, "data-cleaning");
+      // Remove the correct symlink created by initSkills, replace with stale one
+      unlinkSync(stalePath);
+      symlinkSync("/tmp/stale-target", stalePath, "dir");
+      expect(readlinkSync(stalePath)).toBe("/tmp/stale-target");
+
+      await symlinkGlobalSkills(tempDir);
+
+      const target = readlinkSync(stalePath);
+      expect(target).not.toBe("/tmp/stale-target");
+      expect(target).toContain("data-cleaning");
+    });
+
+    it("should create target directory if it does not exist", async () => {
+      const nestedDir = join(tempDir, "nested", "skills");
+      await symlinkGlobalSkills(nestedDir);
+      expect(existsSync(nestedDir)).toBe(true);
     });
   });
 

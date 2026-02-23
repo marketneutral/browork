@@ -157,8 +157,8 @@ function createMockSession(
       // Simulate Pi agent response with streaming
       send(activeWs, { type: "agent_start" });
 
-      // Detect skill invocations and generate a more relevant mock response
-      const skillMatch = text.match(/<skill name="([^"]+)">/);
+      // Detect skill invocations via Pi's native /skill:name command format
+      const skillMatch = text.match(/^\/skill:(\S+)/);
       const isSkill = !!skillMatch;
       const skillName = skillMatch?.[1] ?? "";
 

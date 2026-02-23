@@ -15,7 +15,7 @@ npm install              # Install all workspace dependencies
 npm run dev              # Run both server (:3001) and web (:5173) concurrently
 npm run dev:server       # Backend only (tsx watch, hot reload)
 npm run dev:web          # Frontend only (Vite dev server, proxies /api to :3001)
-npm test                 # Run server-side Vitest tests (~166 tests)
+npm test                 # Run server-side Vitest tests (~167 tests)
 npm run build            # Build server (tsc) then web (tsc + vite build)
 npm run lint             # ESLint across all packages
 ```
@@ -51,11 +51,12 @@ Watch mode: `npm run test:watch --workspace=packages/server`
 - **API client**: `src/api/client.ts` — centralized REST + WebSocket URL helpers
 
 ### `packages/skills` — Bundled workflow definitions
-Markdown files with YAML frontmatter (`SKILL.md`) for data-cleaning, excel-merge, financial-report, etc.
+Markdown files with YAML frontmatter (`SKILL.md`) for data-cleaning, excel-merge, financial-report, etc. At server startup, these are symlinked into `~/.pi/agent/skills/` so Pi's `DefaultResourceLoader` discovers them natively.
 
 ## Key Patterns
 
 - **Pi mock mode**: Server auto-falls back to mock when Pi SDK (`@mariozechner/pi-coding-agent`) isn't installed. No Azure credentials needed for UI development.
+- **Native Pi skills**: Skills are invoked via Pi's `/skill:<name>` command syntax. The skill manager (`skill-manager.ts`) symlinks bundled skills from `packages/skills/` into `~/.pi/agent/skills/` at startup so Pi's `DefaultResourceLoader` discovers them natively (progressive disclosure, supporting files accessible via relative paths). The in-memory skill map is kept for the `/api/skills` REST endpoint (frontend slash command popup). Pi also auto-discovers per-workspace skills from `{workspace}/.pi/skills/`.
 - **WebSocket event protocol**: JSON messages with `type` discriminator (`message_delta`, `tool_start`, `agent_end`, `files_changed`). Events flow: Pi SDK → `translatePiEvent()` → WebSocket → Zustand store → React.
 - **Per-session workspaces**: Files isolated at `{DATA_ROOT}/workspaces/{sessionId}/workspace`. All file operations go through `safePath()` to prevent path traversal.
 - **Session rebinding**: Pi sessions persist in-memory across WebSocket reconnects via `rebindSocket()`.

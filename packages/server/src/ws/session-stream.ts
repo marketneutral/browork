@@ -3,7 +3,7 @@ import type { RawData } from "ws";
 import { createPiSession, getSession } from "../services/pi-session.js";
 import type { BroworkCommand } from "../services/pi-session.js";
 import { subscribeWsToFileChanges } from "../services/file-watcher.js";
-import { expandSkillPrompt, getSkill } from "../services/skill-manager.js";
+import { getSkill } from "../services/skill-manager.js";
 import { addMessage, getSessionById } from "../db/session-store.js";
 import { resolve } from "path";
 import { mkdirSync } from "fs";
@@ -98,8 +98,7 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
               break;
             case "skill_invoke": {
               const skill = getSkill(cmd.skill);
-              const prompt = expandSkillPrompt(cmd.skill, cmd.args);
-              if (!prompt || !skill) {
+              if (!skill || !skill.enabled) {
                 socket.send(
                   JSON.stringify({
                     type: "error",
@@ -108,6 +107,10 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
                 );
                 break;
               }
+              // Send as Pi's native skill command
+              const prompt = cmd.args
+                ? `/skill:${cmd.skill} ${cmd.args}`
+                : `/skill:${cmd.skill}`;
               // Persist skill invocation as a user message
               const userMsg = cmd.args
                 ? `[Workflow: ${cmd.skill}] ${cmd.args}`

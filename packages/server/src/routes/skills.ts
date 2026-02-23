@@ -3,7 +3,6 @@ import {
   listSkills,
   getSkill,
   setSkillEnabled,
-  expandSkillPrompt,
 } from "../services/skill-manager.js";
 import { getSession } from "../services/pi-session.js";
 
@@ -51,12 +50,16 @@ export const skillRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(404).send({ error: "Session not found" });
     }
 
-    const prompt = expandSkillPrompt(name, args);
-    if (!prompt) {
+    const skill = getSkill(name);
+    if (!skill || !skill.enabled) {
       return reply.code(404).send({ error: "Skill not found or disabled" });
     }
 
-    // Send the expanded skill prompt to Pi asynchronously
+    // Send as Pi's native skill command
+    const prompt = args?.trim()
+      ? `/skill:${name} ${args.trim()}`
+      : `/skill:${name}`;
+
     session.sendPrompt(prompt).catch((err) => {
       app.log.error({ err, skill: name }, "Skill invocation failed");
     });

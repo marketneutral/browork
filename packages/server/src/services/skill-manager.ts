@@ -8,9 +8,10 @@
  * the Agent Skills standard (https://agentskills.io/specification).
  */
 
-import { readdir, readFile } from "fs/promises";
+import { readdir, readFile, mkdir, symlink, readlink, unlink, lstat } from "fs/promises";
 import { resolve, join } from "path";
 import { existsSync } from "fs";
+import { homedir } from "os";
 
 // ── Types ──
 
@@ -23,6 +24,8 @@ export interface SkillMeta {
 export interface SkillContent extends SkillMeta {
   /** Raw markdown body (frontmatter stripped) */
   body: string;
+  /** Absolute path to the skill's directory */
+  dirPath: string;
 }
 
 // ── Frontmatter parser ──
@@ -89,12 +92,16 @@ const skills = new Map<string, SkillContent>();
 /** Additional skill directories to scan */
 const skillDirs: string[] = [];
 
+/** Default global skills directory for Pi's DefaultResourceLoader */
+const GLOBAL_SKILLS_DIR = join(homedir(), ".pi", "agent", "skills");
+
 /**
  * Discover and load skills from all configured directories.
  * Called once at server startup.
  */
 export async function initSkills(
   extraDirs?: string[],
+  opts?: { globalSkillsDir?: string },
 ): Promise<void> {
   skills.clear();
 
@@ -104,6 +111,9 @@ export async function initSkills(
     if (!existsSync(dir)) continue;
     await scanSkillDirectory(dir);
   }
+
+  // Symlink discovered skills to Pi's global skills directory
+  await symlinkGlobalSkills(opts?.globalSkillsDir);
 
   console.log(
     `Loaded ${skills.size} skills: ${Array.from(skills.keys()).join(", ")}`,
@@ -136,6 +146,7 @@ async function scanSkillDirectory(dir: string): Promise<void> {
         description,
         enabled: true,
         body,
+        dirPath: join(dir, entry.name),
       });
     } catch (err) {
       console.warn(`Failed to load skill from ${skillFile}:`, err);
@@ -175,21 +186,45 @@ export function setSkillEnabled(
 }
 
 /**
- * Expand a skill into a prompt string suitable for sending to Pi.
- * Wraps the skill body in <skill> tags and appends user arguments.
+ * Symlink all discovered skills into Pi's global skills directory
+ * so Pi's DefaultResourceLoader discovers them natively.
+ *
+ * Creates: ~/.pi/agent/skills/<name> → <skill dirPath>
  */
-export function expandSkillPrompt(
-  name: string,
-  userArgs?: string,
-): string | null {
-  const skill = skills.get(name);
-  if (!skill || !skill.enabled) return null;
+export async function symlinkGlobalSkills(
+  targetDir?: string,
+): Promise<void> {
+  const dir = targetDir ?? GLOBAL_SKILLS_DIR;
 
-  let prompt = `<skill name="${skill.name}">\n${skill.body.trim()}\n</skill>`;
+  await mkdir(dir, { recursive: true });
 
-  if (userArgs?.trim()) {
-    prompt += `\n\nUser request: ${userArgs.trim()}`;
+  for (const skill of skills.values()) {
+    const linkPath = join(dir, skill.name);
+    const target = resolve(skill.dirPath);
+
+    try {
+      // Check if something already exists at the link path (lstat follows broken symlinks)
+      let exists = false;
+      try {
+        await lstat(linkPath);
+        exists = true;
+      } catch {
+        // Nothing at linkPath
+      }
+
+      if (exists) {
+        try {
+          const existing = await readlink(linkPath);
+          if (resolve(existing) === target) continue; // Already correct
+        } catch {
+          // Not a symlink or unreadable — remove and recreate
+        }
+        await unlink(linkPath);
+      }
+
+      await symlink(target, linkPath, "dir");
+    } catch (err) {
+      console.warn(`Failed to symlink skill ${skill.name} to ${linkPath}:`, err);
+    }
   }
-
-  return prompt;
 }
