@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { useSessionStore } from "./session";
+import { useFilesStore } from "./files";
 
 export interface User {
   id: string;
@@ -41,5 +43,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     set({ user: null, token: null });
+    // Clear session and file state so the next user starts fresh
+    useSessionStore.getState().setSessionId(null);
+    useSessionStore.getState().setSessions([]);
+    useFilesStore.getState().clearAll();
   },
 }));

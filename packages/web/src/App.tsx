@@ -92,22 +92,26 @@ export function App() {
 
   // Load sessions and auto-create if none exist
   useEffect(() => {
+    let ignore = false;
     setLoading(true);
     api.sessions
       .list()
       .then((sessions) => {
+        if (ignore) return;
         useSessionStore.getState().setSessions(sessions);
         if (sessions.length > 0 && !sessionId) {
           selectSession(sessions[0].id);
         } else if (sessions.length === 0) {
           api.sessions.create().then((s) => {
+            if (ignore) return;
             refreshSessions();
             selectSession(s.id);
           });
         }
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      .catch((err) => { if (!ignore) setError(err.message); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

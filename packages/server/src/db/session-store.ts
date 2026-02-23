@@ -167,14 +167,6 @@ export function forkSession(
   return getSessionById(newId);
 }
 
-export function getSessionWorkspaceDir(sessionId: string): string | null {
-  const db = getDb();
-  const row = db.prepare("SELECT workspace_dir FROM sessions WHERE id = ?").get(sessionId) as
-    { workspace_dir: string | null } | undefined;
-  if (!row) return null;
-  return row.workspace_dir ?? `${sessionId}/workspace`;
-}
-
 // ── Messages ──
 
 export function addMessage(
@@ -196,8 +188,21 @@ export function addMessage(
 
 export function getMessages(
   sessionId: string,
+  userId?: string,
 ): { id: number; role: "user" | "assistant"; content: string; timestamp: number }[] {
   const db = getDb();
+  if (userId) {
+    // Join against sessions to verify ownership at the DB layer
+    return db
+      .prepare(
+        `SELECT m.id, m.role, m.content, m.timestamp
+         FROM messages m
+         JOIN sessions s ON s.id = m.session_id
+         WHERE m.session_id = ? AND s.user_id = ?
+         ORDER BY m.timestamp`,
+      )
+      .all(sessionId, userId) as MessageRow[];
+  }
   return db
     .prepare(
       "SELECT id, role, content, timestamp FROM messages WHERE session_id = ? ORDER BY timestamp",

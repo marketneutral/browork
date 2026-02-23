@@ -37,7 +37,7 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     const session = getSessionById(req.params.id, userId);
     if (!session) return reply.code(404).send({ error: "Session not found" });
 
-    const messages = getMessages(req.params.id);
+    const messages = getMessages(req.params.id, userId);
     return { ...session, messages };
   });
 
@@ -121,7 +121,7 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
       const userId = req.user?.id;
       const session = getSessionById(req.params.id, userId);
       if (!session) return reply.code(404).send({ error: "Session not found" });
-      return getMessages(req.params.id);
+      return getMessages(req.params.id, userId);
     },
   );
 
