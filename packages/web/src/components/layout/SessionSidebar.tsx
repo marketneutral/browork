@@ -176,6 +176,7 @@ function SessionItem({
   onFork,
 }: SessionItemProps) {
   const [isRenaming, setIsRenaming] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [editName, setEditName] = useState(session.name);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -208,9 +209,35 @@ function SessionItem({
           ? "border-l-primary bg-primary/10"
           : "border-l-transparent hover:bg-surface-glass-hover"
       }`}
-      onClick={() => !isRenaming && onSelect()}
+      onClick={() => !isRenaming && !isConfirmingDelete && onSelect()}
     >
-      {isRenaming ? (
+      {isConfirmingDelete ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs text-destructive">
+            Delete &ldquo;{session.name}&rdquo; and all files?
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              className="text-[10px] font-medium text-destructive hover:underline shrink-0"
+            >
+              Delete
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsConfirmingDelete(false);
+              }}
+              className="text-[10px] font-medium text-foreground-secondary hover:underline shrink-0"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : isRenaming ? (
         <div className="flex items-center gap-1">
           <input
             ref={inputRef}
@@ -262,7 +289,7 @@ function SessionItem({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDelete();
+                  setIsConfirmingDelete(true);
                 }}
                 title="Delete"
                 className="p-1 rounded hover:bg-surface-glass-hover text-destructive"
