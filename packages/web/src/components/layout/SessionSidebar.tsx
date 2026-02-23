@@ -111,19 +111,19 @@ export function SessionSidebar({
         {connectionStatus === "connected" && (
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-success" />
-            Connected
+            Agent server connected
           </span>
         )}
         {connectionStatus === "connecting" && (
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-warning animate-pulse" />
-            Connecting...
+            Connecting to agent server...
           </span>
         )}
         {connectionStatus === "disconnected" && (
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-destructive" />
-            Disconnected
+            Agent server disconnected
           </span>
         )}
       </div>

@@ -106,23 +106,30 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
           />
         )}
 
-        {/* Spacer so the last message isn't hidden behind the sticky status bar */}
-        {isStreaming && <div className="h-8 shrink-0" />}
+      </div>
 
-        {/* Status bar — sticky inside scroll area so it doesn't shift the composer */}
-        {isStreaming && (
-          <div className="sticky bottom-0 -mx-4 px-4 py-1.5 text-xs text-foreground-secondary border-t border-border bg-background-secondary/80 backdrop-blur-sm flex items-center gap-2">
+      {/* Agent status bar — always visible above composer */}
+      <div className="px-4 py-1.5 text-xs text-foreground-tertiary border-t border-border flex items-center gap-2">
+        {isStreaming ? (
+          <>
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-            {activeSkill
-              ? `Running workflow: ${activeSkill.label}...`
-              : runningToolLabel ?? "Agent is working..."}
+            <span className="text-foreground-secondary">
+              {activeSkill
+                ? `Running workflow: ${activeSkill.label}...`
+                : runningToolLabel ?? "Agent is working..."}
+            </span>
             <button
               onClick={onAbort}
               className="ml-auto text-destructive hover:underline"
             >
               Stop
             </button>
-          </div>
+          </>
+        ) : (
+          <>
+            <span className="w-1.5 h-1.5 rounded-full bg-foreground-tertiary/50" />
+            Agent is idle.
+          </>
         )}
       </div>
 
