@@ -65,6 +65,13 @@ export function App() {
         case "skill_end":
           useSkillsStore.getState().clearActiveSkill();
           break;
+        case "context_usage":
+          useSessionStore.getState().setContextUsage({
+            tokens: event.tokens,
+            contextWindow: event.contextWindow,
+            percent: event.percent,
+          });
+          break;
         case "files_changed": {
           const currentSessionId = useSessionStore.getState().sessionId;
           if (currentSessionId) {
@@ -261,6 +268,10 @@ export function App() {
     send({ type: "abort" });
   }, [send]);
 
+  const handleCompact = useCallback(() => {
+    send({ type: "compact" });
+  }, [send]);
+
   return (
     <>
       {error && (
@@ -271,6 +282,7 @@ export function App() {
         onSendMessage={handleSendMessage}
         onInvokeSkill={handleInvokeSkill}
         onAbort={handleAbort}
+        onCompact={handleCompact}
         onNewSession={handleNewSession}
         onSelectSession={handleSelectSession}
         onDeleteSession={handleDeleteSession}

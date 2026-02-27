@@ -5,6 +5,7 @@ import { SessionSidebar } from "./SessionSidebar";
 import { StatusPanel } from "./StatusPanel";
 import { Menu, FolderOpen, PanelLeftOpen, LogOut } from "lucide-react";
 import { useAuthStore } from "../../stores/auth";
+import { useSessionStore } from "../../stores/session";
 import { api } from "../../api/client";
 import type { ConnectionStatus } from "../../hooks/useWebSocket";
 import { APP_NAME } from "../../config";
@@ -14,6 +15,7 @@ interface AppLayoutProps {
   onSendMessage: (text: string) => void;
   onInvokeSkill: (skillName: string, args?: string) => void;
   onAbort: () => void;
+  onCompact: () => void;
   onNewSession: () => void;
   onSelectSession: (id: string) => void;
   onDeleteSession: (id: string) => void;
@@ -26,6 +28,7 @@ export function AppLayout({
   onSendMessage,
   onInvokeSkill,
   onAbort,
+  onCompact,
   onNewSession,
   onSelectSession,
   onDeleteSession,
@@ -126,7 +129,7 @@ export function AppLayout({
           </button>
         </div>
 
-        <ChatPanel onSendMessage={onSendMessage} onInvokeSkill={onInvokeSkill} onAbort={onAbort} />
+        <ChatPanel onSendMessage={onSendMessage} onInvokeSkill={onInvokeSkill} onAbort={onAbort} onCompact={onCompact} />
       </main>
 
       {/* Right panel: drag handle + files + status footer */}
@@ -182,11 +185,23 @@ export function AppLayout({
 function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionStatus }) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const contextUsage = useSessionStore((s) => s.contextUsage);
+  const [ctxTip, setCtxTip] = useState<{ x: number; y: number } | null>(null);
+  const ctxBarRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     api.auth.logout().catch(() => {});
     logout();
   };
+
+  const contextBarColor =
+    contextUsage?.percent != null
+      ? contextUsage.percent >= 80
+        ? "bg-destructive"
+        : contextUsage.percent >= 50
+          ? "bg-warning"
+          : "bg-neutral-600"
+      : "bg-neutral-600";
 
   return (
     <div className="shrink-0">
@@ -209,6 +224,34 @@ function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionSt
             <span className="w-2 h-2 rounded-full bg-destructive" />
             Agent server disconnected
           </span>
+        )}
+
+        {/* Context usage bar */}
+        {connectionStatus === "connected" && contextUsage?.percent != null && contextUsage.percent > 0 && (
+          <div
+            ref={ctxBarRef}
+            className="mt-1 py-1 cursor-default relative"
+            onMouseMove={(e) => {
+              const rect = ctxBarRef.current?.getBoundingClientRect();
+              if (rect) setCtxTip({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+            }}
+            onMouseLeave={() => setCtxTip(null)}
+          >
+            <div className="h-1 rounded-full bg-border overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${contextBarColor}`}
+                style={{ width: `${contextUsage.percent}%` }}
+              />
+            </div>
+            {ctxTip && (
+              <div
+                className="absolute px-1.5 py-0.5 rounded bg-neutral-800 text-[10px] text-neutral-300 whitespace-nowrap pointer-events-none -translate-x-1/2"
+                style={{ left: ctxTip.x, top: ctxTip.y - 22 }}
+              >
+                {contextUsage.percent.toFixed(2)}%
+              </div>
+            )}
+          </div>
         )}
       </div>
 

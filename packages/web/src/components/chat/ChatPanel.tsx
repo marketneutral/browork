@@ -17,9 +17,10 @@ interface ChatPanelProps {
   onSendMessage: (text: string) => void;
   onInvokeSkill: (skillName: string, args?: string) => void;
   onAbort: () => void;
+  onCompact: () => void;
 }
 
-export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelProps) {
+export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact }: ChatPanelProps) {
   const messages = useSessionStore((s) => s.messages);
   const currentText = useSessionStore((s) => s.currentAssistantText);
   const isStreaming = useSessionStore((s) => s.isStreaming);
@@ -141,7 +142,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort }: ChatPanelPr
       </div>
 
       {/* Message composer */}
-      <Composer onSend={onSendMessage} onInvokeSkill={onInvokeSkill} disabled={isStreaming} />
+      <Composer onSend={onSendMessage} onInvokeSkill={onInvokeSkill} onCompact={onCompact} disabled={isStreaming} />
     </div>
   );
 }

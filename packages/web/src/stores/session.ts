@@ -31,6 +31,12 @@ export interface SessionListItem {
   lastMessage: string | null;
 }
 
+export interface ContextUsage {
+  tokens: number | null;
+  contextWindow: number;
+  percent: number | null;
+}
+
 interface SessionState {
   sessionId: string | null;
   sessions: SessionListItem[];
@@ -41,6 +47,7 @@ interface SessionState {
   error: string | null;
   activeToolCalls: ToolCall[];
   completedToolGroups: ToolCallGroup[];
+  contextUsage: ContextUsage | null;
 
   // Actions
   setSessionId: (id: string | null) => void;
@@ -55,6 +62,7 @@ interface SessionState {
   addToolStart: (tool: string, args: unknown) => void;
   completeToolCall: (tool: string, result: unknown, isError: boolean) => void;
   finalizeToolCalls: () => void;
+  setContextUsage: (usage: ContextUsage) => void;
   reset: () => void;
 }
 
@@ -72,6 +80,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   error: null,
   activeToolCalls: [],
   completedToolGroups: [],
+  contextUsage: null,
 
   setSessionId: (id) =>
     set({
@@ -82,6 +91,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       isStreaming: false,
       activeToolCalls: [],
       completedToolGroups: [],
+      contextUsage: null,
     }),
 
   setSessions: (sessions) => set({ sessions }),
@@ -159,6 +169,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       };
     }),
 
+  setContextUsage: (usage) => set({ contextUsage: usage }),
+
   reset: () =>
     set({
       messages: [],
@@ -166,5 +178,6 @@ export const useSessionStore = create<SessionState>((set) => ({
       isStreaming: false,
       activeToolCalls: [],
       completedToolGroups: [],
+      contextUsage: null,
     }),
 }));

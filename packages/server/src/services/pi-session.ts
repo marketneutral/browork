@@ -29,6 +29,7 @@ export type BroworkEvent =
   | { type: "agent_end" }
   | { type: "skill_start"; skill: string; label: string }
   | { type: "skill_end"; skill: string }
+  | { type: "context_usage"; tokens: number | null; contextWindow: number; percent: number | null }
   | { type: "error"; message: string };
 
 // ── Browork commands received from the frontend over WebSocket ──
@@ -37,7 +38,8 @@ export type BroworkCommand =
   | { type: "prompt"; message: string }
   | { type: "skill_invoke"; skill: string; args?: string }
   | { type: "abort" }
-  | { type: "steer"; message: string };
+  | { type: "steer"; message: string }
+  | { type: "compact" };
 
 // ── Session wrapper ──
 
@@ -46,6 +48,7 @@ export interface PiSessionHandle {
   sendPrompt(text: string): Promise<void>;
   sendSteer(text: string): Promise<void>;
   abort(): Promise<void>;
+  compact(): Promise<void>;
   dispose(): void;
   /** Re-wire events to a new WebSocket (e.g. after reconnect) */
   rebindSocket(ws: WebSocket): void;
@@ -157,9 +160,30 @@ export async function createPiSession(
       console.log(`[pi-event] ${broworkEvent.type} ${(broworkEvent as any).tool ?? ""}`);
       if (activeWs.readyState === activeWs.OPEN) {
         activeWs.send(JSON.stringify(broworkEvent));
+
+        // After agent_end, send context usage info
+        if (broworkEvent.type === "agent_end") {
+          sendContextUsage();
+        }
       }
     }
   });
+
+  const sendContextUsage = () => {
+    try {
+      const usage = (session as any).getContextUsage?.();
+      if (usage && activeWs.readyState === activeWs.OPEN) {
+        activeWs.send(JSON.stringify({
+          type: "context_usage",
+          tokens: usage.tokens ?? null,
+          contextWindow: usage.contextWindow,
+          percent: usage.percent ?? null,
+        } satisfies BroworkEvent));
+      }
+    } catch {
+      // getContextUsage may not be available in all SDK versions
+    }
+  };
 
   const handle: PiSessionHandle = {
     id: sessionId,
@@ -172,6 +196,10 @@ export async function createPiSession(
     async abort() {
       await session.abort();
     },
+    async compact() {
+      await (session as any).compact?.();
+      sendContextUsage();
+    },
     dispose() {
       unsubscribe();
       session.dispose();
@@ -179,10 +207,15 @@ export async function createPiSession(
     },
     rebindSocket(newWs: WebSocket) {
       activeWs = newWs;
+      sendContextUsage();
     },
   };
 
   activeSessions.set(sessionId, handle);
+
+  // Send initial context usage (system prompt, tools, etc. already consume tokens)
+  sendContextUsage();
+
   return handle;
 }
 
@@ -197,6 +230,17 @@ function createMockSession(
   ws: WebSocket,
 ): PiSessionHandle {
   let activeWs = ws;
+  let mockTurnCount = 0;
+  const mockContextWindow = 128000;
+
+  const sendMockContextUsage = () => {
+    // Base ~8% for system prompt, tools, skills, AGENTS.md
+    const baseTokens = Math.round(mockContextWindow * 0.08);
+    const turnTokens = Math.round(mockContextWindow * 0.12 * mockTurnCount);
+    const tokens = Math.min(baseTokens + turnTokens, mockContextWindow);
+    const percent = Math.round((tokens / mockContextWindow) * 100);
+    send(activeWs, { type: "context_usage", tokens, contextWindow: mockContextWindow, percent });
+  };
 
   const handle: PiSessionHandle = {
     id: sessionId,
@@ -238,6 +282,9 @@ function createMockSession(
 
       send(activeWs, { type: "message_end" });
       send(activeWs, { type: "agent_end" });
+
+      mockTurnCount++;
+      sendMockContextUsage();
     },
     async sendSteer(text: string) {
       send(activeWs, { type: "message_delta", text: `\n\n[Steering: ${text}]` });
@@ -245,15 +292,24 @@ function createMockSession(
     async abort() {
       send(activeWs, { type: "agent_end" });
     },
+    async compact() {
+      mockTurnCount = Math.max(0, Math.floor(mockTurnCount / 3));
+      sendMockContextUsage();
+    },
     dispose() {
       activeSessions.delete(sessionId);
     },
     rebindSocket(newWs: WebSocket) {
       activeWs = newWs;
+      sendMockContextUsage();
     },
   };
 
   activeSessions.set(sessionId, handle);
+
+  // Send initial context usage after a tick so the WebSocket is fully ready
+  setTimeout(sendMockContextUsage, 50);
+
   return handle;
 }
 

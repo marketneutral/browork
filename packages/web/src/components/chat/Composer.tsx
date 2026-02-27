@@ -3,15 +3,21 @@ import { useSkillsStore } from "../../stores/skills";
 
 type SlashItem =
   | { kind: "skill"; name: string; description: string }
-  | { kind: "mcp-tool"; name: string; qualifiedName: string; description: string; serverName: string };
+  | { kind: "mcp-tool"; name: string; qualifiedName: string; description: string; serverName: string }
+  | { kind: "builtin"; name: string; description: string };
+
+const builtinCommands = [
+  { name: "compact", description: "Compact context to free up token space" },
+];
 
 interface ComposerProps {
   onSend: (text: string) => void;
   onInvokeSkill: (skillName: string, args?: string) => void;
+  onCompact: () => void;
   disabled?: boolean;
 }
 
-export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
+export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: ComposerProps) {
   const [text, setText] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -53,6 +59,17 @@ export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
     );
   }, [slashQuery, mcpTools]);
 
+  // Filter built-in commands by the query
+  const filteredBuiltins = useMemo(() => {
+    if (slashQuery === null) return [];
+    if (slashQuery === "") return builtinCommands;
+    return builtinCommands.filter(
+      (c) =>
+        c.name.toLowerCase().includes(slashQuery) ||
+        c.description.toLowerCase().includes(slashQuery),
+    );
+  }, [slashQuery]);
+
   // Combined flat list for keyboard navigation
   const filteredItems = useMemo<SlashItem[]>(() => {
     const items: SlashItem[] = [];
@@ -68,8 +85,11 @@ export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
         serverName: t.serverName,
       });
     }
+    for (const c of filteredBuiltins) {
+      items.push({ kind: "builtin", name: c.name, description: c.description });
+    }
     return items;
-  }, [filteredSkills, filteredMcpTools]);
+  }, [filteredSkills, filteredMcpTools, filteredBuiltins]);
 
   // Derive popup visibility directly (no effect delay)
   const showSlashDerived = filteredItems.length > 0 && slashQuery !== null;
@@ -116,6 +136,15 @@ export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
       const cmdName = spaceIndex === -1 ? withoutSlash : withoutSlash.slice(0, spaceIndex);
       const args = spaceIndex === -1 ? undefined : withoutSlash.slice(spaceIndex + 1).trim() || undefined;
 
+      // Check built-in commands
+      if (cmdName === "compact") {
+        onCompact();
+        setText("");
+        if (textareaRef.current) textareaRef.current.style.height = "auto";
+        requestAnimationFrame(() => textareaRef.current?.focus());
+        return;
+      }
+
       // Verify it matches an enabled skill
       const skillMatch = enabledSkills.find((s) => s.name === cmdName);
       if (skillMatch) {
@@ -146,7 +175,7 @@ export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
       textareaRef.current.style.height = "auto";
     }
     requestAnimationFrame(() => textareaRef.current?.focus());
-  }, [text, disabled, onSend, onInvokeSkill, enabledSkills, mcpTools]);
+  }, [text, disabled, onSend, onInvokeSkill, onCompact, enabledSkills, mcpTools]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (showSlashDerived) {
@@ -201,7 +230,7 @@ export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
             {filteredSkills.length > 0 && (
               <>
                 <div className="px-3 py-1.5 text-xs text-foreground-tertiary border-b border-border">
-                  Workflows
+                  Skills
                 </div>
                 {filteredSkills.map((skill) => {
                   const idx = filteredItems.findIndex(
@@ -228,7 +257,7 @@ export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
             {filteredMcpTools.length > 0 && (
               <>
                 <div className="px-3 py-1.5 text-xs text-foreground-tertiary border-b border-border">
-                  Tools
+                  MCP Tools
                 </div>
                 {filteredMcpTools.map((tool) => {
                   const idx = filteredItems.findIndex(
@@ -246,7 +275,34 @@ export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
                       }`}
                     >
                       <span className="text-sm font-medium text-primary">/{tool.name}</span>
-                      <span className="text-xs text-foreground-tertiary truncate">{tool.description}</span>
+                      <span className="text-xs text-foreground-tertiary truncate">{tool.serverName}: {tool.description}</span>
+                    </button>
+                  );
+                })}
+              </>
+            )}
+            {filteredBuiltins.length > 0 && (
+              <>
+                <div className="px-3 py-1.5 text-xs text-foreground-tertiary border-b border-border">
+                  Commands
+                </div>
+                {filteredBuiltins.map((cmd) => {
+                  const idx = filteredItems.findIndex(
+                    (it) => it.kind === "builtin" && it.name === cmd.name,
+                  );
+                  return (
+                    <button
+                      key={`builtin-${cmd.name}`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectItem(filteredItems[idx])}
+                      className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors ${
+                        idx === selectedIndex
+                          ? "bg-surface-glass text-foreground"
+                          : "text-foreground-secondary hover:bg-surface-glass-hover"
+                      }`}
+                    >
+                      <span className="text-sm font-medium text-primary">/{cmd.name}</span>
+                      <span className="text-xs text-foreground-tertiary truncate">{cmd.description}</span>
                     </button>
                   );
                 })}
