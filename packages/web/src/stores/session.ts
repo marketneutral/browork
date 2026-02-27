@@ -73,6 +73,7 @@ interface SessionState {
   addPendingImages: (paths: string[]) => void;
   finalizePendingImages: () => void;
   clearPendingImages: () => void;
+  addRestoredImageGroup: (paths: string[], seq: number) => void;
   setContextUsage: (usage: ContextUsage) => void;
   reset: () => void;
 }
@@ -214,6 +215,14 @@ export const useSessionStore = create<SessionState>((set) => ({
     }),
 
   clearPendingImages: () => set({ pendingImages: [] }),
+
+  addRestoredImageGroup: (paths, seq) =>
+    set((s) => ({
+      completedImageGroups: [
+        ...s.completedImageGroups,
+        { id: `images-${++imageGroupCounter}`, paths, seq },
+      ],
+    })),
 
   setContextUsage: (usage) => set({ contextUsage: usage }),
 

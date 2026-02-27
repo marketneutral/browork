@@ -195,15 +195,16 @@ export function App() {
               timestamp: m.timestamp,
             })),
           );
-          // Restore inline image groups from messages that had images
+          // Restore inline image groups positioned after their associated message
+          const storedMessages = useSessionStore.getState().messages;
+          const seqByMsgId = new Map(storedMessages.map((m) => [m.id, m.seq]));
           for (const m of data.messages) {
             if (m.images) {
               try {
                 const paths = JSON.parse(m.images) as string[];
-                if (paths.length > 0) {
-                  const s = useSessionStore.getState();
-                  s.addPendingImages(paths);
-                  s.finalizePendingImages();
+                const msgSeq = seqByMsgId.get(`msg-${m.id}`);
+                if (paths.length > 0 && msgSeq !== undefined) {
+                  useSessionStore.getState().addRestoredImageGroup(paths, msgSeq + 0.5);
                 }
               } catch { /* ignore malformed JSON */ }
             }
