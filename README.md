@@ -94,7 +94,7 @@ browork/
 │       └── src/
 │           ├── App.tsx               # Root component + WebSocket wiring
 │           ├── api/client.ts         # REST + WebSocket URL helpers
-│           ├── components/chat/      # ChatPanel, Composer, MessageBubble, SkillsBar, SkillBadge
+│           ├── components/chat/      # ChatPanel, Composer, MessageBubble, InlineImageGroup, SkillBadge
 │           ├── components/files/     # FilePanel, FileTree, editors, viewers
 │           ├── components/layout/    # AppLayout, SessionSidebar
 │           ├── hooks/useWebSocket.ts # WebSocket with reconnection
@@ -134,6 +134,18 @@ This starts an SSE server on port 3099 with two tools:
 - `factorial(x)` — compute factorial (memoized)
 
 Then add it in settings: Name=`test-tools`, URL=`http://localhost:3099/sse`, Transport=SSE.
+
+## Chat Features
+
+### Inline image previews
+
+When the Pi agent creates image files during a conversation (e.g. matplotlib charts, generated plots), they appear as clickable thumbnails inline in the chat — no need to switch to the file panel. Supported formats: PNG, JPG, JPEG, GIF, SVG, WebP.
+
+Images are persisted in the database alongside their associated assistant message, so they restore in the correct position when you return to a session later.
+
+### Context usage and compaction
+
+A progress bar above the composer shows how much of the model's context window is in use. When context gets large, use the `/compact` command (type it in the composer) to compress the conversation and free up space.
 
 ## Installing Skills
 

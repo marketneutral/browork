@@ -34,7 +34,7 @@ Watch mode: `npm run test:watch --workspace=packages/server`
 - **Services** (`src/services/`): Pi SDK wrapper (with mock fallback), skill manager, file watcher (chokidar), MCP client manager, sandbox manager
 - **Tools** (`src/tools/`): Custom Pi tools — web search/fetch (`web-tools.ts`), MCP bridge (`mcp-bridge.ts`)
 - **WebSocket** (`src/ws/session-stream.ts`): Streams Pi agent events to the client in real-time
-- **Database** (`src/db/`): SQLite via better-sqlite3 (WAL mode), no ORM — direct prepared statements. Tables: users, tokens, sessions, messages, mcp_servers
+- **Database** (`src/db/`): SQLite via better-sqlite3 (WAL mode), no ORM — direct prepared statements. Tables: users, tokens, sessions, messages (with `images` column for inline image persistence), mcp_servers
 - **Auth** (`src/plugins/auth.ts`): Bearer token validation as a Fastify plugin; scrypt password hashing
 - **Zip handling**: Uploaded `.zip` files are auto-extracted server-side (adm-zip). Download-all-as-zip endpoint for workspace export.
 - **Tests** (`src/__tests__/`): Vitest with temp directory + test DB per suite
@@ -47,7 +47,8 @@ Watch mode: `npm run test:watch --workspace=packages/server`
 - **File tree**: react-arborist with drag-and-drop move, inline rename, per-file download, and colored Lucide file-type icons (`FileIcon` component in `FileTree.tsx`)
 - **Editors**: CodeMirror (code), AG Grid (CSV), Markdown editor (`@uiw/react-md-editor`) in `src/components/files/editors/`
 - **Viewers**: Image, PDF, and HTML (sandboxed iframe with source toggle) in `src/components/files/viewers/`
-- **Chat**: Message bubbles + rich tool call cards (`ToolCallCard.tsx`) with terminal-style bash output, color-coded diffs for edits, and expandable result details
+- **Chat**: Message bubbles + rich tool call cards (`ToolCallCard.tsx`) with terminal-style bash output, color-coded diffs for edits, and expandable result details. Inline image previews (`InlineImageGroup.tsx`) for Pi-generated images (charts, plots).
+- **Context bar**: Progress bar showing context window usage; `/compact` command to compress context
 - **App config**: `src/config.ts` exports `APP_NAME` from `VITE_APP_NAME` env var
 - **WebSocket hook**: `src/hooks/useWebSocket.ts` with automatic reconnection and backoff
 - **API client**: `src/api/client.ts` — centralized REST + WebSocket URL helpers
@@ -62,6 +63,10 @@ Markdown files with YAML frontmatter (`SKILL.md`) for chart-generator, financial
 - **WebSocket event protocol**: JSON messages with `type` discriminator (`message_delta`, `tool_start`, `agent_end`, `files_changed`). Events flow: Pi SDK → `translatePiEvent()` → WebSocket → Zustand store → React.
 - **Per-session workspaces**: Files isolated at `{DATA_ROOT}/workspaces/{sessionId}/workspace`. All file operations go through `safePath()` to prevent path traversal.
 - **Session rebinding**: Pi sessions persist in-memory across WebSocket reconnects via `rebindSocket()`.
+- **Inline image previews**: When Pi creates image files (`.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`) during a turn, they appear as clickable thumbnails inline in the chat timeline. The flow:
+  - Server-side (`session-stream.ts`): intercepts `files_changed` WebSocket events, accumulates image paths during a turn, and persists them in the `images` TEXT column of the messages table (JSON array) on `agent_end`.
+  - Client-side: during live streaming, `files_changed` events trigger `addPendingImages()` in the session store; `agent_end` finalizes them into the timeline as `TurnImages` groups. On session reload, image groups are restored from the `images` field on messages with `seq = messageSeq + 0.5` so they sort in the correct position.
+  - Component: `InlineImageGroup.tsx` renders thumbnails via auth-fetched blob URLs. Clicking an image selects it in the file panel.
 - **Docker sandbox**: When `SANDBOX_ENABLED=true`, each user gets an isolated Docker container. All four Pi tools — **bash, read, write, and edit** — are routed into the container. Bash runs via `docker exec` (`createSandboxBashOps`), file tools use `createSandboxFileOps` which executes through the container filesystem. The workspaces directory is bind-mounted (`-v {DATA_ROOT}/workspaces:/workspaces`) so the host can still serve file downloads/uploads. The sandbox manager (`sandbox-manager.ts`) handles container lifecycle.
 - **Docker sandbox — implementation details** (important for future changes):
   - `createSandboxBashOps(userId)` in `sandbox-manager.ts` returns a Pi SDK `BashOperations` object that routes commands through `docker exec` with host→container path translation.
