@@ -23,6 +23,12 @@ export interface ToolCallGroup {
   seq: number;
 }
 
+export interface TurnImages {
+  id: string;
+  paths: string[];
+  seq: number;
+}
+
 export interface SessionListItem {
   id: string;
   name: string;
@@ -47,6 +53,8 @@ interface SessionState {
   error: string | null;
   activeToolCalls: ToolCall[];
   completedToolGroups: ToolCallGroup[];
+  pendingImages: string[];
+  completedImageGroups: TurnImages[];
   contextUsage: ContextUsage | null;
 
   // Actions
@@ -62,13 +70,24 @@ interface SessionState {
   addToolStart: (tool: string, args: unknown) => void;
   completeToolCall: (tool: string, result: unknown, isError: boolean) => void;
   finalizeToolCalls: () => void;
+  addPendingImages: (paths: string[]) => void;
+  finalizePendingImages: () => void;
+  clearPendingImages: () => void;
   setContextUsage: (usage: ContextUsage) => void;
   reset: () => void;
+}
+
+const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"]);
+
+export function isImagePath(path: string): boolean {
+  const ext = path.slice(path.lastIndexOf(".")).toLowerCase();
+  return IMAGE_EXTENSIONS.has(ext);
 }
 
 let msgCounter = 0;
 let seqCounter = 0;
 let turnCounter = 0;
+let imageGroupCounter = 0;
 
 export const useSessionStore = create<SessionState>((set) => ({
   sessionId: null,
@@ -80,6 +99,8 @@ export const useSessionStore = create<SessionState>((set) => ({
   error: null,
   activeToolCalls: [],
   completedToolGroups: [],
+  pendingImages: [],
+  completedImageGroups: [],
   contextUsage: null,
 
   setSessionId: (id) =>
@@ -91,6 +112,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       isStreaming: false,
       activeToolCalls: [],
       completedToolGroups: [],
+      pendingImages: [],
+      completedImageGroups: [],
       contextUsage: null,
     }),
 
@@ -99,7 +122,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   setMessages: (messages) => {
     // Assign seq to loaded history so timeline ordering works
     const seqd = messages.map((m) => ({ ...m, seq: ++seqCounter }));
-    set({ messages: seqd, completedToolGroups: [] });
+    set({ messages: seqd, completedToolGroups: [], completedImageGroups: [] });
   },
 
   addUserMessage: (text) =>
@@ -169,6 +192,29 @@ export const useSessionStore = create<SessionState>((set) => ({
       };
     }),
 
+  addPendingImages: (paths) =>
+    set((s) => {
+      const images = paths.filter(isImagePath);
+      if (images.length === 0) return s;
+      return { pendingImages: [...s.pendingImages, ...images] };
+    }),
+
+  finalizePendingImages: () =>
+    set((s) => {
+      if (s.pendingImages.length === 0) return s;
+      const group: TurnImages = {
+        id: `images-${++imageGroupCounter}`,
+        paths: s.pendingImages,
+        seq: ++seqCounter,
+      };
+      return {
+        completedImageGroups: [...s.completedImageGroups, group],
+        pendingImages: [],
+      };
+    }),
+
+  clearPendingImages: () => set({ pendingImages: [] }),
+
   setContextUsage: (usage) => set({ contextUsage: usage }),
 
   reset: () =>
@@ -178,6 +224,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       isStreaming: false,
       activeToolCalls: [],
       completedToolGroups: [],
+      pendingImages: [],
+      completedImageGroups: [],
       contextUsage: null,
     }),
 }));

@@ -37,6 +37,7 @@ export function App() {
       switch (event.type) {
         case "agent_start":
           setStreaming(true);
+          useSessionStore.getState().clearPendingImages();
           break;
         case "message_delta":
           if (!useSessionStore.getState().isStreaming) setStreaming(true);
@@ -55,6 +56,7 @@ export function App() {
         case "agent_end":
           finalizeAssistantMessage();
           finalizeToolCalls();
+          useSessionStore.getState().finalizePendingImages();
           setStreaming(false);
           // Refresh session list to update lastMessage preview
           refreshSessions();
@@ -76,6 +78,9 @@ export function App() {
           const currentSessionId = useSessionStore.getState().sessionId;
           if (currentSessionId) {
             api.files.list(currentSessionId).then(useFilesStore.getState().setEntries).catch(console.error);
+          }
+          if (useSessionStore.getState().isStreaming) {
+            useSessionStore.getState().addPendingImages(event.paths);
           }
           break;
         }

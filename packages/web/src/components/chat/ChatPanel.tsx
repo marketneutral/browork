@@ -1,17 +1,19 @@
 import { useRef, useEffect, useMemo } from "react";
 import { useSessionStore } from "../../stores/session";
-import type { ChatMessage, ToolCallGroup as ToolCallGroupType } from "../../stores/session";
+import type { ChatMessage, ToolCallGroup as ToolCallGroupType, TurnImages } from "../../stores/session";
 import { useSkillsStore } from "../../stores/skills";
 import { MessageBubble } from "./MessageBubble";
 import { Composer } from "./Composer";
 import { ToolCallGroup } from "./ToolCallGroup";
+import { InlineImageGroup } from "./InlineImageGroup";
 import { SkillBadge } from "./SkillBadge";
 import { APP_NAME } from "../../config";
 import { toolLabel } from "../../utils/tool-labels";
 
 type TimelineItem =
   | { kind: "message"; data: ChatMessage }
-  | { kind: "tool_group"; data: ToolCallGroupType };
+  | { kind: "tool_group"; data: ToolCallGroupType }
+  | { kind: "image_group"; data: TurnImages };
 
 interface ChatPanelProps {
   onSendMessage: (text: string) => void;
@@ -26,6 +28,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact }: 
   const isStreaming = useSessionStore((s) => s.isStreaming);
   const activeToolCalls = useSessionStore((s) => s.activeToolCalls);
   const completedToolGroups = useSessionStore((s) => s.completedToolGroups);
+  const completedImageGroups = useSessionStore((s) => s.completedImageGroups);
   const activeSkill = useSkillsStore((s) => s.activeSkill);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -34,6 +37,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact }: 
     const items: TimelineItem[] = [
       ...messages.map((m): TimelineItem => ({ kind: "message", data: m })),
       ...completedToolGroups.map((g): TimelineItem => ({ kind: "tool_group", data: g })),
+      ...completedImageGroups.map((g): TimelineItem => ({ kind: "image_group", data: g })),
     ];
     // Wrap live activeToolCalls in a synthetic group so they render inside a group too
     if (activeToolCalls.length > 0) {
@@ -44,7 +48,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact }: 
     }
     items.sort((a, b) => a.data.seq - b.data.seq);
     return items;
-  }, [messages, completedToolGroups, activeToolCalls]);
+  }, [messages, completedToolGroups, completedImageGroups, activeToolCalls]);
 
   // Derive the latest running tool label for the status bar
   const runningToolLabel = useMemo(() => {
@@ -58,7 +62,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact }: 
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages, currentText, activeToolCalls, completedToolGroups]);
+  }, [messages, currentText, activeToolCalls, completedToolGroups, completedImageGroups]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -87,10 +91,15 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact }: 
         {timeline.map((item) =>
           item.kind === "message" ? (
             <MessageBubble key={item.data.id} message={item.data} />
-          ) : (
+          ) : item.kind === "tool_group" ? (
             <ToolCallGroup
               key={item.data.id}
               group={item.data}
+            />
+          ) : (
+            <InlineImageGroup
+              key={item.data.id}
+              paths={item.data.paths}
             />
           ),
         )}
