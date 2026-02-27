@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from "react";
-import { useSessionStore, isImagePath } from "./stores/session";
-import { useFilesStore, type FileEntry } from "./stores/files";
+import { useSessionStore } from "./stores/session";
+import { useFilesStore } from "./stores/files";
 import { useSkillsStore } from "./stores/skills";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { api, wsUrl } from "./api/client";
@@ -183,15 +183,11 @@ export function App() {
       setSessionId(id);
       // Clear file state and reload for the new session
       useFilesStore.getState().clearAll();
-
-      const filesPromise = api.files.list(id).then((files) => {
-        useFilesStore.getState().setEntries(files);
-        return files;
-      }).catch((err) => { console.error(err); return [] as FileEntry[]; });
-
-      const sessionPromise = api.sessions.get(id).then((data) => {
+      api.files.list(id).then(useFilesStore.getState().setEntries).catch(console.error);
+      api.sessions.get(id).then((data) => {
         if (data.messages && data.messages.length > 0) {
-          useSessionStore.getState().setMessages(
+          const store = useSessionStore.getState();
+          store.setMessages(
             data.messages.map((m) => ({
               id: `msg-${m.id}`,
               role: m.role,
@@ -199,21 +195,21 @@ export function App() {
               timestamp: m.timestamp,
             })),
           );
+          // Restore inline image groups from messages that had images
+          for (const m of data.messages) {
+            if (m.images) {
+              try {
+                const paths = JSON.parse(m.images) as string[];
+                if (paths.length > 0) {
+                  const s = useSessionStore.getState();
+                  s.addPendingImages(paths);
+                  s.finalizePendingImages();
+                }
+              } catch { /* ignore malformed JSON */ }
+            }
+          }
         }
       }).catch((err) => setError(err.message));
-
-      // After both loaded, restore inline images from workspace files
-      Promise.all([filesPromise, sessionPromise]).then(([files]) => {
-        if (!Array.isArray(files)) return;
-        const imagePaths = files
-          .filter((f) => f.type === "file" && isImagePath(f.path))
-          .map((f) => f.path);
-        if (imagePaths.length > 0) {
-          const store = useSessionStore.getState();
-          store.addPendingImages(imagePaths);
-          store.finalizePendingImages();
-        }
-      });
     },
     [setSessionId, setError],
   );

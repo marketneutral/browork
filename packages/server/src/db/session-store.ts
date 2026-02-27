@@ -30,6 +30,7 @@ export interface MessageRow {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
+  images: string | null;
 }
 
 // ── Sessions ──
@@ -157,8 +158,8 @@ export function forkSession(
 
   // Copy all messages from source to fork
   db.prepare(`
-    INSERT INTO messages (session_id, role, content, timestamp)
-    SELECT ?, role, content, timestamp
+    INSERT INTO messages (session_id, role, content, timestamp, images)
+    SELECT ?, role, content, timestamp, images
     FROM messages
     WHERE session_id = ?
     ORDER BY timestamp
@@ -174,11 +175,12 @@ export function addMessage(
   role: "user" | "assistant",
   content: string,
   timestamp: number,
+  images?: string | null,
 ): void {
   const db = getDb();
   db.prepare(
-    "INSERT INTO messages (session_id, role, content, timestamp) VALUES (?, ?, ?, ?)",
-  ).run(sessionId, role, content, timestamp);
+    "INSERT INTO messages (session_id, role, content, timestamp, images) VALUES (?, ?, ?, ?, ?)",
+  ).run(sessionId, role, content, timestamp, images ?? null);
 
   // Touch session updated_at (use JS ISO string for millisecond precision)
   db.prepare(
@@ -186,16 +188,32 @@ export function addMessage(
   ).run(new Date().toISOString(), sessionId);
 }
 
+export function setLastMessageImages(
+  sessionId: string,
+  images: string,
+): void {
+  const db = getDb();
+  // Attach images to the most recent assistant message in this session
+  db.prepare(
+    `UPDATE messages SET images = ?
+     WHERE id = (
+       SELECT id FROM messages
+       WHERE session_id = ? AND role = 'assistant'
+       ORDER BY timestamp DESC LIMIT 1
+     )`,
+  ).run(images, sessionId);
+}
+
 export function getMessages(
   sessionId: string,
   userId?: string,
-): { id: number; role: "user" | "assistant"; content: string; timestamp: number }[] {
+): { id: number; role: "user" | "assistant"; content: string; timestamp: number; images: string | null }[] {
   const db = getDb();
   if (userId) {
     // Join against sessions to verify ownership at the DB layer
     return db
       .prepare(
-        `SELECT m.id, m.role, m.content, m.timestamp
+        `SELECT m.id, m.role, m.content, m.timestamp, m.images
          FROM messages m
          JOIN sessions s ON s.id = m.session_id
          WHERE m.session_id = ? AND s.user_id = ?
@@ -205,7 +223,7 @@ export function getMessages(
   }
   return db
     .prepare(
-      "SELECT id, role, content, timestamp FROM messages WHERE session_id = ? ORDER BY timestamp",
+      "SELECT id, role, content, timestamp, images FROM messages WHERE session_id = ? ORDER BY timestamp",
     )
     .all(sessionId) as MessageRow[];
 }

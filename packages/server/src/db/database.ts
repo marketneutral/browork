@@ -102,6 +102,13 @@ function runMigrations() {
     // Column already exists
   }
 
+  // Add images column to messages for inline image persistence
+  try {
+    db.exec("ALTER TABLE messages ADD COLUMN images TEXT");
+  } catch {
+    // Column already exists
+  }
+
   // Migrate mcp_servers from stdio (command/args/env) to remote (url/transport/headers)
   try {
     const row = db.prepare("SELECT command FROM mcp_servers LIMIT 1").get();

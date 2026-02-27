@@ -4,7 +4,7 @@ import { createPiSession, getSession } from "../services/pi-session.js";
 import type { BroworkCommand } from "../services/pi-session.js";
 import { subscribeWsToFileChanges } from "../services/file-watcher.js";
 import { getSkill } from "../services/skill-manager.js";
-import { addMessage, getSessionById } from "../db/session-store.js";
+import { addMessage, setLastMessageImages, getSessionById } from "../db/session-store.js";
 import { resolve } from "path";
 import { mkdirSync } from "fs";
 
@@ -56,10 +56,14 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
         }
       }
 
-      // Track assistant text for persistence
+      // Track assistant text and images for persistence
       let assistantBuffer = "";
+      let turnImagePaths: string[] = [];
 
-      // Listen for outgoing events to capture assistant messages
+      const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"]);
+      const isImage = (p: string) => IMAGE_EXTS.has(p.slice(p.lastIndexOf(".")).toLowerCase());
+
+      // Listen for outgoing events to capture assistant messages and images
       const origSend = socket.send.bind(socket);
       socket.send = (data: any, ...args: any[]) => {
         try {
@@ -67,12 +71,24 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
           if (event) {
             if (event.type === "message_delta" && event.text) {
               assistantBuffer += event.text;
-            } else if (
-              (event.type === "message_end" || event.type === "agent_end") &&
-              assistantBuffer
-            ) {
+            } else if (event.type === "files_changed" && Array.isArray(event.paths)) {
+              for (const p of event.paths) {
+                if (isImage(p)) turnImagePaths.push(p);
+              }
+            } else if (event.type === "message_end" && assistantBuffer) {
               addMessage(id, "assistant", assistantBuffer, Date.now());
               assistantBuffer = "";
+            } else if (event.type === "agent_end") {
+              const images = turnImagePaths.length > 0 ? JSON.stringify(turnImagePaths) : null;
+              if (assistantBuffer) {
+                // message_end didn't fire — save text with images
+                addMessage(id, "assistant", assistantBuffer, Date.now(), images);
+                assistantBuffer = "";
+              } else if (images) {
+                // Text was already saved on message_end — attach images to it
+                setLastMessageImages(id, images);
+              }
+              turnImagePaths = [];
             }
           }
         } catch {
