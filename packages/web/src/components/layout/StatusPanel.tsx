@@ -93,7 +93,7 @@ function TipRow({ text, children }: { text: string; children: React.ReactNode })
             background: "#1c1c1c",
             border: "1px solid #333",
             color: "#ccc",
-            width: 600,
+            width: 400,
             maxWidth: "50vw",
             boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
           }}
