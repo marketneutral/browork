@@ -15,7 +15,7 @@ npm install              # Install all workspace dependencies
 npm run dev              # Run both server (:3001) and web (:5173) concurrently
 npm run dev:server       # Backend only (tsx watch, hot reload)
 npm run dev:web          # Frontend only (Vite dev server, proxies /api to :3001)
-npm test                 # Run server-side Vitest tests (~173 tests)
+npm test                 # Run server-side Vitest tests (~179 tests)
 npm run build            # Build server (tsc) then web (tsc + vite build)
 npm run lint             # ESLint across all packages
 npm run install-skill -- <repo-url> <skill-name>  # Install a single skill from a remote repo
@@ -31,7 +31,8 @@ Watch mode: `npm run test:watch --workspace=packages/server`
 ### `packages/server` — Fastify 5 backend
 - **Entry**: `src/index.ts`
 - **Routes** (`src/routes/`): REST endpoints for auth, sessions, files, skills, health, MCP
-- **Services** (`src/services/`): Pi SDK wrapper (with mock fallback), skill manager, file watcher (chokidar), MCP config, sandbox manager
+- **Services** (`src/services/`): Pi SDK wrapper (with mock fallback), skill manager, file watcher (chokidar), MCP client manager, sandbox manager
+- **Tools** (`src/tools/`): Custom Pi tools — web search/fetch (`web-tools.ts`), MCP bridge (`mcp-bridge.ts`)
 - **WebSocket** (`src/ws/session-stream.ts`): Streams Pi agent events to the client in real-time
 - **Database** (`src/db/`): SQLite via better-sqlite3 (WAL mode), no ORM — direct prepared statements. Tables: users, tokens, sessions, messages, mcp_servers
 - **Auth** (`src/plugins/auth.ts`): Bearer token validation as a Fastify plugin; scrypt password hashing
@@ -61,16 +62,24 @@ Markdown files with YAML frontmatter (`SKILL.md`) for chart-generator, financial
 - **WebSocket event protocol**: JSON messages with `type` discriminator (`message_delta`, `tool_start`, `agent_end`, `files_changed`). Events flow: Pi SDK → `translatePiEvent()` → WebSocket → Zustand store → React.
 - **Per-session workspaces**: Files isolated at `{DATA_ROOT}/workspaces/{sessionId}/workspace`. All file operations go through `safePath()` to prevent path traversal.
 - **Session rebinding**: Pi sessions persist in-memory across WebSocket reconnects via `rebindSocket()`.
-- **Docker sandbox**: When `SANDBOX_ENABLED=true`, each user gets an isolated Docker container. **Only bash** is currently routed into the container. **Read, write, and edit tools still execute on the host** — the workspaces directory is bind-mounted (`-v {DATA_ROOT}/workspaces:/workspaces`) so file changes are visible from both sides. To route those tools into the container too, add custom tool implementations to `_baseToolsOverride` in `pi-session.ts` (see implementation note below). The sandbox manager (`sandbox-manager.ts`) handles container lifecycle.
+- **Docker sandbox**: When `SANDBOX_ENABLED=true`, each user gets an isolated Docker container. All four Pi tools — **bash, read, write, and edit** — are routed into the container. Bash runs via `docker exec` (`createSandboxBashOps`), file tools use `createSandboxFileOps` which executes through the container filesystem. The workspaces directory is bind-mounted (`-v {DATA_ROOT}/workspaces:/workspaces`) so the host can still serve file downloads/uploads. The sandbox manager (`sandbox-manager.ts`) handles container lifecycle.
 - **Docker sandbox — implementation details** (important for future changes):
   - `createSandboxBashOps(userId)` in `sandbox-manager.ts` returns a Pi SDK `BashOperations` object that routes commands through `docker exec` with host→container path translation.
+  - `createSandboxFileOps()` returns `{ read, edit, write }` operation objects that route file I/O through the container.
   - **Pi SDK limitation**: `createAgentSession()` does NOT forward `options.tools` to the internal `AgentSession` for execution. It only uses `options.tools` to derive active tool **names**. The actual tool implementations come from `AgentSession._baseToolsOverride` (if set) or `createAllTools()` (default). Since `createAgentSession` doesn't expose `baseToolsOverride`, we **patch the session after creation** in `pi-session.ts`:
     1. Call `createAgentSession()` normally (default tools)
-    2. Set `session._baseToolsOverride` to a record containing `createReadTool`, our custom `createBashTool(workDir, { operations: sandboxBashOps })`, `createEditTool`, and `createWriteTool`
+    2. Set `session._baseToolsOverride` to a record containing all four tools with sandbox operations: `createReadTool(cwd, { operations: fileOps.read })`, `createBashTool(cwd, { operations: sandboxBashOps })`, `createEditTool(cwd, { operations: fileOps.edit })`, `createWriteTool(cwd, { operations: fileOps.write })`
     3. Call `session._buildRuntime()` to rebuild the tool registry from the override
   - These fields (`_baseToolsOverride`, `_buildRuntime`) are conventional-private (underscore prefix, not JS `#private`), so they're accessible at runtime but not in the TypeScript types — we cast via `as any`.
   - If the Pi SDK adds a public `baseToolsOverride` option to `createAgentSession` in the future, this patch can be replaced with a direct option pass.
-- **MCP config**: Stored in SQLite, written to `{workspace}/.pi/mcp.json` for Pi to discover tools.
+- **MCP client**: Browork acts as an MCP client that connects to remote MCP servers. The system has three layers:
+  - `mcp-manager.ts` — CRUD for server configs in SQLite (name, URL, transport, headers, enabled)
+  - `mcp-client.ts` — Singleton `McpClientManager` that connects to remote servers via SSE or Streamable HTTP (`@modelcontextprotocol/sdk`), discovers tools via `client.listTools()`, and proxies `callTool()` requests. Auto-reconnects on 30s backoff.
+  - `mcp-bridge.ts` — Converts MCP tools into Pi SDK `ToolDefinitionLike` format (same interface as `web-tools.ts`). Tool names are namespaced as `mcp__{serverName}__{toolName}` to avoid conflicts.
+  - At session creation, `pi-session.ts` merges MCP tools into the `customTools` array alongside web tools.
+  - MCP servers are global (shared across all users). Config stored in `mcp_servers` table (columns: `name`, `url`, `transport`, `headers`, `enabled`).
+  - Routes (`/api/mcp/servers`) include live connection `status`, `toolCount`, and `error` from the client manager. Additional endpoints: `GET /api/mcp/servers/:name/tools`, `POST /api/mcp/servers/:name/reconnect`.
+  - Test MCP server: `npx tsx scripts/test-mcp-server.ts` (port 3099, SSE, tools: `random_number`, `factorial`).
 
 ## Tech Stack Summary
 
@@ -78,7 +87,7 @@ Markdown files with YAML frontmatter (`SKILL.md`) for chart-generator, financial
 |-------|-----------|
 | Runtime | Node.js 22+, ESM throughout |
 | Language | TypeScript 5.7 strict |
-| Backend | Fastify 5, better-sqlite3, @fastify/websocket, adm-zip |
+| Backend | Fastify 5, better-sqlite3, @fastify/websocket, adm-zip, @modelcontextprotocol/sdk |
 | Frontend | React 19, Vite 6, Tailwind CSS 4, Zustand 5 |
 | File tree | react-arborist 3 |
 | Code editing | CodeMirror 6, AG Grid 33 |

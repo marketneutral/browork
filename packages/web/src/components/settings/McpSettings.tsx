@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { api, type McpServerMeta } from "../../api/client";
+import { api, type McpServerMeta, type McpToolMeta } from "../../api/client";
 import {
   Plus,
   Trash2,
@@ -9,6 +9,8 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  RefreshCw,
+  Wrench,
 } from "lucide-react";
 
 interface McpSettingsProps {
@@ -26,6 +28,9 @@ export function McpSettings({ onClose }: McpSettingsProps) {
 
   useEffect(() => {
     refresh();
+    // Auto-refresh every 5s while modal is open
+    const interval = setInterval(refresh, 5000);
+    return () => clearInterval(interval);
   }, [refresh]);
 
   const handleToggle = (name: string, enabled: boolean) => {
@@ -39,6 +44,16 @@ export function McpSettings({ onClose }: McpSettingsProps) {
     api.mcp
       .delete(name)
       .then(refresh)
+      .catch((e) => setError(e.message));
+  };
+
+  const handleReconnect = (name: string) => {
+    api.mcp
+      .reconnect(name)
+      .then(() => {
+        // Refresh after a short delay to pick up new status
+        setTimeout(refresh, 1000);
+      })
       .catch((e) => setError(e.message));
   };
 
@@ -68,8 +83,8 @@ export function McpSettings({ onClose }: McpSettingsProps) {
           )}
 
           <p className="text-sm text-foreground-secondary">
-            Configure MCP (Model Context Protocol) servers to give the AI agent
-            access to databases, APIs, and other tools.
+            Connect to remote MCP servers to give the AI agent access to
+            databases, APIs, and other tools.
           </p>
 
           {servers.length === 0 && !showAdd && (
@@ -84,6 +99,7 @@ export function McpSettings({ onClose }: McpSettingsProps) {
               server={server}
               onToggle={(enabled) => handleToggle(server.name, enabled)}
               onDelete={() => handleDelete(server.name)}
+              onReconnect={() => handleReconnect(server.name)}
             />
           ))}
 
@@ -120,18 +136,43 @@ export function McpSettings({ onClose }: McpSettingsProps) {
   );
 }
 
+// ── Status indicator ──
+
+const statusColors: Record<string, string> = {
+  connected: "bg-success",
+  connecting: "bg-warning animate-pulse",
+  disconnected: "bg-foreground-tertiary",
+  error: "bg-destructive",
+};
+
+const statusLabels: Record<string, string> = {
+  connected: "Connected",
+  connecting: "Connecting...",
+  disconnected: "Disconnected",
+  error: "Error",
+};
+
 // ── Server card ──
 
 function McpServerCard({
   server,
   onToggle,
   onDelete,
+  onReconnect,
 }: {
   server: McpServerMeta;
   onToggle: (enabled: boolean) => void;
   onDelete: () => void;
+  onReconnect: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [tools, setTools] = useState<McpToolMeta[]>([]);
+
+  useEffect(() => {
+    if (expanded && server.toolCount > 0) {
+      api.mcp.tools(server.name).then(setTools).catch(console.error);
+    }
+  }, [expanded, server.name, server.toolCount]);
 
   return (
     <div className="border border-border rounded-lg">
@@ -144,13 +185,22 @@ function McpServerCard({
         </button>
 
         <div
-          className={`w-2 h-2 rounded-full ${server.enabled ? "bg-success" : "bg-foreground-tertiary"}`}
+          className={`w-2 h-2 rounded-full flex-shrink-0 ${statusColors[server.status] ?? statusColors.disconnected}`}
+          title={statusLabels[server.status] ?? "Unknown"}
         />
 
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium">{server.name}</div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{server.name}</span>
+            {server.toolCount > 0 && (
+              <span className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded-full">
+                <Wrench size={10} />
+                {server.toolCount}
+              </span>
+            )}
+          </div>
           <div className="text-xs text-foreground-secondary truncate">
-            {server.command} {server.args.join(" ")}
+            {server.url}
           </div>
         </div>
 
@@ -176,23 +226,58 @@ function McpServerCard({
       </div>
 
       {expanded && (
-        <div className="px-4 pb-3 text-xs space-y-1 border-t border-border pt-2">
-          <div>
-            <span className="font-medium">Command:</span> {server.command}
+        <div className="px-4 pb-3 text-xs space-y-2 border-t border-border pt-2">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <div>
+                <span className="font-medium">URL:</span> {server.url}
+              </div>
+              <div>
+                <span className="font-medium">Transport:</span>{" "}
+                {server.transport === "streamable-http" ? "Streamable HTTP" : "SSE"}
+              </div>
+              <div>
+                <span className="font-medium">Status:</span>{" "}
+                {statusLabels[server.status] ?? "Unknown"}
+                {server.error && (
+                  <span className="text-destructive ml-1">({server.error})</span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={onReconnect}
+              title="Reconnect"
+              className="flex items-center gap-1 px-2 py-1 text-xs rounded-md glass glass-hover"
+            >
+              <RefreshCw size={12} /> Reconnect
+            </button>
           </div>
-          {server.args.length > 0 && (
+
+          {Object.keys(server.headers).length > 0 && (
             <div>
-              <span className="font-medium">Args:</span>{" "}
-              {server.args.join(" ")}
+              <span className="font-medium">Headers:</span>
+              <div className="ml-2 mt-1 space-y-0.5">
+                {Object.entries(server.headers).map(([k, v]) => (
+                  <div key={k} className="font-mono">
+                    {k}: {v.length > 30 ? v.slice(0, 30) + "..." : v}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-          {Object.keys(server.env).length > 0 && (
+
+          {tools.length > 0 && (
             <div>
-              <span className="font-medium">Environment:</span>
+              <span className="font-medium">Tools:</span>
               <div className="ml-2 mt-1 space-y-0.5">
-                {Object.entries(server.env).map(([k, v]) => (
-                  <div key={k} className="font-mono">
-                    {k}={v.length > 20 ? v.slice(0, 20) + "..." : v}
+                {tools.map((t) => (
+                  <div key={t.name} className="flex gap-2">
+                    <span className="font-mono text-primary">{t.name}</span>
+                    {t.description && (
+                      <span className="text-foreground-tertiary truncate">
+                        {t.description}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -212,38 +297,33 @@ function AddServerForm({
 }: {
   onAdd: (server: {
     name: string;
-    command: string;
-    args?: string[];
-    env?: Record<string, string>;
+    url: string;
+    transport?: "sse" | "streamable-http";
+    headers?: Record<string, string>;
   }) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState("");
-  const [command, setCommand] = useState("");
-  const [argsStr, setArgsStr] = useState("");
-  const [envStr, setEnvStr] = useState("");
+  const [url, setUrl] = useState("");
+  const [transport, setTransport] = useState<"sse" | "streamable-http">("sse");
+  const [headersStr, setHeadersStr] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const args = argsStr
-      .split(" ")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    const env: Record<string, string> = {};
-    for (const line of envStr.split("\n")) {
-      const eq = line.indexOf("=");
-      if (eq > 0) {
-        env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+    const headers: Record<string, string> = {};
+    for (const line of headersStr.split("\n")) {
+      const colon = line.indexOf(":");
+      if (colon > 0) {
+        headers[line.slice(0, colon).trim()] = line.slice(colon + 1).trim();
       }
     }
 
     onAdd({
       name,
-      command,
-      args: args.length > 0 ? args : undefined,
-      env: Object.keys(env).length > 0 ? env : undefined,
+      url,
+      transport,
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
     });
   };
 
@@ -259,43 +339,44 @@ function AddServerForm({
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. postgres"
+          placeholder="e.g. my-tools"
           required
           className="w-full px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-medium mb-1 text-foreground-secondary">Command</label>
+        <label className="block text-xs font-medium mb-1 text-foreground-secondary">URL</label>
         <input
-          value={command}
-          onChange={(e) => setCommand(e.target.value)}
-          placeholder="e.g. npx"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="e.g. http://localhost:3002/sse"
           required
+          type="url"
           className="w-full px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-medium mb-1 text-foreground-secondary">
-          Arguments (space-separated)
-        </label>
-        <input
-          value={argsStr}
-          onChange={(e) => setArgsStr(e.target.value)}
-          placeholder="e.g. -y @modelcontextprotocol/server-postgres"
+        <label className="block text-xs font-medium mb-1 text-foreground-secondary">Transport</label>
+        <select
+          value={transport}
+          onChange={(e) => setTransport(e.target.value as "sse" | "streamable-http")}
           className="w-full px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-        />
+        >
+          <option value="sse">SSE</option>
+          <option value="streamable-http">Streamable HTTP</option>
+        </select>
       </div>
 
       <div>
         <label className="block text-xs font-medium mb-1 text-foreground-secondary">
-          Environment (KEY=VALUE, one per line)
+          Headers (Key: Value, one per line)
         </label>
         <textarea
-          value={envStr}
-          onChange={(e) => setEnvStr(e.target.value)}
-          placeholder={"DATABASE_URL=postgresql://localhost/mydb"}
+          value={headersStr}
+          onChange={(e) => setHeadersStr(e.target.value)}
+          placeholder={"Authorization: Bearer sk-..."}
           rows={2}
           className="w-full px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono"
         />

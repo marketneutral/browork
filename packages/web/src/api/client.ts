@@ -84,11 +84,20 @@ export interface SkillMeta {
 
 export interface McpServerMeta {
   name: string;
-  command: string;
-  args: string[];
-  env: Record<string, string>;
+  url: string;
+  transport: "sse" | "streamable-http";
+  headers: Record<string, string>;
   enabled: boolean;
   createdAt: string;
+  status: "connecting" | "connected" | "disconnected" | "error";
+  toolCount: number;
+  error?: string;
+}
+
+export interface McpToolMeta {
+  name: string;
+  qualifiedName: string;
+  description: string;
 }
 
 export const api = {
@@ -116,18 +125,22 @@ export const api = {
   },
   mcp: {
     list: () => request<McpServerMeta[]>("/mcp/servers"),
-    add: (server: { name: string; command: string; args?: string[]; env?: Record<string, string> }) =>
+    add: (server: { name: string; url: string; transport?: "sse" | "streamable-http"; headers?: Record<string, string> }) =>
       request<McpServerMeta>("/mcp/servers", {
         method: "POST",
         body: JSON.stringify(server),
       }),
-    update: (name: string, updates: { command?: string; args?: string[]; env?: Record<string, string>; enabled?: boolean }) =>
+    update: (name: string, updates: { url?: string; transport?: "sse" | "streamable-http"; headers?: Record<string, string>; enabled?: boolean }) =>
       request<McpServerMeta>(`/mcp/servers/${name}`, {
         method: "PATCH",
         body: JSON.stringify(updates),
       }),
     delete: (name: string) =>
       request<{ ok: boolean }>(`/mcp/servers/${name}`, { method: "DELETE" }),
+    tools: (name: string) =>
+      request<McpToolMeta[]>(`/mcp/servers/${name}/tools`),
+    reconnect: (name: string) =>
+      request<{ ok: boolean }>(`/mcp/servers/${name}/reconnect`, { method: "POST" }),
   },
   sessions: {
     list: () => request<SessionMeta[]>("/sessions"),

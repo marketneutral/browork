@@ -50,9 +50,7 @@ DEFAULT_THINKING_LEVEL=medium
 
 ## Docker Sandbox
 
-When `SANDBOX_ENABLED=true`, each user gets an isolated Docker container. Currently **only Pi's bash tool** is routed into the container via `createSandboxBashOps()`. Pi's **read, write, and edit tools still execute on the host** — this works because the workspaces directory is bind-mounted into the container (`-v {DATA_ROOT}/workspaces:/workspaces`), so file changes are visible from both sides immediately.
-
-> **Note:** If you need full isolation (read/write/edit inside the container too), add custom tool implementations to the `_baseToolsOverride` record in `pi-session.ts`. See the CLAUDE.md "Docker sandbox — implementation details" section for how the Pi SDK session patching works — it's non-obvious and important to understand before changing.
+When `SANDBOX_ENABLED=true`, each user gets an isolated Docker container. All four Pi tools — **bash, read, write, and edit** — are routed into the container. Bash commands run via `docker exec` (`createSandboxBashOps`), and file operations use `createSandboxFileOps` which executes reads/writes/edits through the container filesystem. The workspaces directory is bind-mounted (`-v {DATA_ROOT}/workspaces:/workspaces`) so the host can still serve file downloads and uploads.
 
 ```bash
 # Build the sandbox image
@@ -77,13 +75,17 @@ browork/
 │   │       ├── routes/files.ts       # File management API
 │   │       ├── routes/skills.ts      # Skills CRUD + invoke
 │   │       ├── services/pi-session.ts # Pi SDK wrapper + mock mode
+│   │       ├── services/mcp-manager.ts # MCP server config CRUD (SQLite)
+│   │       ├── services/mcp-client.ts  # MCP client connections (SSE/HTTP)
 │   │       ├── services/sandbox-manager.ts # Docker container-per-user isolation
 │   │       ├── services/skill-manager.ts # Skill discovery, loading, invocation
 │   │       ├── services/file-watcher.ts # Chokidar file watching
+│   │       ├── tools/web-tools.ts    # Web search & fetch tools (Brave API)
+│   │       ├── tools/mcp-bridge.ts   # MCP→Pi tool format bridge
 │   │       ├── db/database.ts        # SQLite init (better-sqlite3, WAL mode)
 │   │       ├── db/session-store.ts   # Session & message CRUD
 │   │       ├── utils/                # Testable utilities (CSV, safePath, events)
-│   │       ├── __tests__/            # Vitest tests (85 tests)
+│   │       ├── __tests__/            # Vitest tests
 │   │       └── ws/session-stream.ts  # WebSocket handler
 │   ├── skills/          # Bundled workflow skills
 │   │   ├── chart-generator/SKILL.md
@@ -100,6 +102,38 @@ browork/
 ├── package.json         # Workspace root
 └── tsconfig.base.json   # Shared TypeScript config
 ```
+
+## MCP Servers
+
+Browork can connect to remote [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) servers to give the AI agent access to external tools — databases, APIs, custom workflows, etc.
+
+### Adding a server
+
+Open **Settings > MCP Servers** in the UI, or use the REST API:
+
+```bash
+curl -X POST http://localhost:3001/api/mcp/servers \
+  -H "Content-Type: application/json" \
+  -d '{"name": "my-tools", "url": "http://localhost:3099/sse"}'
+```
+
+Browork connects in the background, discovers available tools via `listTools()`, and injects them into all subsequent Pi sessions. Tools appear namespaced as `mcp__<server>__<tool>` to avoid conflicts.
+
+Supported transports: **SSE** (default) and **Streamable HTTP**. Custom headers (e.g. `Authorization`) can be added per server.
+
+### Test MCP server
+
+A bundled test server is included for verifying connectivity:
+
+```bash
+npx tsx scripts/test-mcp-server.ts
+```
+
+This starts an SSE server on port 3099 with two tools:
+- `random_number(n)` — generate N random numbers as CSV
+- `factorial(x)` — compute factorial (memoized)
+
+Then add it in settings: Name=`test-tools`, URL=`http://localhost:3099/sse`, Transport=SSE.
 
 ## Installing Skills
 
@@ -129,7 +163,7 @@ npm run install-skill -- https://github.com/anthropics/skills skill-creator --fo
 npm test
 ```
 
-Runs Vitest server-side tests (173 tests): file routes, CSV parser, path traversal, Pi event translation, skill manager, session store, sandbox manager.
+Runs Vitest server-side tests (179 tests): file routes, CSV parser, path traversal, Pi event translation, skill manager, session store, sandbox manager, MCP manager.
 
 ## Build
 
@@ -153,3 +187,5 @@ npm run build
 | `SANDBOX_MEMORY` | `512m` | Memory limit per sandbox container |
 | `SANDBOX_CPUS` | `1.0` | CPU limit per sandbox container |
 | `SANDBOX_NETWORK` | `bridge` | Docker network for sandbox containers (`none` to fully isolate) |
+| `BRAVE_API_KEY` | — | Brave Search API key (enables `web_search` and `web_fetch` tools) |
+| `VITE_APP_NAME` | `#opentowork` | User-facing app name |

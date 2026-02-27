@@ -15,6 +15,7 @@ import { initSkills } from "./services/skill-manager.js";
 import { initDatabase } from "./db/database.js";
 import { authPlugin } from "./plugins/auth.js";
 import { isSandboxEnabled, isDockerAvailable } from "./services/sandbox-manager.js";
+import { mcpClientManager } from "./services/mcp-client.js";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -83,6 +84,9 @@ async function main() {
 
   // Discover and load skills
   await initSkills();
+
+  // Connect to configured MCP servers
+  await mcpClientManager.initConnections();
 
   // Check sandbox configuration
   if (isSandboxEnabled()) {

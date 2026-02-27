@@ -11,9 +11,10 @@
 import type { WebSocket } from "ws";
 import { translatePiEvent } from "../utils/event-translator.js";
 import { resolve } from "path";
-import { writeMcpConfig } from "./mcp-manager.js";
 import { isSandboxEnabled, ensureSandbox, createSandboxBashOps, createSandboxFileOps } from "./sandbox-manager.js";
 import { createWebTools } from "../tools/web-tools.js";
+import { mcpClientManager } from "./mcp-client.js";
+import { bridgeMcpTools } from "../tools/mcp-bridge.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
@@ -96,12 +97,11 @@ export async function createPiSession(
     (process.env.DEFAULT_THINKING_LEVEL as "low" | "medium" | "high") ||
     "medium";
 
-  // Write MCP server config before creating the session
-  writeMcpConfig(workDir);
-
   const webTools = createWebTools();
-  if (webTools.length > 0) {
-    console.log(`[pi-session] registering custom tools: ${webTools.map((t) => t.name).join(", ")}`);
+  const mcpTools = bridgeMcpTools(mcpClientManager.getToolsForSession(sessionId));
+  const customTools = [...webTools, ...mcpTools];
+  if (customTools.length > 0) {
+    console.log(`[pi-session] registering custom tools: ${customTools.map((t) => t.name).join(", ")}`);
   }
 
   const sessionManager = piSdk.SessionManager.continueRecent(workDir);
@@ -113,7 +113,7 @@ export async function createPiSession(
       process.env.PI_MODEL || "gpt-4",
     ),
     thinkingLevel,
-    customTools: webTools,
+    customTools,
     sessionManager,
   });
 
@@ -142,7 +142,7 @@ export async function createPiSession(
       edit: piSdk.createEditTool(containerWorkDir, { operations: fileOps.edit }),
       write: piSdk.createWriteTool(containerWorkDir, { operations: fileOps.write }),
     };
-    const activeToolNames = ["read", "bash", "edit", "write", ...webTools.map((t) => t.name)];
+    const activeToolNames = ["read", "bash", "edit", "write", ...customTools.map((t) => t.name)];
     s._buildRuntime({ activeToolNames, includeAllExtensionTools: true });
     console.log(`[pi-session] sandbox patched for user ${sandboxUserId}, cwd=${containerWorkDir}`);
   }

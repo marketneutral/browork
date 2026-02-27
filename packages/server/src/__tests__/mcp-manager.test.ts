@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { resolve } from "path";
-import { mkdirSync, rmSync, readFileSync, existsSync } from "fs";
+import { mkdirSync, rmSync } from "fs";
 import { initDatabase, closeDatabase } from "../db/database.js";
 import {
   addMcpServer,
@@ -8,8 +8,6 @@ import {
   getMcpServer,
   updateMcpServer,
   deleteMcpServer,
-  writeMcpConfig,
-  readMcpConfig,
 } from "../services/mcp-manager.js";
 
 const TEST_DIR = resolve(import.meta.dirname, "../../.test-data-mcp");
@@ -26,30 +24,42 @@ afterEach(() => {
 
 describe("mcp-manager", () => {
   describe("addMcpServer", () => {
-    it("should add a server with name and command", () => {
-      const server = addMcpServer({ name: "postgres", command: "npx" });
-      expect(server.name).toBe("postgres");
-      expect(server.command).toBe("npx");
-      expect(server.args).toEqual([]);
-      expect(server.env).toEqual({});
+    it("should add a server with name and url", () => {
+      const server = addMcpServer({ name: "my-tools", url: "http://localhost:3002/sse" });
+      expect(server.name).toBe("my-tools");
+      expect(server.url).toBe("http://localhost:3002/sse");
+      expect(server.transport).toBe("sse");
+      expect(server.headers).toEqual({});
       expect(server.enabled).toBe(true);
       expect(server.createdAt).toBeDefined();
     });
 
-    it("should add a server with args and env", () => {
+    it("should add a server with streamable-http transport", () => {
       const server = addMcpServer({
-        name: "postgres",
-        command: "npx",
-        args: ["-y", "@modelcontextprotocol/server-postgres"],
-        env: { DATABASE_URL: "postgresql://localhost/mydb" },
+        name: "http-tools",
+        url: "http://localhost:3002/mcp",
+        transport: "streamable-http",
       });
-      expect(server.args).toEqual(["-y", "@modelcontextprotocol/server-postgres"]);
-      expect(server.env).toEqual({ DATABASE_URL: "postgresql://localhost/mydb" });
+      expect(server.transport).toBe("streamable-http");
+    });
+
+    it("should add a server with custom headers", () => {
+      const server = addMcpServer({
+        name: "authed-tools",
+        url: "https://api.example.com/mcp",
+        headers: { Authorization: "Bearer sk-test", "X-Custom": "value" },
+      });
+      expect(server.headers).toEqual({
+        Authorization: "Bearer sk-test",
+        "X-Custom": "value",
+      });
     });
 
     it("should reject duplicate names", () => {
-      addMcpServer({ name: "postgres", command: "npx" });
-      expect(() => addMcpServer({ name: "postgres", command: "node" })).toThrow();
+      addMcpServer({ name: "my-tools", url: "http://localhost:3002/sse" });
+      expect(() =>
+        addMcpServer({ name: "my-tools", url: "http://localhost:3003/sse" }),
+      ).toThrow();
     });
   });
 
@@ -59,21 +69,22 @@ describe("mcp-manager", () => {
     });
 
     it("should return all servers", () => {
-      addMcpServer({ name: "postgres", command: "npx" });
-      addMcpServer({ name: "filesystem", command: "npx" });
+      addMcpServer({ name: "tools-a", url: "http://localhost:3002/sse" });
+      addMcpServer({ name: "tools-b", url: "http://localhost:3003/sse" });
       const servers = listMcpServers();
       expect(servers.length).toBe(2);
-      expect(servers[0].name).toBe("postgres");
-      expect(servers[1].name).toBe("filesystem");
+      expect(servers[0].name).toBe("tools-a");
+      expect(servers[1].name).toBe("tools-b");
     });
   });
 
   describe("getMcpServer", () => {
     it("should return a server by name", () => {
-      addMcpServer({ name: "postgres", command: "npx" });
-      const server = getMcpServer("postgres");
+      addMcpServer({ name: "my-tools", url: "http://localhost:3002/sse" });
+      const server = getMcpServer("my-tools");
       expect(server).toBeDefined();
-      expect(server!.name).toBe("postgres");
+      expect(server!.name).toBe("my-tools");
+      expect(server!.url).toBe("http://localhost:3002/sse");
     });
 
     it("should return undefined for non-existent server", () => {
@@ -82,30 +93,30 @@ describe("mcp-manager", () => {
   });
 
   describe("updateMcpServer", () => {
-    it("should update the command", () => {
-      addMcpServer({ name: "postgres", command: "npx" });
-      const updated = updateMcpServer("postgres", { command: "node" });
+    it("should update the url", () => {
+      addMcpServer({ name: "my-tools", url: "http://localhost:3002/sse" });
+      const updated = updateMcpServer("my-tools", { url: "http://localhost:4000/sse" });
       expect(updated).toBeDefined();
-      expect(updated!.command).toBe("node");
+      expect(updated!.url).toBe("http://localhost:4000/sse");
     });
 
     it("should toggle enabled", () => {
-      addMcpServer({ name: "postgres", command: "npx" });
-      const disabled = updateMcpServer("postgres", { enabled: false });
+      addMcpServer({ name: "my-tools", url: "http://localhost:3002/sse" });
+      const disabled = updateMcpServer("my-tools", { enabled: false });
       expect(disabled!.enabled).toBe(false);
 
-      const enabled = updateMcpServer("postgres", { enabled: true });
+      const enabled = updateMcpServer("my-tools", { enabled: true });
       expect(enabled!.enabled).toBe(true);
     });
 
-    it("should update args and env", () => {
-      addMcpServer({ name: "postgres", command: "npx" });
-      const updated = updateMcpServer("postgres", {
-        args: ["-y", "server-pg"],
-        env: { DB: "test" },
+    it("should update transport and headers", () => {
+      addMcpServer({ name: "my-tools", url: "http://localhost:3002/sse" });
+      const updated = updateMcpServer("my-tools", {
+        transport: "streamable-http",
+        headers: { "X-Key": "val" },
       });
-      expect(updated!.args).toEqual(["-y", "server-pg"]);
-      expect(updated!.env).toEqual({ DB: "test" });
+      expect(updated!.transport).toBe("streamable-http");
+      expect(updated!.headers).toEqual({ "X-Key": "val" });
     });
 
     it("should return undefined for non-existent server", () => {
@@ -115,97 +126,13 @@ describe("mcp-manager", () => {
 
   describe("deleteMcpServer", () => {
     it("should delete a server", () => {
-      addMcpServer({ name: "postgres", command: "npx" });
-      expect(deleteMcpServer("postgres")).toBe(true);
-      expect(getMcpServer("postgres")).toBeUndefined();
+      addMcpServer({ name: "my-tools", url: "http://localhost:3002/sse" });
+      expect(deleteMcpServer("my-tools")).toBe(true);
+      expect(getMcpServer("my-tools")).toBeUndefined();
     });
 
     it("should return false for non-existent server", () => {
       expect(deleteMcpServer("nonexistent")).toBe(false);
-    });
-  });
-
-  describe("writeMcpConfig", () => {
-    it("should write .pi/mcp.json with enabled servers", () => {
-      addMcpServer({
-        name: "postgres",
-        command: "npx",
-        args: ["-y", "@modelcontextprotocol/server-postgres"],
-        env: { DATABASE_URL: "postgresql://localhost/test" },
-      });
-      addMcpServer({ name: "filesystem", command: "npx", args: ["-y", "server-fs"] });
-
-      const workDir = resolve(TEST_DIR, "workspace");
-      mkdirSync(workDir, { recursive: true });
-      writeMcpConfig(workDir);
-
-      const configPath = resolve(workDir, ".pi", "mcp.json");
-      expect(existsSync(configPath)).toBe(true);
-
-      const config = JSON.parse(readFileSync(configPath, "utf-8"));
-      expect(config.servers.postgres).toBeDefined();
-      expect(config.servers.postgres.command).toBe("npx");
-      expect(config.servers.postgres.args).toEqual(["-y", "@modelcontextprotocol/server-postgres"]);
-      expect(config.servers.postgres.env).toEqual({ DATABASE_URL: "postgresql://localhost/test" });
-      expect(config.servers.filesystem).toBeDefined();
-    });
-
-    it("should exclude disabled servers from config", () => {
-      addMcpServer({ name: "postgres", command: "npx" });
-      addMcpServer({ name: "disabled-one", command: "npx" });
-      updateMcpServer("disabled-one", { enabled: false });
-
-      const workDir = resolve(TEST_DIR, "workspace2");
-      mkdirSync(workDir, { recursive: true });
-      writeMcpConfig(workDir);
-
-      const config = JSON.parse(
-        readFileSync(resolve(workDir, ".pi", "mcp.json"), "utf-8"),
-      );
-      expect(config.servers.postgres).toBeDefined();
-      expect(config.servers["disabled-one"]).toBeUndefined();
-    });
-
-    it("should write empty servers object when none enabled", () => {
-      const workDir = resolve(TEST_DIR, "workspace3");
-      mkdirSync(workDir, { recursive: true });
-      writeMcpConfig(workDir);
-
-      const config = JSON.parse(
-        readFileSync(resolve(workDir, ".pi", "mcp.json"), "utf-8"),
-      );
-      expect(config.servers).toEqual({});
-    });
-
-    it("should omit env when empty", () => {
-      addMcpServer({ name: "postgres", command: "npx", args: ["-y", "pg"] });
-      const workDir = resolve(TEST_DIR, "workspace4");
-      mkdirSync(workDir, { recursive: true });
-      writeMcpConfig(workDir);
-
-      const config = JSON.parse(
-        readFileSync(resolve(workDir, ".pi", "mcp.json"), "utf-8"),
-      );
-      expect(config.servers.postgres.env).toBeUndefined();
-    });
-  });
-
-  describe("readMcpConfig", () => {
-    it("should return null when no config exists", () => {
-      const workDir = resolve(TEST_DIR, "no-config");
-      mkdirSync(workDir, { recursive: true });
-      expect(readMcpConfig(workDir)).toBeNull();
-    });
-
-    it("should read a previously written config", () => {
-      addMcpServer({ name: "postgres", command: "npx" });
-      const workDir = resolve(TEST_DIR, "workspace5");
-      mkdirSync(workDir, { recursive: true });
-      writeMcpConfig(workDir);
-
-      const config = readMcpConfig(workDir);
-      expect(config).toBeDefined();
-      expect((config as any).servers.postgres).toBeDefined();
     });
   });
 });

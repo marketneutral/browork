@@ -85,9 +85,9 @@ function createTables() {
 
     CREATE TABLE IF NOT EXISTS mcp_servers (
       name TEXT PRIMARY KEY,
-      command TEXT NOT NULL,
-      args TEXT NOT NULL DEFAULT '[]',
-      env TEXT NOT NULL DEFAULT '{}',
+      url TEXT NOT NULL,
+      transport TEXT NOT NULL DEFAULT 'sse',
+      headers TEXT NOT NULL DEFAULT '{}',
       enabled INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -100,6 +100,27 @@ function runMigrations() {
     db.exec("ALTER TABLE sessions ADD COLUMN workspace_dir TEXT");
   } catch {
     // Column already exists
+  }
+
+  // Migrate mcp_servers from stdio (command/args/env) to remote (url/transport/headers)
+  try {
+    const row = db.prepare("SELECT command FROM mcp_servers LIMIT 1").get();
+    // If "command" column exists, this is the old schema — drop and recreate
+    if (row !== undefined || true) {
+      db.exec("DROP TABLE mcp_servers");
+      db.exec(`
+        CREATE TABLE mcp_servers (
+          name TEXT PRIMARY KEY,
+          url TEXT NOT NULL,
+          transport TEXT NOT NULL DEFAULT 'sse',
+          headers TEXT NOT NULL DEFAULT '{}',
+          enabled INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+      `);
+    }
+  } catch {
+    // "command" column doesn't exist — already on new schema
   }
 }
 
