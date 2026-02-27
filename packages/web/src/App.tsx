@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from "react";
-import { useSessionStore } from "./stores/session";
-import { useFilesStore } from "./stores/files";
+import { useSessionStore, isImagePath } from "./stores/session";
+import { useFilesStore, type FileEntry } from "./stores/files";
 import { useSkillsStore } from "./stores/skills";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { api, wsUrl } from "./api/client";
@@ -183,8 +183,13 @@ export function App() {
       setSessionId(id);
       // Clear file state and reload for the new session
       useFilesStore.getState().clearAll();
-      api.files.list(id).then(useFilesStore.getState().setEntries).catch(console.error);
-      api.sessions.get(id).then((data) => {
+
+      const filesPromise = api.files.list(id).then((files) => {
+        useFilesStore.getState().setEntries(files);
+        return files;
+      }).catch((err) => { console.error(err); return [] as FileEntry[]; });
+
+      const sessionPromise = api.sessions.get(id).then((data) => {
         if (data.messages && data.messages.length > 0) {
           useSessionStore.getState().setMessages(
             data.messages.map((m) => ({
@@ -196,6 +201,19 @@ export function App() {
           );
         }
       }).catch((err) => setError(err.message));
+
+      // After both loaded, restore inline images from workspace files
+      Promise.all([filesPromise, sessionPromise]).then(([files]) => {
+        if (!Array.isArray(files)) return;
+        const imagePaths = files
+          .filter((f) => f.type === "file" && isImagePath(f.path))
+          .map((f) => f.path);
+        if (imagePaths.length > 0) {
+          const store = useSessionStore.getState();
+          store.addPendingImages(imagePaths);
+          store.finalizePendingImages();
+        }
+      });
     },
     [setSessionId, setError],
   );
