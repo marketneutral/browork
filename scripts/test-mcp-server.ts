@@ -8,10 +8,8 @@
  *   npx tsx scripts/test-mcp-server.ts          # default port 3099
  *   PORT=4000 npx tsx scripts/test-mcp-server.ts
  *
- * Then add in Browork MCP settings:
- *   Name: test-tools
- *   URL:  http://localhost:3099/sse
- *   Transport: SSE
+ * Then add via CLI:
+ *   npm run setup-mcp -- add test-tools http://localhost:3099/sse
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -34,36 +32,40 @@ function factorial(x: number): bigint {
   return result;
 }
 
-// ── MCP Server ──
+// ── Create a fresh McpServer for each connection ──
 
-const server = new McpServer({
-  name: "test-tools",
-  version: "1.0.0",
-});
+function createServer(): McpServer {
+  const server = new McpServer({
+    name: "test-tools",
+    version: "1.0.0",
+  });
 
-server.tool(
-  "random_number",
-  "Generate N random numbers and return them as CSV",
-  { n: z.number().int().min(1).max(10000).default(1).describe("How many random numbers to generate") },
-  async ({ n }) => {
-    const numbers = Array.from({ length: n }, () => Math.random());
-    return {
-      content: [{ type: "text", text: numbers.join(",") }],
-    };
-  },
-);
+  server.tool(
+    "random_number",
+    "Generate N random numbers and return them as CSV",
+    { n: z.number().int().min(1).max(10000).default(1).describe("How many random numbers to generate") },
+    async ({ n }) => {
+      const numbers = Array.from({ length: n }, () => Math.random());
+      return {
+        content: [{ type: "text", text: numbers.join(",") }],
+      };
+    },
+  );
 
-server.tool(
-  "factorial",
-  "Calculate the factorial of a number (memoized)",
-  { x: z.number().int().min(0).max(1000).describe("The number to compute factorial of") },
-  async ({ x }) => {
-    const result = factorial(x);
-    return {
-      content: [{ type: "text", text: `${x}! = ${result.toString()}` }],
-    };
-  },
-);
+  server.tool(
+    "factorial",
+    "Calculate the factorial of a number (memoized)",
+    { x: z.number().int().min(0).max(1000).describe("The number to compute factorial of") },
+    async ({ x }) => {
+      const result = factorial(x);
+      return {
+        content: [{ type: "text", text: `${x}! = ${result.toString()}` }],
+      };
+    },
+  );
+
+  return server;
+}
 
 // ── HTTP + SSE transport ──
 
@@ -87,6 +89,8 @@ const httpServer = http.createServer(async (req, res) => {
     const transport = new SSEServerTransport("/messages", res);
     transports.set(transport.sessionId, transport);
     res.on("close", () => transports.delete(transport.sessionId));
+    // Each SSE connection gets a fresh McpServer instance
+    const server = createServer();
     await server.connect(transport);
     return;
   }

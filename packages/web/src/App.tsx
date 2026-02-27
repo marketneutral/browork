@@ -128,6 +128,43 @@ export function App() {
       .catch(console.error);
   }, []);
 
+  // Load MCP servers + tools on mount, then poll every 10s for status changes
+  useEffect(() => {
+    const refreshMcp = async () => {
+      try {
+        const servers = await api.mcp.list();
+        useSkillsStore.getState().setMcpServers(
+          servers.map((s) => ({
+            name: s.name,
+            url: s.url,
+            status: s.status,
+            toolCount: s.toolCount,
+            error: s.error,
+          })),
+        );
+        const connected = servers.filter(
+          (s) => s.status === "connected" && s.toolCount > 0,
+        );
+        const toolArrays = await Promise.all(
+          connected.map(async (server) => {
+            const tools = await api.mcp.tools(server.name);
+            return tools.map((t) => ({
+              ...t,
+              serverName: server.name,
+            }));
+          }),
+        );
+        useSkillsStore.getState().setMcpTools(toolArrays.flat());
+      } catch {
+        // ignore — server may not be up yet
+      }
+    };
+
+    refreshMcp();
+    const interval = setInterval(refreshMcp, 10_000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Select a session and load its message history + files
   const selectSession = useCallback(
     (id: string) => {

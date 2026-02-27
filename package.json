@@ -11,7 +11,8 @@
     "build": "npm run build --workspace=packages/server && npm run build --workspace=packages/web",
     "test": "npm run test --workspace=packages/server",
     "lint": "eslint packages/*/src/**/*.{ts,tsx}",
-    "install-skill": "tsx scripts/install-skill.ts"
+    "install-skill": "tsx scripts/install-skill.ts",
+    "setup-mcp": "tsx scripts/setup-mcp.ts"
   },
   "devDependencies": {
     "@types/node": "^22.13.0",

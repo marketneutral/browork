@@ -125,22 +125,8 @@ export const api = {
   },
   mcp: {
     list: () => request<McpServerMeta[]>("/mcp/servers"),
-    add: (server: { name: string; url: string; transport?: "sse" | "streamable-http"; headers?: Record<string, string> }) =>
-      request<McpServerMeta>("/mcp/servers", {
-        method: "POST",
-        body: JSON.stringify(server),
-      }),
-    update: (name: string, updates: { url?: string; transport?: "sse" | "streamable-http"; headers?: Record<string, string>; enabled?: boolean }) =>
-      request<McpServerMeta>(`/mcp/servers/${name}`, {
-        method: "PATCH",
-        body: JSON.stringify(updates),
-      }),
-    delete: (name: string) =>
-      request<{ ok: boolean }>(`/mcp/servers/${name}`, { method: "DELETE" }),
     tools: (name: string) =>
       request<McpToolMeta[]>(`/mcp/servers/${name}/tools`),
-    reconnect: (name: string) =>
-      request<{ ok: boolean }>(`/mcp/servers/${name}/reconnect`, { method: "POST" }),
   },
   sessions: {
     list: () => request<SessionMeta[]>("/sessions"),

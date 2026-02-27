@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 import { useSessionStore, type SessionListItem } from "../../stores/session";
-import { useAuthStore } from "../../stores/auth";
-import { api } from "../../api/client";
 import {
   Plus,
   MessageSquare,
@@ -10,47 +8,33 @@ import {
   GitBranch,
   Check,
   X,
-  LogOut,
-  Settings,
   PanelLeftClose,
 } from "lucide-react";
 import { SessionSkeleton } from "../ui/Skeleton";
-import type { ConnectionStatus } from "../../hooks/useWebSocket";
 import { APP_NAME } from "../../config";
 
 interface SessionSidebarProps {
-  connectionStatus: ConnectionStatus;
   onNewSession: () => void;
   onSelectSession: (id: string) => void;
   onDeleteSession: (id: string) => void;
   onRenameSession: (id: string, name: string) => void;
   onForkSession: (id: string) => void;
-  onOpenSettings: () => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
 }
 
 export function SessionSidebar({
-  connectionStatus,
   onNewSession,
   onSelectSession,
   onDeleteSession,
   onRenameSession,
   onForkSession,
-  onOpenSettings,
   collapsed,
   onToggleCollapse,
 }: SessionSidebarProps) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.sessionId);
   const isLoading = useSessionStore((s) => s.isLoading);
-  const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
-
-  const handleLogout = () => {
-    api.auth.logout().catch(() => {});
-    logout();
-  };
 
   return (
     <aside className={`shrink-0 border-r bg-background-secondary flex flex-col max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:shadow-lg transition-all duration-300 ease-in-out overflow-hidden relative z-10 ${
@@ -105,53 +89,6 @@ export function SessionSidebar({
           />
         ))}
       </div>
-
-      {/* Connection status */}
-      <div className="p-3 border-t border-border text-xs text-foreground-secondary">
-        {connectionStatus === "connected" && (
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-success" />
-            Agent server connected
-          </span>
-        )}
-        {connectionStatus === "connecting" && (
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-warning animate-pulse" />
-            Connecting to agent server...
-          </span>
-        )}
-        {connectionStatus === "disconnected" && (
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-destructive" />
-            Agent server disconnected
-          </span>
-        )}
-      </div>
-
-      {/* User / settings / logout */}
-      {user && (
-        <div className="p-3 border-t border-border flex items-center justify-between">
-          <span className="text-sm font-medium truncate">
-            {user.displayName}
-          </span>
-          <div className="flex items-center gap-0.5">
-            <button
-              onClick={onOpenSettings}
-              title="Settings"
-              className="p-1.5 rounded-md hover:bg-surface-glass-hover text-foreground-secondary hover:text-foreground transition-colors"
-            >
-              <Settings size={16} />
-            </button>
-            <button
-              onClick={handleLogout}
-              title="Sign out"
-              className="p-1.5 rounded-md hover:bg-surface-glass-hover text-foreground-secondary hover:text-foreground transition-colors"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
-        </div>
-      )}
     </aside>
   );
 }

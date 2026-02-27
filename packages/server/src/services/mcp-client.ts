@@ -33,7 +33,7 @@ interface McpConnection {
   error?: string;
 }
 
-const RECONNECT_DELAY_MS = 30_000;
+const RECONNECT_DELAY_MS = 10_000;
 
 // ── Singleton ──
 
@@ -134,6 +134,8 @@ class McpClientManager {
       conn.status = "error";
       conn.error = msg;
       console.error(`[mcp-client] ${config.name} connection failed:`, msg);
+      // Close the transport to stop SSE internal retries from spamming errors
+      try { await conn.transport?.close?.(); } catch {}
       this.scheduleReconnect(config);
     }
   }
@@ -227,6 +229,29 @@ class McpClientManager {
    */
   getServerTools(name: string): McpToolInfo[] {
     return this.connections.get(name)?.tools ?? [];
+  }
+
+  /**
+   * Reconnect any enabled servers that are disconnected or in error state.
+   * Called periodically (e.g. from the status poll endpoint) to recover
+   * from dropped connections that the transport didn't detect.
+   */
+  async reconnectUnhealthy(): Promise<void> {
+    const servers = listMcpServers().filter((s) => s.enabled);
+    for (const server of servers) {
+      const conn = this.connections.get(server.name);
+      const needsReconnect = !conn || conn.status === "disconnected" || conn.status === "error";
+      if (!needsReconnect) continue;
+      // Don't double-schedule if a reconnect timer or attempt is already in flight
+      if (this.reconnectTimers.has(server.name)) continue;
+      // Use scheduleReconnect with a short delay to avoid hammering on every poll
+      this.clearReconnect(server.name);
+      const timer = setTimeout(() => {
+        console.log(`[mcp-client] reconnecting to ${server.name}...`);
+        this.connectServer(server).catch(() => {});
+      }, 1000);
+      this.reconnectTimers.set(server.name, timer);
+    }
   }
 
   /**

@@ -1,6 +1,10 @@
 import { useState, useRef, useCallback, useEffect, useMemo, type KeyboardEvent } from "react";
 import { useSkillsStore } from "../../stores/skills";
 
+type SlashItem =
+  | { kind: "skill"; name: string; description: string }
+  | { kind: "mcp-tool"; name: string; qualifiedName: string; description: string; serverName: string };
+
 interface ComposerProps {
   onSend: (text: string) => void;
   onInvokeSkill: (skillName: string, args?: string) => void;
@@ -9,12 +13,12 @@ interface ComposerProps {
 
 export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
   const [text, setText] = useState("");
-  const [showSlash, setShowSlash] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
 
   const skills = useSkillsStore((s) => s.skills);
+  const mcpTools = useSkillsStore((s) => s.mcpTools) ?? [];
   const enabledSkills = useMemo(() => skills.filter((s) => s.enabled), [skills]);
 
   // Extract the slash prefix the user has typed so far (e.g. "/cle")
@@ -38,11 +42,42 @@ export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
     );
   }, [slashQuery, enabledSkills]);
 
-  // Show/hide popup based on filter results
+  // Filter MCP tools by the query
+  const filteredMcpTools = useMemo(() => {
+    if (slashQuery === null) return [];
+    if (slashQuery === "") return mcpTools;
+    return mcpTools.filter(
+      (t) =>
+        t.name.toLowerCase().includes(slashQuery) ||
+        t.description.toLowerCase().includes(slashQuery),
+    );
+  }, [slashQuery, mcpTools]);
+
+  // Combined flat list for keyboard navigation
+  const filteredItems = useMemo<SlashItem[]>(() => {
+    const items: SlashItem[] = [];
+    for (const s of filteredSkills) {
+      items.push({ kind: "skill", name: s.name, description: s.description });
+    }
+    for (const t of filteredMcpTools) {
+      items.push({
+        kind: "mcp-tool",
+        name: t.name,
+        qualifiedName: t.qualifiedName,
+        description: t.description,
+        serverName: t.serverName,
+      });
+    }
+    return items;
+  }, [filteredSkills, filteredMcpTools]);
+
+  // Derive popup visibility directly (no effect delay)
+  const showSlashDerived = filteredItems.length > 0 && slashQuery !== null;
+
+  // Reset selection when the filtered list changes
   useEffect(() => {
-    setShowSlash(filteredSkills.length > 0 && slashQuery !== null);
     setSelectedIndex(0);
-  }, [filteredSkills.length, slashQuery]);
+  }, [filteredItems.length, slashQuery]);
 
   // Re-focus textarea when it becomes enabled again
   useEffect(() => {
@@ -51,10 +86,9 @@ export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
     }
   }, [disabled]);
 
-  const selectSkill = useCallback(
-    (skillName: string) => {
-      setText(`/${skillName} `);
-      setShowSlash(false);
+  const selectItem = useCallback(
+    (item: SlashItem) => {
+      setText(`/${item.name} `);
       // Resize textarea after setting text
       requestAnimationFrame(() => {
         const el = textareaRef.current;
@@ -83,9 +117,22 @@ export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
       const args = spaceIndex === -1 ? undefined : withoutSlash.slice(spaceIndex + 1).trim() || undefined;
 
       // Verify it matches an enabled skill
-      const match = enabledSkills.find((s) => s.name === cmdName);
-      if (match) {
-        onInvokeSkill(match.name, args);
+      const skillMatch = enabledSkills.find((s) => s.name === cmdName);
+      if (skillMatch) {
+        onInvokeSkill(skillMatch.name, args);
+        setText("");
+        if (textareaRef.current) textareaRef.current.style.height = "auto";
+        requestAnimationFrame(() => textareaRef.current?.focus());
+        return;
+      }
+
+      // Check MCP tools
+      const toolMatch = mcpTools.find((t) => t.name === cmdName);
+      if (toolMatch) {
+        const prompt = args
+          ? `Use the ${toolMatch.qualifiedName} tool to: ${args}`
+          : `Use the ${toolMatch.qualifiedName} tool`;
+        onSend(prompt);
         setText("");
         if (textareaRef.current) textareaRef.current.style.height = "auto";
         requestAnimationFrame(() => textareaRef.current?.focus());
@@ -99,13 +146,13 @@ export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
       textareaRef.current.style.height = "auto";
     }
     requestAnimationFrame(() => textareaRef.current?.focus());
-  }, [text, disabled, onSend, onInvokeSkill, enabledSkills]);
+  }, [text, disabled, onSend, onInvokeSkill, enabledSkills, mcpTools]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (showSlash) {
+    if (showSlashDerived) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, filteredSkills.length - 1));
+        setSelectedIndex((i) => Math.min(i + 1, filteredItems.length - 1));
         return;
       }
       if (e.key === "ArrowUp") {
@@ -115,14 +162,14 @@ export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
       }
       if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
-        if (filteredSkills[selectedIndex]) {
-          selectSkill(filteredSkills[selectedIndex].name);
+        if (filteredItems[selectedIndex]) {
+          selectItem(filteredItems[selectedIndex]);
         }
         return;
       }
       if (e.key === "Escape") {
         e.preventDefault();
-        setShowSlash(false);
+        setText("");
         return;
       }
     }
@@ -146,29 +193,65 @@ export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
     <div className="px-4 pt-2 pb-3">
       <div className="relative">
         {/* Slash command popup */}
-        {showSlash && (
+        {showSlashDerived && (
           <div
             ref={popupRef}
             className="absolute bottom-full left-0 right-0 mb-2 bg-background-secondary border border-border rounded-[var(--radius-lg)] shadow-lg overflow-hidden z-50"
           >
-            <div className="px-3 py-1.5 text-xs text-foreground-tertiary border-b border-border">
-              Workflows
-            </div>
-            {filteredSkills.map((skill, i) => (
-              <button
-                key={skill.name}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => selectSkill(skill.name)}
-                className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors ${
-                  i === selectedIndex
-                    ? "bg-surface-glass text-foreground"
-                    : "text-foreground-secondary hover:bg-surface-glass-hover"
-                }`}
-              >
-                <span className="text-sm font-medium text-primary">/{skill.name}</span>
-                <span className="text-xs text-foreground-tertiary truncate">{skill.description}</span>
-              </button>
-            ))}
+            {filteredSkills.length > 0 && (
+              <>
+                <div className="px-3 py-1.5 text-xs text-foreground-tertiary border-b border-border">
+                  Workflows
+                </div>
+                {filteredSkills.map((skill) => {
+                  const idx = filteredItems.findIndex(
+                    (it) => it.kind === "skill" && it.name === skill.name,
+                  );
+                  return (
+                    <button
+                      key={`skill-${skill.name}`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectItem(filteredItems[idx])}
+                      className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors ${
+                        idx === selectedIndex
+                          ? "bg-surface-glass text-foreground"
+                          : "text-foreground-secondary hover:bg-surface-glass-hover"
+                      }`}
+                    >
+                      <span className="text-sm font-medium text-primary">/{skill.name}</span>
+                      <span className="text-xs text-foreground-tertiary truncate">{skill.description}</span>
+                    </button>
+                  );
+                })}
+              </>
+            )}
+            {filteredMcpTools.length > 0 && (
+              <>
+                <div className="px-3 py-1.5 text-xs text-foreground-tertiary border-b border-border">
+                  Tools
+                </div>
+                {filteredMcpTools.map((tool) => {
+                  const idx = filteredItems.findIndex(
+                    (it) => it.kind === "mcp-tool" && it.name === tool.name && it.serverName === tool.serverName,
+                  );
+                  return (
+                    <button
+                      key={`mcp-${tool.serverName}-${tool.name}`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectItem(filteredItems[idx])}
+                      className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors ${
+                        idx === selectedIndex
+                          ? "bg-surface-glass text-foreground"
+                          : "text-foreground-secondary hover:bg-surface-glass-hover"
+                      }`}
+                    >
+                      <span className="text-sm font-medium text-primary">/{tool.name}</span>
+                      <span className="text-xs text-foreground-tertiary truncate">{tool.description}</span>
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </div>
         )}
 
@@ -182,7 +265,7 @@ export function Composer({ onSend, onInvokeSkill, disabled }: ComposerProps) {
                 handleInput();
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Ask me to analyze your data... Type / for workflows"
+              placeholder="Ask me to analyze your data... Type / for workflows and tools"
               disabled={disabled}
               rows={1}
               className="flex-1 resize-none bg-transparent border-0 px-2 py-1.5 text-sm text-foreground placeholder:text-foreground-tertiary outline-none disabled:opacity-50 disabled:cursor-not-allowed"

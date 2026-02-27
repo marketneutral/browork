@@ -2,8 +2,10 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { ChatPanel } from "../chat/ChatPanel";
 import { FilePanel } from "../files/FilePanel";
 import { SessionSidebar } from "./SessionSidebar";
-import { McpSettings } from "../settings/McpSettings";
-import { Menu, FolderOpen, PanelLeftOpen } from "lucide-react";
+import { StatusPanel } from "./StatusPanel";
+import { Menu, FolderOpen, PanelLeftOpen, LogOut } from "lucide-react";
+import { useAuthStore } from "../../stores/auth";
+import { api } from "../../api/client";
 import type { ConnectionStatus } from "../../hooks/useWebSocket";
 import { APP_NAME } from "../../config";
 
@@ -30,7 +32,6 @@ export function AppLayout({
   onRenameSession,
   onForkSession,
 }: AppLayoutProps) {
-  const [showSettings, setShowSettings] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filesPanelOpen, setFilesPanelOpen] = useState(true);
   const [filesPanelWidth, setFilesPanelWidth] = useState(320);
@@ -81,7 +82,6 @@ export function AppLayout({
 
       {/* Sessions sidebar */}
       <SessionSidebar
-        connectionStatus={connectionStatus}
         onNewSession={onNewSession}
         onSelectSession={(id) => {
           onSelectSession(id);
@@ -91,7 +91,6 @@ export function AppLayout({
         onDeleteSession={onDeleteSession}
         onRenameSession={onRenameSession}
         onForkSession={onForkSession}
-        onOpenSettings={() => setShowSettings(true)}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
       />
@@ -130,23 +129,33 @@ export function AppLayout({
         <ChatPanel onSendMessage={onSendMessage} onInvokeSkill={onInvokeSkill} onAbort={onAbort} />
       </main>
 
-      {/* Resizable file panel — hidden on mobile, togglable on tablet */}
-      {filesPanelOpen && (
-        <>
-          {/* Drag handle */}
+      {/* Right panel: drag handle + files + status footer */}
+      <>
+        {/* Drag handle — only when files panel is open */}
+        {filesPanelOpen && (
           <div
             onMouseDown={handleResizeStart}
             className="shrink-0 w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors max-lg:hidden lg:block relative z-10"
             title="Drag to resize"
           />
-          <aside
-            className="shrink-0 bg-background-secondary max-lg:hidden lg:block relative z-10"
-            style={{ width: filesPanelWidth }}
-          >
-            <FilePanel />
-          </aside>
-        </>
-      )}
+        )}
+        <aside
+          className="shrink-0 bg-background-secondary max-lg:hidden lg:flex lg:flex-col relative z-10"
+          style={{ width: filesPanelWidth }}
+        >
+          {/* File panel (collapsible) */}
+          {filesPanelOpen && (
+            <div className="flex-1 min-h-0">
+              <FilePanel />
+            </div>
+          )}
+          {/* Spacer when files hidden */}
+          {!filesPanelOpen && <div className="flex-1" />}
+
+          {/* Always-visible footer */}
+          <RightPanelFooter connectionStatus={connectionStatus} />
+        </aside>
+      </>
 
       {/* File panel overlay on tablet (when toggled via button) */}
       {filesPanelOpen && (
@@ -164,8 +173,63 @@ export function AppLayout({
         </aside>
       )}
 
-      {/* MCP Settings modal */}
-      {showSettings && <McpSettings onClose={() => setShowSettings(false)} />}
+    </div>
+  );
+}
+
+// ── Right-panel footer: connection status + capabilities + user ──
+
+function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionStatus }) {
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+
+  const handleLogout = () => {
+    api.auth.logout().catch(() => {});
+    logout();
+  };
+
+  return (
+    <div className="shrink-0">
+      {/* Connection status */}
+      <div className="px-3 py-2 border-t border-border text-xs text-foreground-secondary">
+        {connectionStatus === "connected" && (
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-success" />
+            Agent server connected
+          </span>
+        )}
+        {connectionStatus === "connecting" && (
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-warning animate-pulse" />
+            Connecting to agent server...
+          </span>
+        )}
+        {connectionStatus === "disconnected" && (
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-destructive" />
+            Agent server disconnected
+          </span>
+        )}
+      </div>
+
+      {/* Workflows + MCP servers */}
+      <StatusPanel />
+
+      {/* User / logout */}
+      {user && (
+        <div className="px-3 py-2 border-t border-border flex items-center justify-between">
+          <span className="text-sm font-medium truncate">
+            {user.displayName}
+          </span>
+          <button
+            onClick={handleLogout}
+            title="Sign out"
+            className="p-1.5 rounded-md hover:bg-surface-glass-hover text-foreground-secondary hover:text-foreground transition-colors"
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
