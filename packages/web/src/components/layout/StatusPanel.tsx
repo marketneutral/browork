@@ -13,9 +13,12 @@ export function StatusPanel() {
 
   if (skillCount === 0 && serverCount === 0) return null;
 
+  const allServersHealthy = serverCount > 0 && mcpServers.every((s) => s.status === "connected");
+  const mcpDotColor = serverCount === 0 ? null : allServersHealthy ? "bg-success" : "bg-destructive";
+
   const parts: string[] = [];
-  if (skillCount > 0) parts.push(`${skillCount} workflow${skillCount !== 1 ? "s" : ""}`);
   if (serverCount > 0) parts.push(`${serverCount} MCP server${serverCount !== 1 ? "s" : ""}`);
+  if (skillCount > 0) parts.push(`${skillCount} skill${skillCount !== 1 ? "s" : ""}`);
 
   return (
     <div className="border-t border-border">
@@ -23,7 +26,8 @@ export function StatusPanel() {
         onClick={() => setExpanded((v) => !v)}
         className="w-full px-3 py-2 flex items-center gap-1.5 text-xs text-foreground-secondary hover:text-foreground transition-colors"
       >
-        <Zap size={12} className="shrink-0" />
+        {mcpDotColor && <span className={`w-2 h-2 rounded-full shrink-0 ${mcpDotColor}`} />}
+        {!mcpDotColor && <Zap size={12} className="shrink-0" />}
         <span className="truncate">{parts.join(" · ")}</span>
         <ChevronDown
           size={12}
@@ -37,7 +41,7 @@ export function StatusPanel() {
             <div>
               <div className="flex items-center gap-1 text-foreground-secondary font-medium mb-0.5">
                 <Zap size={10} />
-                Workflows
+                Skills
               </div>
               {skills.map((s) => (
                 <TipRow key={s.name} text={s.description}>
