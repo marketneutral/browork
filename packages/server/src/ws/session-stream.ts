@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { RawData } from "ws";
-import { createPiSession, getSession, isSkillKnownToSession } from "../services/pi-session.js";
+import { createPiSession, getSession } from "../services/pi-session.js";
 import type { BroworkCommand } from "../services/pi-session.js";
 import { subscribeWsToFileChanges } from "../services/file-watcher.js";
 import { getSkill, getUserSkill, getSessionSkill } from "../services/skill-manager.js";
@@ -126,20 +126,10 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
                 );
                 break;
               }
-              // If Pi discovered this skill at session creation, use /skill:name.
-              // If it was created mid-session (e.g. by a skill-creator workflow),
-              // Pi won't know about it, so inline the skill body as the prompt.
-              let prompt: string;
-              if (isSkillKnownToSession(id, cmd.skill)) {
-                prompt = cmd.args
-                  ? `/skill:${cmd.skill} ${cmd.args}`
-                  : `/skill:${cmd.skill}`;
-              } else {
-                const inline = `Follow the instructions in this skill:\n\n# ${skill.name}\n${skill.description ? `> ${skill.description}\n\n` : "\n"}${skill.body}`;
-                prompt = cmd.args
-                  ? `${inline}\n\nUser input: ${cmd.args}`
-                  : inline;
-              }
+              // Send as Pi's native skill command
+              const prompt = cmd.args
+                ? `/skill:${cmd.skill} ${cmd.args}`
+                : `/skill:${cmd.skill}`;
               // Persist skill invocation as a user message
               const userMsg = cmd.args
                 ? `[Workflow: ${cmd.skill}] ${cmd.args}`

@@ -15,7 +15,7 @@ import { isSandboxEnabled, ensureSandbox, createSandboxBashOps, createSandboxFil
 import { createWebTools } from "../tools/web-tools.js";
 import { mcpClientManager } from "./mcp-client.js";
 import { bridgeMcpTools } from "../tools/mcp-bridge.js";
-import { symlinkUserSkillsToWorkspace, listSkills, listSessionSkills } from "./skill-manager.js";
+import { symlinkUserSkillsToWorkspace } from "./skill-manager.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
@@ -59,16 +59,6 @@ export interface PiSessionHandle {
 const activeSessions = new Map<string, PiSessionHandle>();
 
 /**
- * Set of skill names Pi discovered at session creation time,
- * keyed by session ID. Used to detect mid-session skill creation.
- */
-const sessionKnownSkills = new Map<string, Set<string>>();
-
-export function isSkillKnownToSession(sessionId: string, skillName: string): boolean {
-  return sessionKnownSkills.get(sessionId)?.has(skillName) ?? false;
-}
-
-/**
  * Create a new Pi agent session and wire its events to a WebSocket.
  *
  * When SANDBOX_ENABLED=true, the user's Docker container is
@@ -98,15 +88,6 @@ export async function createPiSession(
   if (userId) {
     await symlinkUserSkillsToWorkspace(userId, workDir);
   }
-
-  // Snapshot which skills exist now — Pi will discover these at session creation.
-  // Skills created mid-session (e.g. by a skill-creator workflow) won't be in
-  // this set, so we can detect them and inline their body instead of using /skill:name.
-  const knownSkillNames = new Set<string>(listSkills().map((s) => s.name));
-  for (const s of await listSessionSkills(workDir)) {
-    knownSkillNames.add(s.name);
-  }
-  sessionKnownSkills.set(sessionId, knownSkillNames);
 
   // Dynamically import the Pi SDK — it may not be installed yet
   let piSdk: typeof import("@mariozechner/pi-coding-agent") | null = null;
@@ -229,7 +210,6 @@ export async function createPiSession(
       unsubscribe();
       session.dispose();
       activeSessions.delete(sessionId);
-      sessionKnownSkills.delete(sessionId);
     },
     rebindSocket(newWs: WebSocket) {
       activeWs = newWs;
@@ -324,7 +304,6 @@ function createMockSession(
     },
     dispose() {
       activeSessions.delete(sessionId);
-      sessionKnownSkills.delete(sessionId);
     },
     rebindSocket(newWs: WebSocket) {
       activeWs = newWs;
