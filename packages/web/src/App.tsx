@@ -60,6 +60,15 @@ export function App() {
           setStreaming(false);
           // Refresh session list to update lastMessage preview
           refreshSessions();
+          // Refresh session skills — Pi may have created new skills during this turn
+          {
+            const sid = useSessionStore.getState().sessionId;
+            if (sid) {
+              api.skills.listSession(sid)
+                .then((skills) => useSkillsStore.getState().setSessionSkills(skills))
+                .catch(console.error);
+            }
+          }
           break;
         case "skill_start":
           useSkillsStore.getState().setActiveSkill(event.skill, event.label);
