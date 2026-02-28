@@ -3,7 +3,7 @@ import type { RawData } from "ws";
 import { createPiSession, getSession } from "../services/pi-session.js";
 import type { BroworkCommand } from "../services/pi-session.js";
 import { subscribeWsToFileChanges } from "../services/file-watcher.js";
-import { getSkill } from "../services/skill-manager.js";
+import { getSkill, getUserSkill, getSessionSkill } from "../services/skill-manager.js";
 import { addMessage, setLastMessageImages, getSessionById } from "../db/session-store.js";
 import { resolve } from "path";
 import { mkdirSync } from "fs";
@@ -113,7 +113,10 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
               await session!.sendPrompt(cmd.message);
               break;
             case "skill_invoke": {
-              const skill = getSkill(cmd.skill);
+              // Look up skill from admin, user, or session sources
+              const skill = getSkill(cmd.skill)
+                ?? (userId ? await getUserSkill(userId, cmd.skill) : undefined)
+                ?? await getSessionSkill(workDir, cmd.skill);
               if (!skill || !skill.enabled) {
                 socket.send(
                   JSON.stringify({

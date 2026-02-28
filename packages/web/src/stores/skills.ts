@@ -23,6 +23,8 @@ export interface McpServerStatus {
 
 interface SkillsState {
   skills: SkillMeta[];
+  userSkills: SkillMeta[];
+  sessionSkills: SkillMeta[];
   mcpTools: McpTool[];
   mcpServers: McpServerStatus[];
   /** Currently active skill (if a skill is being executed) */
@@ -30,6 +32,8 @@ interface SkillsState {
 
   // Actions
   setSkills: (skills: SkillMeta[]) => void;
+  setUserSkills: (skills: SkillMeta[]) => void;
+  setSessionSkills: (skills: SkillMeta[]) => void;
   setMcpTools: (tools: McpTool[]) => void;
   setMcpServers: (servers: McpServerStatus[]) => void;
   setActiveSkill: (skill: string, label: string) => void;
@@ -38,11 +42,15 @@ interface SkillsState {
 
 export const useSkillsStore = create<SkillsState>((set) => ({
   skills: [],
+  userSkills: [],
+  sessionSkills: [],
   mcpTools: [],
   mcpServers: [],
   activeSkill: null,
 
   setSkills: (skills) => set({ skills }),
+  setUserSkills: (userSkills) => set({ userSkills }),
+  setSessionSkills: (sessionSkills) => set({ sessionSkills }),
   setMcpTools: (mcpTools) => set({ mcpTools }),
   setMcpServers: (mcpServers) => set({ mcpServers }),
 

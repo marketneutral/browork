@@ -1,24 +1,70 @@
 import { useState } from "react";
-import { useSkillsStore, type McpServerStatus } from "../../stores/skills";
-import { Zap, Server, ChevronDown, ChevronRight } from "lucide-react";
+import { useSkillsStore, type McpServerStatus, type SkillMeta } from "../../stores/skills";
+import { useSessionStore } from "../../stores/session";
+import { api } from "../../api/client";
+import { Zap, Server, ChevronDown, ChevronRight, ArrowUp, ArrowDown, X } from "lucide-react";
 
 export function StatusPanel() {
   const skills = useSkillsStore((s) => s.skills);
+  const userSkills = useSkillsStore((s) => s.userSkills);
+  const sessionSkills = useSkillsStore((s) => s.sessionSkills);
   const mcpServers = useSkillsStore((s) => s.mcpServers);
   const mcpTools = useSkillsStore((s) => s.mcpTools);
+  const sessionId = useSessionStore((s) => s.sessionId);
   const [expanded, setExpanded] = useState(false);
 
-  const skillCount = skills.length;
+  const totalSkills = skills.length + userSkills.length + sessionSkills.length;
   const serverCount = mcpServers.length;
 
-  if (skillCount === 0 && serverCount === 0) return null;
+  if (totalSkills === 0 && serverCount === 0) return null;
 
   const allServersHealthy = serverCount > 0 && mcpServers.every((s) => s.status === "connected");
   const mcpDotColor = serverCount === 0 ? null : allServersHealthy ? "bg-success" : "bg-destructive";
 
   const parts: string[] = [];
   if (serverCount > 0) parts.push(`${serverCount} MCP server${serverCount !== 1 ? "s" : ""}`);
-  if (skillCount > 0) parts.push(`${skillCount} skill${skillCount !== 1 ? "s" : ""}`);
+  if (totalSkills > 0) parts.push(`${totalSkills} skill${totalSkills !== 1 ? "s" : ""}`);
+
+  const handlePromote = async (skillName: string) => {
+    if (!sessionId) return;
+    try {
+      await api.skills.promote(sessionId, skillName);
+      // Refresh both lists
+      const [user, session] = await Promise.all([
+        api.skills.listUser(),
+        api.skills.listSession(sessionId),
+      ]);
+      useSkillsStore.getState().setUserSkills(user);
+      useSkillsStore.getState().setSessionSkills(session);
+    } catch (err) {
+      console.error("Failed to promote skill:", err);
+    }
+  };
+
+  const handleDemote = async (skillName: string) => {
+    if (!sessionId) return;
+    try {
+      await api.skills.demote(sessionId, skillName);
+      const [user, session] = await Promise.all([
+        api.skills.listUser(),
+        api.skills.listSession(sessionId),
+      ]);
+      useSkillsStore.getState().setUserSkills(user);
+      useSkillsStore.getState().setSessionSkills(session);
+    } catch (err) {
+      console.error("Failed to demote skill:", err);
+    }
+  };
+
+  const handleDeleteUser = async (skillName: string) => {
+    try {
+      await api.skills.deleteUser(skillName);
+      const user = await api.skills.listUser();
+      useSkillsStore.getState().setUserSkills(user);
+    } catch (err) {
+      console.error("Failed to delete skill:", err);
+    }
+  };
 
   return (
     <div className="border-t border-border">
@@ -37,22 +83,53 @@ export function StatusPanel() {
 
       {expanded && (
         <div className="px-3 pb-2 space-y-2 text-xs">
-          {skillCount > 0 && (
-            <div>
-              <div className="flex items-center gap-1 text-foreground-secondary font-medium mb-0.5">
-                <Zap size={10} />
-                Skills
-              </div>
-              {skills.map((s) => (
-                <TipRow key={s.name} text={s.description}>
-                  <div className="pl-3.5 text-foreground-secondary truncate py-0.5">
-                    {s.name}
-                  </div>
-                </TipRow>
-              ))}
-            </div>
+          {/* Built-in (admin) skills */}
+          {skills.length > 0 && (
+            <SkillGroup label="Built-in" skills={skills} />
           )}
 
+          {/* User-installed cross-session skills */}
+          {userSkills.length > 0 && (
+            <SkillGroup
+              label="My Skills"
+              skills={userSkills}
+              actions={(skill) => (
+                <>
+                  <ActionButton
+                    title="Edit in session"
+                    onClick={() => handleDemote(skill.name)}
+                  >
+                    <ArrowDown size={10} />
+                  </ActionButton>
+                  <ActionButton
+                    title="Delete"
+                    onClick={() => handleDeleteUser(skill.name)}
+                    className="hover:text-destructive"
+                  >
+                    <X size={10} />
+                  </ActionButton>
+                </>
+              )}
+            />
+          )}
+
+          {/* Session-local skills */}
+          {sessionSkills.length > 0 && (
+            <SkillGroup
+              label="Session"
+              skills={sessionSkills}
+              actions={(skill) => (
+                <ActionButton
+                  title="Install for all sessions"
+                  onClick={() => handlePromote(skill.name)}
+                >
+                  <ArrowUp size={10} />
+                </ActionButton>
+              )}
+            />
+          )}
+
+          {/* MCP Servers */}
           {serverCount > 0 && (
             <div>
               <div className="flex items-center gap-1 text-foreground-secondary font-medium mb-0.5">
@@ -71,6 +148,66 @@ export function StatusPanel() {
         </div>
       )}
     </div>
+  );
+}
+
+// ── Skill group section ──
+
+function SkillGroup({
+  label,
+  skills,
+  actions,
+}: {
+  label: string;
+  skills: SkillMeta[];
+  actions?: (skill: SkillMeta) => React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-1 text-foreground-secondary font-medium mb-0.5">
+        <Zap size={10} />
+        {label}
+      </div>
+      {skills.map((s) => (
+        <TipRow key={s.name} text={s.description}>
+          <div className="pl-3.5 text-foreground-secondary truncate py-0.5 flex items-center gap-1">
+            <span className="truncate">{s.name}</span>
+            {actions && (
+              <span className="ml-auto flex items-center gap-0.5 shrink-0">
+                {actions(s)}
+              </span>
+            )}
+          </div>
+        </TipRow>
+      ))}
+    </div>
+  );
+}
+
+// ── Small action button ──
+
+function ActionButton({
+  title,
+  onClick,
+  className = "",
+  children,
+}: {
+  title: string;
+  onClick: () => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      title={title}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className={`p-0.5 rounded hover:bg-surface-glass text-foreground-tertiary hover:text-foreground transition-colors ${className}`}
+    >
+      {children}
+    </button>
   );
 }
 

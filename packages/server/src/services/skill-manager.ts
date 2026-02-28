@@ -8,8 +8,8 @@
  * the Agent Skills standard (https://agentskills.io/specification).
  */
 
-import { readdir, readFile, mkdir, symlink, readlink, unlink, lstat } from "fs/promises";
-import { resolve, join } from "path";
+import { readdir, readFile, mkdir, symlink, readlink, unlink, lstat, cp, rm } from "fs/promises";
+import { resolve, join, basename } from "path";
 import { existsSync } from "fs";
 import { homedir } from "os";
 
@@ -95,6 +95,20 @@ const skillDirs: string[] = [];
 /** Default global skills directory for Pi's DefaultResourceLoader */
 const GLOBAL_SKILLS_DIR = join(homedir(), ".pi", "agent", "skills");
 
+function getDataRoot(): string {
+  return process.env.DATA_ROOT || resolve(process.cwd(), "data");
+}
+
+/** Per-user installed skills directory */
+function userSkillsDir(userId: string): string {
+  return join(getDataRoot(), "user-skills", userId);
+}
+
+/** Session-local skills directory inside a workspace */
+function sessionSkillsDir(workspaceDir: string): string {
+  return join(workspaceDir, ".pi", "skills");
+}
+
 /**
  * Discover and load skills from all configured directories.
  * Called once at server startup.
@@ -126,12 +140,14 @@ export async function initSkills(
   );
 }
 
-async function scanSkillDirectory(dir: string): Promise<void> {
+export async function scanSkillDirectory(dir: string, opts?: { register?: boolean }): Promise<SkillContent[]> {
+  const shouldRegister = opts?.register !== false;
+  const results: SkillContent[] = [];
   let entries;
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {
-    return;
+    return results;
   }
 
   for (const entry of entries) {
@@ -147,17 +163,23 @@ async function scanSkillDirectory(dir: string): Promise<void> {
       const name = data.name || entry.name;
       const description = data.description || "";
 
-      skills.set(name, {
+      const skill: SkillContent = {
         name,
         description,
         enabled: true,
         body,
         dirPath: join(dir, entry.name),
-      });
+      };
+
+      results.push(skill);
+      if (shouldRegister) {
+        skills.set(name, skill);
+      }
     } catch (err) {
       console.warn(`Failed to load skill from ${skillFile}:`, err);
     }
   }
+  return results;
 }
 
 /**
@@ -231,6 +253,181 @@ export async function symlinkGlobalSkills(
       await symlink(target, linkPath, "dir");
     } catch (err) {
       console.warn(`Failed to symlink skill ${skill.name} to ${linkPath}:`, err);
+    }
+  }
+}
+
+// ── User & Session Skills ──
+
+/** Validate a skill name to prevent path traversal */
+function validateSkillName(name: string): void {
+  if (!name || name.includes("/") || name.includes("\\") || name === "." || name === "..") {
+    throw new Error(`Invalid skill name: ${name}`);
+  }
+}
+
+/**
+ * List a user's installed cross-session skills.
+ */
+export async function listUserSkills(userId: string): Promise<SkillMeta[]> {
+  const dir = userSkillsDir(userId);
+  if (!existsSync(dir)) return [];
+  const results = await scanSkillDirectory(dir, { register: false });
+  return results.map(({ name, description, enabled }) => ({ name, description, enabled }));
+}
+
+/**
+ * List session-local skills from a workspace directory.
+ */
+export async function listSessionSkills(workspaceDir: string): Promise<SkillMeta[]> {
+  const dir = sessionSkillsDir(workspaceDir);
+  if (!existsSync(dir)) return [];
+  const results = await scanSkillDirectory(dir, { register: false });
+  return results.map(({ name, description, enabled }) => ({ name, description, enabled }));
+}
+
+/**
+ * Get a user's installed skill by name.
+ */
+export async function getUserSkill(userId: string, name: string): Promise<SkillContent | undefined> {
+  validateSkillName(name);
+  const dir = userSkillsDir(userId);
+  const results = await scanSkillDirectory(dir, { register: false });
+  return results.find((s) => s.name === name);
+}
+
+/**
+ * Get a session-local skill by name.
+ */
+export async function getSessionSkill(workspaceDir: string, name: string): Promise<SkillContent | undefined> {
+  validateSkillName(name);
+  const dir = sessionSkillsDir(workspaceDir);
+  const results = await scanSkillDirectory(dir, { register: false });
+  return results.find((s) => s.name === name);
+}
+
+/**
+ * Promote a session skill to the user's installed skills.
+ * Copies the entire skill directory (SKILL.md + supporting files).
+ */
+export async function promoteSessionSkill(
+  userId: string,
+  workspaceDir: string,
+  skillName: string,
+): Promise<void> {
+  validateSkillName(skillName);
+
+  const srcDir = join(sessionSkillsDir(workspaceDir), skillName);
+  const skillFile = join(srcDir, "SKILL.md");
+  if (!existsSync(skillFile)) {
+    throw new Error(`Session skill "${skillName}" not found`);
+  }
+
+  const destDir = join(userSkillsDir(userId), skillName);
+  await mkdir(userSkillsDir(userId), { recursive: true });
+
+  // Remove existing if present, then copy
+  if (existsSync(destDir)) {
+    await rm(destDir, { recursive: true });
+  }
+  await cp(srcDir, destDir, { recursive: true });
+}
+
+/**
+ * Demote an installed user skill back to the current session for editing.
+ * Copies the skill into the session workspace, then removes it from installed.
+ */
+export async function demoteUserSkill(
+  userId: string,
+  workspaceDir: string,
+  skillName: string,
+): Promise<void> {
+  validateSkillName(skillName);
+
+  const srcDir = join(userSkillsDir(userId), skillName);
+  const skillFile = join(srcDir, "SKILL.md");
+  if (!existsSync(skillFile)) {
+    throw new Error(`User skill "${skillName}" not found`);
+  }
+
+  const destDir = join(sessionSkillsDir(workspaceDir), skillName);
+  await mkdir(sessionSkillsDir(workspaceDir), { recursive: true });
+
+  // Remove existing session copy if present, then copy from installed
+  if (existsSync(destDir)) {
+    await rm(destDir, { recursive: true });
+  }
+  await cp(srcDir, destDir, { recursive: true });
+
+  // Remove from installed location
+  await rm(srcDir, { recursive: true });
+}
+
+/**
+ * Delete an installed user skill.
+ */
+export async function deleteUserSkill(userId: string, skillName: string): Promise<void> {
+  validateSkillName(skillName);
+
+  const dir = join(userSkillsDir(userId), skillName);
+  if (!existsSync(dir)) {
+    throw new Error(`User skill "${skillName}" not found`);
+  }
+  await rm(dir, { recursive: true });
+}
+
+/**
+ * Symlink a user's installed skills into a session workspace so Pi discovers them.
+ * Called before creating a Pi session.
+ */
+export async function symlinkUserSkillsToWorkspace(
+  userId: string,
+  workspaceDir: string,
+): Promise<void> {
+  const srcDir = userSkillsDir(userId);
+  if (!existsSync(srcDir)) return;
+
+  const targetDir = sessionSkillsDir(workspaceDir);
+  await mkdir(targetDir, { recursive: true });
+
+  let entries;
+  try {
+    entries = await readdir(srcDir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    if (!existsSync(join(srcDir, entry.name, "SKILL.md"))) continue;
+
+    const linkPath = join(targetDir, entry.name);
+    const target = resolve(srcDir, entry.name);
+
+    try {
+      let exists = false;
+      try {
+        await lstat(linkPath);
+        exists = true;
+      } catch {
+        // Nothing at linkPath
+      }
+
+      if (exists) {
+        // If it's already a symlink pointing to the right place, skip
+        try {
+          const existing = await readlink(linkPath);
+          if (resolve(existing) === target) continue;
+        } catch {
+          // Not a symlink — it's a real directory (session-local skill), don't overwrite
+          continue;
+        }
+        await unlink(linkPath);
+      }
+
+      await symlink(target, linkPath, "dir");
+    } catch (err) {
+      console.warn(`Failed to symlink user skill ${entry.name}:`, err);
     }
   }
 }
