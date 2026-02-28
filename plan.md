@@ -13,6 +13,18 @@ This plan introduces two new tiers of user-owned skills:
 
 Admin skills remain unchanged — they're the system-level defaults.
 
+### Promote / Demote lifecycle
+
+```
+Session skill  ──promote──▶  Installed user skill
+  (editable)   ◀──demote───    (read-only)
+```
+
+- **Promote**: Copies the skill directory from `{workspace}/.pi/skills/{name}/` → `{DATA_ROOT}/user-skills/{userId}/{name}/`. The skill now appears in all future sessions for that user.
+- **Demote**: Copies the skill directory from `{DATA_ROOT}/user-skills/{userId}/{name}/` → `{workspace}/.pi/skills/{name}/` and removes it from the installed location. The skill is now session-local again, so Pi can edit it (the workspace is Pi's sandbox). Once the user is done editing, they re-promote it.
+
+This is the editing workflow: installed user skills live outside Pi's workspace so they're effectively read-only. Demoting brings them back into the current session where Pi has full read/write access.
+
 ---
 
 ## Step-by-step Implementation
@@ -26,6 +38,7 @@ Admin skills remain unchanged — they're the system-level defaults.
   - `listUserSkills(userId)` → scans `{DATA_ROOT}/user-skills/{userId}/` and returns `SkillMeta[]` (reuses `scanSkillDirectory`)
   - `listSessionSkills(workspaceDir)` → scans `{workspaceDir}/.pi/skills/` and returns `SkillMeta[]`
   - `promoteSessionSkill(userId, workspaceDir, skillName)` → copies the skill directory from `{workspace}/.pi/skills/{name}/` to `{DATA_ROOT}/user-skills/{userId}/{name}/` (with validation: skillName must exist in session, no path traversal)
+  - `demoteUserSkill(userId, workspaceDir, skillName)` → copies the skill directory from `{DATA_ROOT}/user-skills/{userId}/{name}/` to `{workspace}/.pi/skills/{name}/`, then removes it from the installed location. The skill becomes session-local and editable by Pi.
   - `deleteUserSkill(userId, skillName)` → removes the skill from `{DATA_ROOT}/user-skills/{userId}/{name}/`
   - `getUserSkill(userId, name)` → returns full `SkillContent` for a user skill
   - `getSessionSkill(workspaceDir, name)` → returns full `SkillContent` for a session-local skill
@@ -55,6 +68,7 @@ We already symlink admin skills to `~/.pi/agent/skills/`. User skills get a diff
 | `GET` | `/skills/user` | List the authenticated user's installed skills |
 | `GET` | `/skills/session/:sessionId` | List session-local skills (from workspace `.pi/skills/`) |
 | `POST` | `/skills/user/promote` | Promote a session skill → `{ sessionId, skillName }` |
+| `POST` | `/skills/user/demote` | Demote an installed skill back to session → `{ sessionId, skillName }` |
 | `DELETE` | `/skills/user/:name` | Delete an installed user skill |
 
 All endpoints require auth and scope to `req.user.id`.
@@ -98,7 +112,7 @@ interface SkillsState {
 }
 ```
 
-Add actions: `setUserSkills`, `setSessionSkills`, `promoteSkill`, `deleteUserSkill`.
+Add actions: `setUserSkills`, `setSessionSkills`, `promoteSkill`, `demoteSkill`, `deleteUserSkill`.
 
 ### 6. Frontend: API client additions
 
@@ -111,6 +125,11 @@ skills: {
   listSession: (sessionId: string) => request<SkillMeta[]>(`/skills/session/${sessionId}`),
   promote: (sessionId: string, skillName: string) =>
     request<{ ok: boolean }>("/skills/user/promote", {
+      method: "POST",
+      body: JSON.stringify({ sessionId, skillName }),
+    }),
+  demote: (sessionId: string, skillName: string) =>
+    request<{ ok: boolean }>("/skills/user/demote", {
       method: "POST",
       body: JSON.stringify({ sessionId, skillName }),
     }),
@@ -139,16 +158,17 @@ Skills (5)
 │   ├── chart-generator
 │   └── financial-report
 ├── My Skills                         ← user installed (cross-session)
-│   ├── custom-analysis    [×]        ← delete button
-│   └── data-pipeline      [×]
+│   ├── custom-analysis    [↓][×]     ← demote / delete buttons
+│   └── data-pipeline      [↓][×]
 └── Session                           ← session-local (if any exist)
     └── new-experiment     [↑]        ← promote button
 ```
 
 - **Built-in** section: existing admin skills (no actions)
-- **My Skills** section: user-installed skills with a delete (×) button
+- **My Skills** section: user-installed skills with a demote (↓) button and a delete (×) button. Demote copies the skill into the current session for editing.
 - **Session** section: only shown when current session has local skills; each has a promote (↑) button to install cross-session
-- Promote button calls `api.skills.promote(sessionId, name)` then refreshes the user skills list
+- Promote button calls `api.skills.promote(sessionId, name)` then refreshes both lists
+- Demote button calls `api.skills.demote(sessionId, name)` — skill moves from My Skills → Session
 - Counts in the header reflect all three groups combined
 
 ### 9. Frontend: Slash command popup — merge all skill sources
@@ -161,7 +181,8 @@ The `/` slash-command popup currently filters `skills` from the store. Update it
 
 **File:** `packages/server/src/__tests__/user-skills.test.ts` (new)
 
-- Test `promoteSessionSkill`: copies skill dir correctly, validates path traversal blocked
+- Test `promoteSessionSkill`: copies skill dir (including subdirs/code files) correctly, validates path traversal blocked
+- Test `demoteUserSkill`: copies skill back to session workspace, removes from installed location
 - Test `listUserSkills` / `listSessionSkills`: returns expected metadata
 - Test `deleteUserSkill`: removes directory
 - Test API routes: 401 without auth, promote works, list returns merged results
@@ -183,7 +204,7 @@ The `/` slash-command popup currently filters `skills` from the store. Update it
 |------|--------|
 | `packages/server/src/services/skill-manager.ts` | Add user/session skill functions |
 | `packages/server/src/services/pi-session.ts` | Symlink user skills into workspace before session creation |
-| `packages/server/src/routes/skills.ts` | Add 4 new endpoints |
+| `packages/server/src/routes/skills.ts` | Add 5 new endpoints |
 | `packages/server/src/ws/session-stream.ts` | Extend skill_invoke lookup |
 | `packages/web/src/stores/skills.ts` | Add userSkills, sessionSkills state |
 | `packages/web/src/api/client.ts` | Add user/session skill API methods |
