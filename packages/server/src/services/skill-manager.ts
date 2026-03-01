@@ -318,19 +318,37 @@ export async function promoteSessionSkill(
   validateSkillName(skillName);
 
   const srcDir = join(sessionSkillsDir(workspaceDir), skillName);
+  const destDir = join(userSkillsDir(userId), skillName);
+
+  // If already promoted (srcDir is a symlink to the user copy), no-op
+  try {
+    const linkTarget = await readlink(srcDir);
+    if (resolve(linkTarget) === resolve(destDir)) {
+      return;
+    }
+  } catch {
+    // Not a symlink — it's a real directory, proceed with promote
+  }
+
   const skillFile = join(srcDir, "SKILL.md");
   if (!existsSync(skillFile)) {
     throw new Error(`Session skill "${skillName}" not found`);
   }
 
-  const destDir = join(userSkillsDir(userId), skillName);
   await mkdir(userSkillsDir(userId), { recursive: true });
 
-  // Remove existing if present, then copy
+  // Remove existing user copy if present, then copy from session
   if (existsSync(destDir)) {
     await rm(destDir, { recursive: true });
   }
   await cp(srcDir, destDir, { recursive: true });
+
+  // Replace session copy with a symlink to the user copy.
+  // This keeps Pi's skill discovery working (symlink to dir) while
+  // ensuring listSessionSkills() skips it (Dirent.isDirectory() is
+  // false for symlinks, so scanSkillDirectory filters it out).
+  await rm(srcDir, { recursive: true });
+  await symlink(resolve(destDir), srcDir, "dir");
 }
 
 /**
@@ -353,9 +371,13 @@ export async function demoteUserSkill(
   const destDir = join(sessionSkillsDir(workspaceDir), skillName);
   await mkdir(sessionSkillsDir(workspaceDir), { recursive: true });
 
-  // Remove existing session copy if present, then copy from installed
-  if (existsSync(destDir)) {
+  // Remove existing session copy or symlink (including broken symlinks)
+  try {
+    await lstat(destDir);
+    // Something exists — remove it (works for real dirs, symlinks, broken symlinks)
     await rm(destDir, { recursive: true });
+  } catch {
+    // Nothing at destDir
   }
   await cp(srcDir, destDir, { recursive: true });
 

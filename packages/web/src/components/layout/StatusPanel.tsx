@@ -12,6 +12,7 @@ export function StatusPanel() {
   const mcpTools = useSkillsStore((s) => s.mcpTools);
   const sessionId = useSessionStore((s) => s.sessionId);
   const [expanded, setExpanded] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const totalSkills = skills.length + userSkills.length + sessionSkills.length;
   const serverCount = mcpServers.length;
@@ -26,10 +27,10 @@ export function StatusPanel() {
   if (totalSkills > 0) parts.push(`${totalSkills} skill${totalSkills !== 1 ? "s" : ""}`);
 
   const handlePromote = async (skillName: string) => {
-    if (!sessionId) return;
+    if (!sessionId || busy) return;
+    setBusy(true);
     try {
       await api.skills.promote(sessionId, skillName);
-      // Refresh both lists
       const [user, session] = await Promise.all([
         api.skills.listUser(),
         api.skills.listSession(sessionId),
@@ -38,11 +39,14 @@ export function StatusPanel() {
       useSkillsStore.getState().setSessionSkills(session);
     } catch (err) {
       console.error("Failed to promote skill:", err);
+    } finally {
+      setBusy(false);
     }
   };
 
   const handleDemote = async (skillName: string) => {
-    if (!sessionId) return;
+    if (!sessionId || busy) return;
+    setBusy(true);
     try {
       await api.skills.demote(sessionId, skillName);
       const [user, session] = await Promise.all([
@@ -53,16 +57,22 @@ export function StatusPanel() {
       useSkillsStore.getState().setSessionSkills(session);
     } catch (err) {
       console.error("Failed to demote skill:", err);
+    } finally {
+      setBusy(false);
     }
   };
 
   const handleDeleteUser = async (skillName: string) => {
+    if (busy) return;
+    setBusy(true);
     try {
       await api.skills.deleteUser(skillName);
       const user = await api.skills.listUser();
       useSkillsStore.getState().setUserSkills(user);
     } catch (err) {
       console.error("Failed to delete skill:", err);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -82,7 +92,7 @@ export function StatusPanel() {
       </button>
 
       {expanded && (
-        <div className="px-3 pb-2 space-y-2 text-xs">
+        <div className="px-3 pb-2 space-y-2 text-xs max-h-[40vh] overflow-y-auto">
           {/* Built-in (admin) skills */}
           {skills.length > 0 && (
             <SkillGroup label="Built-in" skills={skills} />
@@ -98,6 +108,7 @@ export function StatusPanel() {
                   <ActionButton
                     title="Edit in session"
                     onClick={() => handleDemote(skill.name)}
+                    disabled={busy}
                   >
                     <ArrowDown size={10} />
                   </ActionButton>
@@ -105,6 +116,7 @@ export function StatusPanel() {
                     title="Delete"
                     onClick={() => handleDeleteUser(skill.name)}
                     className="hover:text-destructive"
+                    disabled={busy}
                   >
                     <X size={10} />
                   </ActionButton>
@@ -122,6 +134,7 @@ export function StatusPanel() {
                 <ActionButton
                   title="Install for all sessions"
                   onClick={() => handlePromote(skill.name)}
+                  disabled={busy}
                 >
                   <ArrowUp size={10} />
                 </ActionButton>
@@ -190,21 +203,24 @@ function ActionButton({
   title,
   onClick,
   className = "",
+  disabled = false,
   children,
 }: {
   title: string;
   onClick: () => void;
   className?: string;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <button
       title={title}
+      disabled={disabled}
       onClick={(e) => {
         e.stopPropagation();
-        onClick();
+        if (!disabled) onClick();
       }}
-      className={`p-0.5 rounded hover:bg-surface-glass text-foreground-tertiary hover:text-foreground transition-colors ${className}`}
+      className={`p-0.5 rounded hover:bg-surface-glass text-foreground-tertiary hover:text-foreground transition-colors ${disabled ? "opacity-40 pointer-events-none" : ""} ${className}`}
     >
       {children}
     </button>

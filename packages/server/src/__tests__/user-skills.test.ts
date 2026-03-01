@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { join } from "path";
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readFileSync, rmSync } from "fs";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readFileSync, rmSync, lstatSync, readlinkSync } from "fs";
+import { resolve } from "path";
 import { tmpdir } from "os";
 import {
   listUserSkills,
@@ -134,6 +135,35 @@ describe("user-skills", () => {
       expect(content).toContain("new-skill");
     });
 
+    it("should replace session copy with a symlink after promote", async () => {
+      const sessionSkillsDir = join(workspaceDir, ".pi", "skills");
+      createSkill(sessionSkillsDir, "new-skill");
+
+      await promoteSessionSkill(userId, workspaceDir, "new-skill");
+
+      // Session path should now be a symlink to the user copy
+      const sessionPath = join(sessionSkillsDir, "new-skill");
+      expect(lstatSync(sessionPath).isSymbolicLink()).toBe(true);
+      expect(resolve(readlinkSync(sessionPath))).toBe(
+        resolve(join(userSkillsRoot, "new-skill")),
+      );
+    });
+
+    it("should exclude promoted skill from listSessionSkills", async () => {
+      const sessionSkillsDir = join(workspaceDir, ".pi", "skills");
+      createSkill(sessionSkillsDir, "new-skill");
+
+      await promoteSessionSkill(userId, workspaceDir, "new-skill");
+
+      // listSessionSkills uses isDirectory() which returns false for symlinks
+      const sessionSkills = await listSessionSkills(workspaceDir);
+      expect(sessionSkills.find((s) => s.name === "new-skill")).toBeUndefined();
+
+      // But it should appear in user skills
+      const userSkills = await listUserSkills(userId);
+      expect(userSkills.find((s) => s.name === "new-skill")).toBeDefined();
+    });
+
     it("should copy supporting files and subdirectories", async () => {
       const sessionSkillsDir = join(workspaceDir, ".pi", "skills");
       createSkillWithSupportFiles(sessionSkillsDir, "complex-skill");
@@ -156,10 +186,25 @@ describe("user-skills", () => {
       ).rejects.toThrow("Invalid skill name");
     });
 
-    it("should overwrite existing user skill on re-promote", async () => {
+    it("should no-op when skill is already promoted", async () => {
+      const sessionSkillsDir = join(workspaceDir, ".pi", "skills");
+      createSkill(sessionSkillsDir, "already-promoted");
+      await promoteSessionSkill(userId, workspaceDir, "already-promoted");
+
+      // Re-promote should succeed without error (no-op)
+      await promoteSessionSkill(userId, workspaceDir, "already-promoted");
+
+      // User copy should still exist
+      expect(existsSync(join(userSkillsRoot, "already-promoted", "SKILL.md"))).toBe(true);
+    });
+
+    it("should overwrite existing user skill on re-promote after demote", async () => {
       const sessionSkillsDir = join(workspaceDir, ".pi", "skills");
       createSkill(sessionSkillsDir, "evolving-skill", "Version 1");
       await promoteSessionSkill(userId, workspaceDir, "evolving-skill");
+
+      // Demote to get a real directory back for editing
+      await demoteUserSkill(userId, workspaceDir, "evolving-skill");
 
       // Update the session skill
       writeFileSync(

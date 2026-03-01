@@ -2,6 +2,7 @@ import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import {
   readdir,
   stat,
+  lstat,
   readFile,
   writeFile,
   unlink,
@@ -9,7 +10,7 @@ import {
   rm,
   rename,
 } from "fs/promises";
-import { resolve, relative, extname, dirname } from "path";
+import { resolve, relative, extname, dirname, join } from "path";
 import { createWriteStream } from "fs";
 import { pipeline } from "stream/promises";
 import AdmZip from "adm-zip";
@@ -43,8 +44,13 @@ interface FileEntry {
   type: "file" | "directory";
 }
 
+/** Relative path of the .pi/skills directory */
+const PI_SKILLS_REL = join(".pi", "skills");
+
 /**
  * Recursively list directory contents as a flat array.
+ * Symlinks inside .pi/skills/ are hidden — those are user-installed skills
+ * symlinked for Pi discovery, not actual session files.
  */
 async function listTree(dir: string, base: string): Promise<FileEntry[]> {
   const entries: FileEntry[] = [];
@@ -55,11 +61,21 @@ async function listTree(dir: string, base: string): Promise<FileEntry[]> {
     return entries;
   }
 
+  // Are we directly inside .pi/skills/?
+  const isInPiSkills = relative(base, dir) === PI_SKILLS_REL;
+
   for (const name of items) {
-    // no filtering — show all files including dotfiles
     const full = resolve(dir, name);
     try {
-      const s = await stat(full);
+      const ls = await lstat(full);
+
+      // Hide symlinked user skills from the file tree
+      if (isInPiSkills && ls.isSymbolicLink()) {
+        continue;
+      }
+
+      // For non-symlink entries (or symlinks outside .pi/skills/), follow the link
+      const s = ls.isSymbolicLink() ? await stat(full) : ls;
       const relPath = relative(base, full);
       entries.push({
         name,
@@ -72,7 +88,7 @@ async function listTree(dir: string, base: string): Promise<FileEntry[]> {
         entries.push(...(await listTree(full, base)));
       }
     } catch {
-      // skip inaccessible files
+      // skip inaccessible files (including broken symlinks)
     }
   }
   return entries;

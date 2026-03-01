@@ -87,6 +87,12 @@ export function App() {
           const currentSessionId = useSessionStore.getState().sessionId;
           if (currentSessionId) {
             api.files.list(currentSessionId).then(useFilesStore.getState().setEntries).catch(console.error);
+            // Refresh session skills when .pi/skills/ contents change
+            if (event.paths.some((p: string) => p.startsWith(".pi/skills/"))) {
+              api.skills.listSession(currentSessionId)
+                .then((skills) => useSkillsStore.getState().setSessionSkills(skills))
+                .catch(console.error);
+            }
           }
           if (useSessionStore.getState().isStreaming) {
             useSessionStore.getState().addPendingImages(event.paths);
