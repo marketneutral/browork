@@ -11,6 +11,7 @@ export type BroworkEvent =
   | { type: "files_changed"; paths: string[] }
   | { type: "context_usage"; tokens: number | null; contextWindow: number; percent: number | null }
   | { type: "session_info"; sandboxActive: boolean }
+  | { type: "ask_user"; requestId: string; questions: AskUserQuestion[] }
   | { type: "error"; message: string };
 
 /** Commands sent to the server over WebSocket */
@@ -19,4 +20,24 @@ export type BroworkCommand =
   | { type: "skill_invoke"; skill: string; args?: string }
   | { type: "abort" }
   | { type: "steer"; message: string }
-  | { type: "compact" };
+  | { type: "compact" }
+  | { type: "ask_user_response"; requestId: string; answers: AskUserAnswer[] };
+
+// ── ask_user types ──
+
+export interface AskUserOption {
+  label: string;
+  description?: string;
+}
+
+export interface AskUserQuestion {
+  question: string;
+  options: AskUserOption[];
+  multiSelect?: boolean;
+  allowOther?: boolean;
+}
+
+export interface AskUserAnswer {
+  question: string;
+  selected: string[];
+}

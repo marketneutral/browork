@@ -170,6 +170,9 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
             case "compact":
               await session!.compact();
               break;
+            case "ask_user_response":
+              session!.answerQuestion(cmd.requestId, cmd.answers);
+              break;
           }
         } catch (err: any) {
           app.log.error({ err, cmd }, "Error handling WebSocket command");

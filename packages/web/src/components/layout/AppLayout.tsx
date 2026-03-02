@@ -8,6 +8,7 @@ import { useAuthStore } from "../../stores/auth";
 import { useSessionStore } from "../../stores/session";
 import { api } from "../../api/client";
 import type { ConnectionStatus } from "../../hooks/useWebSocket";
+import type { AskUserAnswer } from "../../types";
 import { APP_NAME } from "../../config";
 
 interface AppLayoutProps {
@@ -21,6 +22,7 @@ interface AppLayoutProps {
   onDeleteSession: (id: string) => void;
   onRenameSession: (id: string, name: string) => void;
   onForkSession: (id: string) => void;
+  onAnswerQuestion: (requestId: string, answers: AskUserAnswer[]) => void;
 }
 
 export function AppLayout({
@@ -34,6 +36,7 @@ export function AppLayout({
   onDeleteSession,
   onRenameSession,
   onForkSession,
+  onAnswerQuestion,
 }: AppLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filesPanelOpen, setFilesPanelOpen] = useState(true);
@@ -129,7 +132,7 @@ export function AppLayout({
           </button>
         </div>
 
-        <ChatPanel onSendMessage={onSendMessage} onInvokeSkill={onInvokeSkill} onAbort={onAbort} onCompact={onCompact} />
+        <ChatPanel onSendMessage={onSendMessage} onInvokeSkill={onInvokeSkill} onAbort={onAbort} onCompact={onCompact} onAnswerQuestion={onAnswerQuestion} />
       </main>
 
       {/* Right panel: drag handle + files + status footer */}

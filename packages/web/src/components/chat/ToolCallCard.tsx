@@ -11,6 +11,7 @@ import {
   Wrench,
   Search,
   Globe,
+  MessageCircleQuestion,
 } from "lucide-react";
 import type { ToolCall } from "../../stores/session";
 import { toolLabel, getPath } from "../../utils/tool-labels";
@@ -40,6 +41,8 @@ function ToolIcon({ tool }: { tool: string }) {
       return <Globe className={cls} />;
     case "mcp":
       return <Wrench className={cls} />;
+    case "ask_user":
+      return <MessageCircleQuestion className={cls} />;
     default:
       return <Play className={cls} />;
   }
@@ -81,6 +84,26 @@ function FormatArgs({ tool, args }: { tool: string; args: unknown }) {
 
   if (tool === "mcp") {
     return <CodeBlock content={JSON.stringify(a, null, 2)} />;
+  }
+
+  if (tool === "ask_user") {
+    const questions = a?.questions as Array<{ question: string; options?: Array<{ label: string }> }> | undefined;
+    if (questions) {
+      return (
+        <div className="text-xs text-foreground-secondary px-3 py-1.5 space-y-1">
+          {questions.map((q, i) => (
+            <div key={i}>
+              <span className="text-foreground">{q.question}</span>
+              {q.options && (
+                <span className="text-foreground-tertiary ml-1">
+                  ({q.options.map((o) => o.label).join(", ")})
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    }
   }
 
   // fallback: raw JSON
@@ -300,6 +323,29 @@ function FormatResult({
   if (tool === "edit") {
     const diff = extractDiff(result);
     if (diff) return <DiffBlock content={diff} />;
+  }
+
+  // Ask user: Q&A text
+  if (tool === "ask_user") {
+    const text = extractText(result);
+    if (text) {
+      return (
+        <div className="text-xs px-3 py-1.5 space-y-1">
+          {text.split("\n\n").map((block, i) => {
+            const lines = block.split("\n");
+            return (
+              <div key={i}>
+                {lines.map((line, j) => (
+                  <div key={j} className={line.startsWith("A:") ? "text-primary font-medium" : "text-foreground-secondary"}>
+                    {line}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
   }
 
   // Web search: clickable result cards

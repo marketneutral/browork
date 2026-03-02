@@ -6,7 +6,7 @@ import { useWebSocket } from "./hooks/useWebSocket";
 import { api, wsUrl } from "./api/client";
 import { AppLayout } from "./components/layout/AppLayout";
 import { ErrorToast } from "./components/ui/ErrorToast";
-import type { BroworkEvent } from "./types";
+import type { BroworkEvent, AskUserAnswer } from "./types";
 
 /** Refresh the session list in the sidebar */
 function refreshSessions() {
@@ -53,10 +53,17 @@ export function App() {
         case "tool_end":
           completeToolCall(event.tool, event.result, event.isError);
           break;
+        case "ask_user":
+          useSessionStore.getState().setPendingQuestion({
+            requestId: event.requestId,
+            questions: event.questions,
+          });
+          break;
         case "agent_end":
           finalizeAssistantMessage();
           finalizeToolCalls();
           useSessionStore.getState().finalizePendingImages();
+          useSessionStore.getState().clearPendingQuestion();
           setStreaming(false);
           // Refresh session list to update lastMessage preview
           refreshSessions();
@@ -319,6 +326,14 @@ export function App() {
     send({ type: "compact" });
   }, [send]);
 
+  const handleAnswerQuestion = useCallback(
+    (requestId: string, answers: AskUserAnswer[]) => {
+      useSessionStore.getState().clearPendingQuestion();
+      send({ type: "ask_user_response", requestId, answers });
+    },
+    [send],
+  );
+
   return (
     <>
       {error && (
@@ -335,6 +350,7 @@ export function App() {
         onDeleteSession={handleDeleteSession}
         onRenameSession={handleRenameSession}
         onForkSession={handleForkSession}
+        onAnswerQuestion={handleAnswerQuestion}
       />
     </>
   );

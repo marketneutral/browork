@@ -13,6 +13,8 @@ import { translatePiEvent } from "../utils/event-translator.js";
 import { resolve } from "path";
 import { isSandboxEnabled, ensureSandbox, createSandboxBashOps, createSandboxFileOps } from "./sandbox-manager.js";
 import { createWebTools } from "../tools/web-tools.js";
+import { createAskUserTool, resolveQuestion, rejectAllPending, registerPending } from "../tools/ask-user.js";
+import type { AskUserAnswer, AskUserEvent } from "../tools/ask-user.js";
 import { mcpClientManager } from "./mcp-client.js";
 import { bridgeMcpTools } from "../tools/mcp-bridge.js";
 import { symlinkUserSkillsToWorkspace } from "./skill-manager.js";
@@ -33,7 +35,8 @@ export type BroworkEvent =
   | { type: "skill_end"; skill: string }
   | { type: "context_usage"; tokens: number | null; contextWindow: number; percent: number | null }
   | { type: "session_info"; sandboxActive: boolean }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | AskUserEvent;
 
 // ── Browork commands received from the frontend over WebSocket ──
 
@@ -42,7 +45,8 @@ export type BroworkCommand =
   | { type: "skill_invoke"; skill: string; args?: string }
   | { type: "abort" }
   | { type: "steer"; message: string }
-  | { type: "compact" };
+  | { type: "compact" }
+  | { type: "ask_user_response"; requestId: string; answers: AskUserAnswer[] };
 
 // ── Session wrapper ──
 
@@ -52,6 +56,8 @@ export interface PiSessionHandle {
   sendSteer(text: string): Promise<void>;
   abort(): Promise<void>;
   compact(): Promise<void>;
+  /** Resolve a pending ask_user question with the user's answers */
+  answerQuestion(requestId: string, answers: AskUserAnswer[]): boolean;
   dispose(): void;
   /** Re-wire events to a new WebSocket (e.g. after reconnect) */
   rebindSocket(ws: WebSocket): void;
@@ -111,9 +117,13 @@ export async function createPiSession(
     (process.env.DEFAULT_THINKING_LEVEL as "low" | "medium" | "high") ||
     "medium";
 
+  // Keep a mutable reference so rebindSocket can swap it
+  let activeWs = ws;
+
   const webTools = createWebTools();
+  const askUserTool = createAskUserTool(sessionId, (e) => send(activeWs, e));
   const mcpTools = bridgeMcpTools(mcpClientManager.getToolsForSession(sessionId));
-  const customTools = [...webTools, ...mcpTools];
+  const customTools = [...webTools, askUserTool, ...mcpTools];
   if (customTools.length > 0) {
     console.log(`[pi-session] registering custom tools: ${customTools.map((t) => t.name).join(", ")}`);
   }
@@ -162,8 +172,6 @@ export async function createPiSession(
   }
 
   // Translate Pi events → Browork events → WebSocket
-  // Keep a mutable reference so rebindSocket can swap it
-  let activeWs = ws;
   let isRunning = false;
   const isSandboxActive = !!sandboxUserId;
 
@@ -219,7 +227,11 @@ export async function createPiSession(
       await (session as any).compact?.();
       sendContextUsage();
     },
+    answerQuestion(requestId: string, answers: AskUserAnswer[]): boolean {
+      return resolveQuestion(requestId, answers);
+    },
     dispose() {
+      rejectAllPending(sessionId);
       unsubscribe();
       session.dispose();
       activeSessions.delete(sessionId);
@@ -295,6 +307,49 @@ function createMockSession(
         await sleep(100);
       }
 
+      // Demo ask_user tool — send a question and wait for the user's response
+      const askArgs = {
+        questions: [
+          {
+            question: "Which analysis approach would you prefer?",
+            options: [
+              { label: "Quantitative", description: "Statistical models and numerical analysis" },
+              { label: "Qualitative", description: "Narrative assessment and expert judgment" },
+              { label: "Mixed Methods", description: "Combine both quantitative and qualitative approaches" },
+            ],
+            allowOther: true,
+          },
+        ],
+      };
+      send(activeWs, { type: "tool_start", tool: "ask_user", args: askArgs });
+      const mockRequestId = `${sessionId}:ask:mock-${++mockTurnCount}`;
+      send(activeWs, { type: "ask_user", requestId: mockRequestId, questions: askArgs.questions });
+      // Wait for the user to respond (or abort)
+      try {
+        const answers = await new Promise<AskUserAnswer[]>((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            reject(new Error("User did not respond within 5 minutes"));
+          }, 5 * 60 * 1000);
+          registerPending(mockRequestId, resolve, reject, timeoutId);
+        });
+        const formatted = answers.map((a) => `Q: ${a.question}\nA: ${a.selected.join(", ")}`).join("\n\n");
+        send(activeWs, {
+          type: "tool_end",
+          tool: "ask_user",
+          result: { content: [{ type: "text", text: formatted }], details: { requestId: mockRequestId, answerCount: answers.length } },
+          isError: false,
+        });
+      } catch {
+        send(activeWs, {
+          type: "tool_end",
+          tool: "ask_user",
+          result: { content: [{ type: "text", text: "User did not respond" }], details: {} },
+          isError: true,
+        });
+        send(activeWs, { type: "agent_end" });
+        return;
+      }
+
       const response = isSkill
         ? `I'm executing the **${skillName}** workflow.\n\nIn mock mode, I can't actually process files, but here's what I would do:\n\n1. Read the input files from your working directory\n2. Follow the skill instructions step by step\n3. Save the results to the output/ directory\n\nInstall the Pi SDK to run real workflows!`
         : `I received your message: "${text}"\n\nI'm running in **mock mode** because the Pi SDK is not installed. Once you install \`@mariozechner/pi-coding-agent\`, I'll use the real agent.\n\nFor now, this confirms the end-to-end WebSocket pipeline is working!`;
@@ -322,7 +377,11 @@ function createMockSession(
       mockTurnCount = Math.max(0, Math.floor(mockTurnCount / 3));
       sendMockContextUsage();
     },
+    answerQuestion(requestId: string, answers: AskUserAnswer[]): boolean {
+      return resolveQuestion(requestId, answers);
+    },
     dispose() {
+      rejectAllPending(sessionId);
       activeSessions.delete(sessionId);
     },
     rebindSocket(newWs: WebSocket) {

@@ -44,6 +44,12 @@ export function toolLabel(tool: string, args: unknown, status: "running" | "done
       if (a?.describe) return `MCP: inspecting ${a.describe}`;
       return "MCP tool";
     }
+    case "ask_user": {
+      const a = args as Record<string, unknown> | undefined;
+      const questions = a?.questions as Array<{ question: string }> | undefined;
+      const first = questions?.[0]?.question;
+      return first ? truncate(first, 40) : past ? "Asked user" : "Asking user";
+    }
     default:
       return past ? `Used ${tool}` : `Using ${tool}`;
   }

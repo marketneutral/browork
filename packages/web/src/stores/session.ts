@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { AskUserQuestion } from "../types";
 
 export interface ChatMessage {
   id: string;
@@ -43,6 +44,11 @@ export interface ContextUsage {
   percent: number | null;
 }
 
+export interface PendingQuestion {
+  requestId: string;
+  questions: AskUserQuestion[];
+}
+
 interface SessionState {
   sessionId: string | null;
   sessions: SessionListItem[];
@@ -58,6 +64,7 @@ interface SessionState {
   completedImageGroups: TurnImages[];
   contextUsage: ContextUsage | null;
   sandboxActive: boolean | null;
+  pendingQuestion: PendingQuestion | null;
 
   // Actions
   setSessionId: (id: string | null) => void;
@@ -79,6 +86,8 @@ interface SessionState {
   addRestoredImageGroup: (paths: string[], seq: number) => void;
   setContextUsage: (usage: ContextUsage) => void;
   setSandboxActive: (active: boolean) => void;
+  setPendingQuestion: (pq: PendingQuestion) => void;
+  clearPendingQuestion: () => void;
   reset: () => void;
 }
 
@@ -109,6 +118,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   completedImageGroups: [],
   contextUsage: null,
   sandboxActive: null,
+  pendingQuestion: null,
 
   setSessionId: (id) =>
     set({
@@ -123,6 +133,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       completedImageGroups: [],
       contextUsage: null,
       sandboxActive: null,
+      pendingQuestion: null,
     }),
 
   setSessions: (sessions) => set({ sessions }),
@@ -236,6 +247,9 @@ export const useSessionStore = create<SessionState>((set) => ({
 
   setSandboxActive: (active) => set({ sandboxActive: active }),
 
+  setPendingQuestion: (pq) => set({ pendingQuestion: pq }),
+  clearPendingQuestion: () => set({ pendingQuestion: null }),
+
   reset: () =>
     set({
       messages: [],
@@ -248,5 +262,6 @@ export const useSessionStore = create<SessionState>((set) => ({
       completedImageGroups: [],
       contextUsage: null,
       sandboxActive: null,
+      pendingQuestion: null,
     }),
 }));

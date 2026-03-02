@@ -6,9 +6,11 @@ import { MessageBubble } from "./MessageBubble";
 import { Composer } from "./Composer";
 import { ToolCallGroup } from "./ToolCallGroup";
 import { InlineImageGroup } from "./InlineImageGroup";
+import { AskUserCard } from "./AskUserCard";
 import { SkillBadge } from "./SkillBadge";
 import { APP_NAME } from "../../config";
 import { toolLabel } from "../../utils/tool-labels";
+import type { AskUserAnswer } from "../../types";
 
 type TimelineItem =
   | { kind: "message"; data: ChatMessage }
@@ -20,9 +22,10 @@ interface ChatPanelProps {
   onInvokeSkill: (skillName: string, args?: string) => void;
   onAbort: () => void;
   onCompact: () => void;
+  onAnswerQuestion: (requestId: string, answers: AskUserAnswer[]) => void;
 }
 
-export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact }: ChatPanelProps) {
+export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, onAnswerQuestion }: ChatPanelProps) {
   const messages = useSessionStore((s) => s.messages);
   const currentText = useSessionStore((s) => s.currentAssistantText);
   const isStreaming = useSessionStore((s) => s.isStreaming);
@@ -30,6 +33,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact }: 
   const activeToolCalls = useSessionStore((s) => s.activeToolCalls);
   const completedToolGroups = useSessionStore((s) => s.completedToolGroups);
   const completedImageGroups = useSessionStore((s) => s.completedImageGroups);
+  const pendingQuestion = useSessionStore((s) => s.pendingQuestion);
   const activeSkill = useSkillsStore((s) => s.activeSkill);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -63,7 +67,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact }: 
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages, currentText, activeToolCalls, completedToolGroups, completedImageGroups]);
+  }, [messages, currentText, activeToolCalls, completedToolGroups, completedImageGroups, pendingQuestion]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -124,17 +128,28 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact }: 
           />
         )}
 
+        {/* Pending ask_user question */}
+        {pendingQuestion && (
+          <AskUserCard
+            requestId={pendingQuestion.requestId}
+            questions={pendingQuestion.questions}
+            onSubmit={onAnswerQuestion}
+          />
+        )}
+
       </div>
 
       {/* Agent status bar — always visible above composer */}
       <div className="px-4 pt-1.5 text-xs text-foreground-tertiary border-t border-border flex items-center gap-2">
         {isStreaming ? (
           <>
-            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            <span className={`w-1.5 h-1.5 rounded-full ${pendingQuestion ? "bg-warning" : "bg-primary"} animate-pulse`} />
             <span className="text-foreground-secondary">
-              {activeSkill
-                ? `Running workflow: ${activeSkill.label}...`
-                : runningToolLabel ?? "Thinking..."}
+              {pendingQuestion
+                ? "Waiting for your response..."
+                : activeSkill
+                  ? `Running workflow: ${activeSkill.label}...`
+                  : runningToolLabel ?? "Thinking..."}
             </span>
             <button
               onClick={onAbort}
