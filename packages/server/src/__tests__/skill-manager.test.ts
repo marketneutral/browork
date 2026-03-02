@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { resolve, join } from "path";
-import { mkdtempSync, existsSync, readlinkSync, rmSync } from "fs";
+import { join } from "path";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readlinkSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import {
   initSkills,
@@ -10,33 +10,54 @@ import {
   symlinkGlobalSkills,
 } from "../services/skill-manager.js";
 
-const SKILLS_DIR = resolve(import.meta.dirname, "../../../skills");
+// Create temporary fixture skills for testing
+function createFixtureSkills(dir: string) {
+  const alphaDir = join(dir, "alpha-skill");
+  mkdirSync(alphaDir, { recursive: true });
+  writeFileSync(
+    join(alphaDir, "SKILL.md"),
+    `---\nname: alpha-skill\ndescription: Alpha skill for testing purposes.\n---\n\n# Alpha Skill\n\nDo alpha things.\n`,
+  );
+
+  const betaDir = join(dir, "beta-skill");
+  mkdirSync(betaDir, { recursive: true });
+  writeFileSync(
+    join(betaDir, "SKILL.md"),
+    `---\nname: beta-skill\ndescription: Beta skill with detailed analysis capabilities.\n---\n\n# Beta Skill\n\nDo beta things.\n`,
+  );
+
+  return dir;
+}
 
 describe("skill-manager", () => {
+  let fixtureDir: string;
+
   beforeEach(async () => {
-    await initSkills(undefined, { globalSkillsDir: mkdtempSync(join(tmpdir(), "pi-skills-test-")) });
+    fixtureDir = createFixtureSkills(mkdtempSync(join(tmpdir(), "skills-fixture-")));
+    await initSkills([fixtureDir], { globalSkillsDir: mkdtempSync(join(tmpdir(), "pi-skills-test-")) });
+  });
+
+  afterEach(() => {
+    rmSync(fixtureDir, { recursive: true, force: true });
   });
 
   describe("initSkills", () => {
-    it("should discover all bundled skills", () => {
+    it("should discover all fixture skills", () => {
       const skills = listSkills();
       expect(skills.length).toBe(2);
       const names = skills.map((s) => s.name).sort();
-      expect(names).toEqual([
-        "chart-generator",
-        "financial-report",
-      ]);
+      expect(names).toEqual(["alpha-skill", "beta-skill"]);
     });
 
     it("should load skills from extra directories", async () => {
-      await initSkills([SKILLS_DIR], { globalSkillsDir: mkdtempSync(join(tmpdir(), "pi-skills-test-")) });
+      await initSkills([fixtureDir], { globalSkillsDir: mkdtempSync(join(tmpdir(), "pi-skills-test-")) });
       // Should not duplicate — same dir scanned twice
       const skills = listSkills();
       expect(skills.length).toBe(2);
     });
 
     it("should ignore non-existent directories", async () => {
-      await initSkills(["/tmp/nonexistent-skill-dir-12345"], { globalSkillsDir: mkdtempSync(join(tmpdir(), "pi-skills-test-")) });
+      await initSkills([fixtureDir, "/tmp/nonexistent-skill-dir-12345"], { globalSkillsDir: mkdtempSync(join(tmpdir(), "pi-skills-test-")) });
       const skills = listSkills();
       expect(skills.length).toBe(2);
     });
@@ -63,18 +84,18 @@ describe("skill-manager", () => {
 
   describe("getSkill", () => {
     it("should return full skill content", () => {
-      const skill = getSkill("chart-generator");
+      const skill = getSkill("alpha-skill");
       expect(skill).toBeDefined();
-      expect(skill!.name).toBe("chart-generator");
-      expect(skill!.description).toContain("charts and visualizations");
+      expect(skill!.name).toBe("alpha-skill");
+      expect(skill!.description).toContain("testing purposes");
       expect(skill!.body).toBeTruthy();
       expect(skill!.enabled).toBe(true);
     });
 
     it("should include dirPath", () => {
-      const skill = getSkill("chart-generator");
+      const skill = getSkill("alpha-skill");
       expect(skill).toBeDefined();
-      expect(skill!.dirPath).toContain("chart-generator");
+      expect(skill!.dirPath).toContain("alpha-skill");
       expect(existsSync(skill!.dirPath)).toBe(true);
     });
 
@@ -85,17 +106,17 @@ describe("skill-manager", () => {
 
   describe("setSkillEnabled", () => {
     it("should disable a skill", () => {
-      const result = setSkillEnabled("chart-generator", false);
+      const result = setSkillEnabled("alpha-skill", false);
       expect(result).toBeDefined();
       expect(result!.enabled).toBe(false);
 
-      const skill = getSkill("chart-generator");
+      const skill = getSkill("alpha-skill");
       expect(skill!.enabled).toBe(false);
     });
 
     it("should re-enable a skill", () => {
-      setSkillEnabled("chart-generator", false);
-      const result = setSkillEnabled("chart-generator", true);
+      setSkillEnabled("alpha-skill", false);
+      const result = setSkillEnabled("alpha-skill", true);
       expect(result!.enabled).toBe(true);
     });
 
@@ -109,8 +130,7 @@ describe("skill-manager", () => {
 
     beforeEach(async () => {
       tempDir = mkdtempSync(join(tmpdir(), "pi-skills-symlink-"));
-      // Ensure skills are loaded
-      await initSkills(undefined, { globalSkillsDir: tempDir });
+      await initSkills([fixtureDir], { globalSkillsDir: tempDir });
     });
 
     afterEach(() => {
@@ -144,7 +164,7 @@ describe("skill-manager", () => {
 
     it("should replace stale symlinks", async () => {
       const { unlinkSync, symlinkSync } = await import("fs");
-      const stalePath = join(tempDir, "chart-generator");
+      const stalePath = join(tempDir, "alpha-skill");
       // Remove the correct symlink created by initSkills, replace with stale one
       unlinkSync(stalePath);
       symlinkSync("/tmp/stale-target", stalePath, "dir");
@@ -154,7 +174,7 @@ describe("skill-manager", () => {
 
       const target = readlinkSync(stalePath);
       expect(target).not.toBe("/tmp/stale-target");
-      expect(target).toContain("chart-generator");
+      expect(target).toContain("alpha-skill");
     });
 
     it("should create target directory if it does not exist", async () => {
@@ -166,14 +186,14 @@ describe("skill-manager", () => {
 
   describe("frontmatter parsing", () => {
     it("should parse name and description from skill files", () => {
-      const skill = getSkill("financial-report");
+      const skill = getSkill("beta-skill");
       expect(skill).toBeDefined();
-      expect(skill!.name).toBe("financial-report");
-      expect(skill!.description).toContain("financial metrics");
+      expect(skill!.name).toBe("beta-skill");
+      expect(skill!.description).toContain("analysis capabilities");
     });
 
     it("should handle description from frontmatter", () => {
-      const skill = getSkill("chart-generator");
+      const skill = getSkill("alpha-skill");
       expect(skill).toBeDefined();
       expect(skill!.description.length).toBeGreaterThan(20);
     });
