@@ -117,6 +117,21 @@ export const api = {
   },
   skills: {
     list: () => request<SkillMeta[]>("/skills"),
+    listUser: () => request<SkillMeta[]>("/skills/user"),
+    listSession: (sessionId: string) =>
+      request<SkillMeta[]>(`/skills/session/${sessionId}`),
+    promote: (sessionId: string, skillName: string) =>
+      request<{ ok: boolean }>("/skills/user/promote", {
+        method: "POST",
+        body: JSON.stringify({ sessionId, skillName }),
+      }),
+    demote: (sessionId: string, skillName: string) =>
+      request<{ ok: boolean }>("/skills/user/demote", {
+        method: "POST",
+        body: JSON.stringify({ sessionId, skillName }),
+      }),
+    deleteUser: (name: string) =>
+      request<{ ok: boolean }>(`/skills/user/${name}`, { method: "DELETE" }),
     toggle: (name: string, enabled: boolean) =>
       request<SkillMeta>(`/skills/${name}`, {
         method: "PATCH",

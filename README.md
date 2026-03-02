@@ -78,7 +78,7 @@ browork/
 │   │       ├── services/mcp-manager.ts # MCP server config CRUD (SQLite)
 │   │       ├── services/mcp-client.ts  # MCP client connections (SSE/HTTP)
 │   │       ├── services/sandbox-manager.ts # Docker container-per-user isolation
-│   │       ├── services/skill-manager.ts # Skill discovery, loading, invocation
+│   │       ├── services/skill-manager.ts # Skill discovery, loading, promote/demote
 │   │       ├── services/file-watcher.ts # Chokidar file watching
 │   │       ├── tools/web-tools.ts    # Web search & fetch tools (Brave API)
 │   │       ├── tools/mcp-bridge.ts   # MCP→Pi tool format bridge
@@ -96,7 +96,7 @@ browork/
 │           ├── api/client.ts         # REST + WebSocket URL helpers
 │           ├── components/chat/      # ChatPanel, Composer, MessageBubble, InlineImageGroup, SkillBadge
 │           ├── components/files/     # FilePanel, FileTree, editors, viewers
-│           ├── components/layout/    # AppLayout, SessionSidebar
+│           ├── components/layout/    # AppLayout, SessionSidebar, StatusPanel
 │           ├── hooks/useWebSocket.ts # WebSocket with reconnection
 │           └── stores/               # Zustand stores (session, files, skills)
 ├── package.json         # Workspace root
@@ -147,6 +147,24 @@ Images are persisted in the database alongside their associated assistant messag
 
 A progress bar above the composer shows how much of the model's context window is in use. When context gets large, use the `/compact` command (type it in the composer) to compress the conversation and free up space.
 
+## User Skills (Promote / Demote)
+
+Skills created by the Pi agent during a session start as **session-local** — scoped to that one session, stored in `{workspace}/.pi/skills/`. You can promote them to your personal library so they're available in all future sessions.
+
+In the **StatusPanel** (bottom-right footer), skills are organized into three groups:
+
+| Group | Scope | Actions |
+|-------|-------|---------|
+| **Built-in** | All users, all sessions | None (admin-managed) |
+| **My Skills** | Current user, all sessions | Demote (↓), Delete (×) |
+| **Session** | Current session only | Promote (↑) |
+
+- **Promote** copies the skill to your personal library (`{DATA_ROOT}/user-skills/{userId}/`) and replaces the session copy with a symlink. The skill disappears from "Session" and appears in "My Skills".
+- **Demote** moves a skill from your library back into the current session as a real directory so you can edit it. It disappears from "My Skills" and appears in "Session".
+- **Delete** permanently removes a skill from your library.
+
+User skills are per-user — they are not visible to other users in a multi-user deployment. At session creation, symlinks are created in the workspace so Pi can discover them, but these symlinks are hidden from the file panel.
+
 ## Installing Skills
 
 Install individual skills from any remote repo that contains `<skill-name>/SKILL.md` directories:
@@ -175,7 +193,7 @@ npm run install-skill -- https://github.com/anthropics/skills skill-creator --fo
 npm test
 ```
 
-Runs Vitest server-side tests (179 tests): file routes, CSV parser, path traversal, Pi event translation, skill manager, session store, sandbox manager, MCP manager.
+Runs Vitest server-side tests (~203 tests): file routes, CSV parser, path traversal, Pi event translation, skill manager, user skills (promote/demote), session store, sandbox manager, MCP manager.
 
 ## Build
 

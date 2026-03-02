@@ -60,6 +60,15 @@ export function App() {
           setStreaming(false);
           // Refresh session list to update lastMessage preview
           refreshSessions();
+          // Refresh session skills — Pi may have created new skills during this turn
+          {
+            const sid = useSessionStore.getState().sessionId;
+            if (sid) {
+              api.skills.listSession(sid)
+                .then((skills) => useSkillsStore.getState().setSessionSkills(skills))
+                .catch(console.error);
+            }
+          }
           break;
         case "skill_start":
           useSkillsStore.getState().setActiveSkill(event.skill, event.label);
@@ -78,6 +87,12 @@ export function App() {
           const currentSessionId = useSessionStore.getState().sessionId;
           if (currentSessionId) {
             api.files.list(currentSessionId).then(useFilesStore.getState().setEntries).catch(console.error);
+            // Refresh session skills when .pi/skills/ contents change
+            if (event.paths.some((p: string) => p.startsWith(".pi/skills/"))) {
+              api.skills.listSession(currentSessionId)
+                .then((skills) => useSkillsStore.getState().setSessionSkills(skills))
+                .catch(console.error);
+            }
           }
           if (useSessionStore.getState().isStreaming) {
             useSessionStore.getState().addPendingImages(event.paths);
@@ -132,11 +147,15 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load available skills on mount
+  // Load available skills on mount (admin + user-installed)
   useEffect(() => {
     api.skills
       .list()
       .then((skills) => useSkillsStore.getState().setSkills(skills))
+      .catch(console.error);
+    api.skills
+      .listUser()
+      .then((skills) => useSkillsStore.getState().setUserSkills(skills))
       .catch(console.error);
   }, []);
 
@@ -184,6 +203,10 @@ export function App() {
       // Clear file state and reload for the new session
       useFilesStore.getState().clearAll();
       api.files.list(id).then(useFilesStore.getState().setEntries).catch(console.error);
+      // Fetch session-local skills
+      api.skills.listSession(id)
+        .then((skills) => useSkillsStore.getState().setSessionSkills(skills))
+        .catch(console.error);
       api.sessions.get(id).then((data) => {
         if (data.messages && data.messages.length > 0) {
           const store = useSessionStore.getState();

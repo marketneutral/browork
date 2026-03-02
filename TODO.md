@@ -4,6 +4,19 @@
 
 ## High Priority
 
+### Mid-Session Skill Discovery
+- Pi discovers skills **only at `createAgentSession()` time** by scanning `~/.pi/agent/skills/` and `{workspace}/.pi/skills/`
+- If a skill-creator workflow writes a new `SKILL.md` during an active session, Pi's runtime has no awareness of it
+- The UI can detect and display the new skill (via `agent_end` session skill refresh), but Pi itself cannot invoke it
+- **Need**: A timer or file watcher on `{workspace}/.pi/skills/` that detects new skills mid-session and syncs their frontmatter into the Pi model context
+- **Blocker**: The Pi SDK exposes no public API for injecting skills/resources mid-session. Internal fields (`_buildRuntime`, `_baseToolsOverride`) are used for sandbox tool patching, but it's unknown whether `_buildRuntime()` re-scans the filesystem for skills
+- **Possible approaches** (require testing with the real Pi SDK):
+  1. Call `session._buildRuntime()` after filesystem changes — may trigger resource re-scan
+  2. Prepend new skill frontmatter to each `session.prompt()` call — guaranteed to work but burns context tokens
+  3. Use `session.steer()` to inject skill metadata — unclear if it persists across turns
+  4. Expose a `_resourceLoader` or similar internal to force a re-scan
+- **Workaround**: Users must start a new session (or reconnect) after a skill-creator workflow finishes for the new skill to be fully usable by Pi
+
 ### User-Defined Skills (Workflows)
 - Pi natively discovers `SKILL.md` files in the project working directory
 - Users can already upload a `my-workflow/SKILL.md` to their workspace and Pi will find it

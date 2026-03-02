@@ -15,6 +15,7 @@ import { isSandboxEnabled, ensureSandbox, createSandboxBashOps, createSandboxFil
 import { createWebTools } from "../tools/web-tools.js";
 import { mcpClientManager } from "./mcp-client.js";
 import { bridgeMcpTools } from "../tools/mcp-bridge.js";
+import { symlinkUserSkillsToWorkspace } from "./skill-manager.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
@@ -81,6 +82,11 @@ export async function createPiSession(
       console.error(`Sandbox provisioning failed for user ${userId}:`, err);
       // Fall through — Pi will run on host if sandbox fails
     }
+  }
+
+  // Symlink user's installed skills into the workspace so Pi discovers them
+  if (userId) {
+    await symlinkUserSkillsToWorkspace(userId, workDir);
   }
 
   // Dynamically import the Pi SDK — it may not be installed yet

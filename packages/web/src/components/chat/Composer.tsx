@@ -24,8 +24,24 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
   const popupRef = useRef<HTMLDivElement>(null);
 
   const skills = useSkillsStore((s) => s.skills);
+  const userSkills = useSkillsStore((s) => s.userSkills);
+  const sessionSkills = useSkillsStore((s) => s.sessionSkills);
   const mcpTools = useSkillsStore((s) => s.mcpTools) ?? [];
-  const enabledSkills = useMemo(() => skills.filter((s) => s.enabled), [skills]);
+
+  // Merge all skill sources, deduplicating by name (admin > user > session precedence)
+  const enabledSkills = useMemo(() => {
+    const seen = new Set<string>();
+    const merged = [];
+    for (const list of [skills, userSkills, sessionSkills]) {
+      for (const s of list) {
+        if (s.enabled && !seen.has(s.name)) {
+          seen.add(s.name);
+          merged.push(s);
+        }
+      }
+    }
+    return merged;
+  }, [skills, userSkills, sessionSkills]);
 
   // Extract the slash prefix the user has typed so far (e.g. "/cle")
   const slashQuery = useMemo(() => {

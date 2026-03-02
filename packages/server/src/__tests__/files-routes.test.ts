@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import multipart from "@fastify/multipart";
-import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from "fs";
+import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync, symlinkSync } from "fs";
 import { resolve, join } from "path";
 import { tmpdir } from "os";
 import { randomBytes } from "crypto";
@@ -85,6 +85,34 @@ describe("GET /api/files", () => {
     const files = res.json();
     expect(files).toHaveLength(2);
     expect(files.map((f: any) => f.name).sort()).toEqual([".hidden", "visible.txt"]);
+  });
+
+  it("hides symlinked skills in .pi/skills/ but shows real ones", async () => {
+    const piSkillsDir = join(WORK_DIR, ".pi", "skills");
+    mkdirSync(piSkillsDir, { recursive: true });
+
+    // Real session-local skill (should be visible)
+    const localSkillDir = join(piSkillsDir, "local-skill");
+    mkdirSync(localSkillDir);
+    writeFileSync(join(localSkillDir, "SKILL.md"), "---\nname: local-skill\n---\n");
+
+    // Symlinked user skill (should be hidden)
+    const userSkillDir = join(TEST_DIR, "user-skills", "someone", "installed-skill");
+    mkdirSync(userSkillDir, { recursive: true });
+    writeFileSync(join(userSkillDir, "SKILL.md"), "---\nname: installed-skill\n---\n");
+    symlinkSync(userSkillDir, join(piSkillsDir, "installed-skill"), "dir");
+
+    const res = await app.inject({ method: "GET", url: `/api/files${q}` });
+    const files = res.json();
+    const names = files.map((f: any) => f.path);
+
+    // local-skill should appear
+    expect(names).toContain(join(".pi", "skills", "local-skill"));
+    expect(names).toContain(join(".pi", "skills", "local-skill", "SKILL.md"));
+
+    // installed-skill (symlink) should NOT appear
+    expect(names).not.toContain(join(".pi", "skills", "installed-skill"));
+    expect(names).not.toContain(join(".pi", "skills", "installed-skill", "SKILL.md"));
   });
 });
 

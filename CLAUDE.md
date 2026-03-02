@@ -15,7 +15,7 @@ npm install              # Install all workspace dependencies
 npm run dev              # Run both server (:3001) and web (:5173) concurrently
 npm run dev:server       # Backend only (tsx watch, hot reload)
 npm run dev:web          # Frontend only (Vite dev server, proxies /api to :3001)
-npm test                 # Run server-side Vitest tests (~179 tests)
+npm test                 # Run server-side Vitest tests (~203 tests)
 npm run build            # Build server (tsc) then web (tsc + vite build)
 npm run lint             # ESLint across all packages
 npm run install-skill -- <repo-url> <skill-name>  # Install a single skill from a remote repo
@@ -60,6 +60,15 @@ Markdown files with YAML frontmatter (`SKILL.md`) for chart-generator, financial
 
 - **Pi mock mode**: Server auto-falls back to mock when Pi SDK (`@mariozechner/pi-coding-agent`) isn't installed. No Azure credentials needed for UI development.
 - **Native Pi skills**: Skills are invoked via Pi's `/skill:<name>` command syntax. The skill manager (`skill-manager.ts`) symlinks bundled skills from `packages/skills/` into `~/.pi/agent/skills/` at startup so Pi's `DefaultResourceLoader` discovers them natively (progressive disclosure, supporting files accessible via relative paths). The in-memory skill map is kept for the `/api/skills` REST endpoint (frontend slash command popup). Pi also auto-discovers per-workspace skills from `{workspace}/.pi/skills/`.
+- **Three-tier skill system**: Skills exist at three levels, each with different scope:
+  1. **Built-in (admin)** — bundled in `packages/skills/`, symlinked to `~/.pi/agent/skills/` at startup, available to all users and sessions.
+  2. **User-installed ("My Skills")** — stored in `{DATA_ROOT}/user-skills/{userId}/{skillName}/`, persist across sessions for a single user. Symlinked into each workspace's `.pi/skills/` at session creation (`symlinkUserSkillsToWorkspace` in `pi-session.ts`) so Pi discovers them. These symlinks are hidden from the file listing API (`listTree` in `files.ts` uses `lstat` to detect and skip symlinks inside `.pi/skills/`).
+  3. **Session-local** — real directories in `{workspace}/.pi/skills/{name}/`, scoped to one session. Created by Pi during agent execution or via demote.
+- **Skill promote/demote** (`skill-manager.ts`):
+  - **Promote** (`POST /skills/user/promote`): Copies a session-local skill to `{DATA_ROOT}/user-skills/{userId}/`, then replaces the session copy with a symlink to the user copy. This ensures `listSessionSkills` (which uses `Dirent.isDirectory()` — returns `false` for symlinks) no longer returns it, while Pi can still discover it via the symlink. Re-promoting an already-promoted skill (session path is already a symlink to user dir) is a no-op.
+  - **Demote** (`POST /skills/user/demote`): Copies the user skill into `{workspace}/.pi/skills/` as a real directory (removing any existing symlink or directory via `lstat` + `rm`), then deletes the user copy. The skill moves from "My Skills" to "Session" for editing.
+  - **Delete** (`DELETE /skills/user/:name`): Removes the user skill from disk entirely.
+  - Frontend: `StatusPanel.tsx` shows all three tiers with promote (↑), demote (↓), and delete (×) buttons. A `busy` state prevents double-clicks during async operations. The expanded section has `max-h-[40vh] overflow-y-auto` to avoid squeezing the file panel.
 - **WebSocket event protocol**: JSON messages with `type` discriminator (`message_delta`, `tool_start`, `agent_end`, `files_changed`). Events flow: Pi SDK → `translatePiEvent()` → WebSocket → Zustand store → React.
 - **Per-session workspaces**: Files isolated at `{DATA_ROOT}/workspaces/{sessionId}/workspace`. All file operations go through `safePath()` to prevent path traversal.
 - **Session rebinding**: Pi sessions persist in-memory across WebSocket reconnects via `rebindSocket()`.
