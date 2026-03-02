@@ -52,6 +52,8 @@ DEFAULT_THINKING_LEVEL=medium
 
 When `SANDBOX_ENABLED=true`, each user gets an isolated Docker container. All four Pi tools — **bash, read, write, and edit** — are routed into the container. Bash commands run via `docker exec` (`createSandboxBashOps`), and file operations use `createSandboxFileOps` which executes reads/writes/edits through the container filesystem. The workspaces directory is bind-mounted (`-v {DATA_ROOT}/workspaces:/workspaces`) so the host can still serve file downloads and uploads.
 
+The sandbox image comes pre-installed with Python data-analysis packages (pandas, numpy, scipy, matplotlib, seaborn, openpyxl, yfinance, fredapi), PDF tools (poppler, tesseract, pypdf, pdfplumber, reportlab), office conversion (LibreOffice headless, pandoc), and Node.js packages (pptxgenjs, docx, pdf-lib). See `Dockerfile.sandbox` for the full list.
+
 ```bash
 # Build the sandbox image
 docker build -f packages/server/Dockerfile.sandbox -t opentowork-sandbox:latest .
@@ -79,6 +81,7 @@ browork/
 │   │       ├── services/mcp-client.ts  # MCP client connections (SSE/HTTP)
 │   │       ├── services/sandbox-manager.ts # Docker container-per-user isolation
 │   │       ├── services/skill-manager.ts # Skill discovery, loading, promote/demote
+│   │       ├── services/agents-md-tracker.ts # Live AGENTS.md change injection
 │   │       ├── services/file-watcher.ts # Chokidar file watching
 │   │       ├── tools/web-tools.ts    # Web search & fetch tools (Brave API)
 │   │       ├── tools/mcp-bridge.ts   # MCP→Pi tool format bridge
@@ -99,6 +102,8 @@ browork/
 │           ├── components/layout/    # AppLayout, SessionSidebar, StatusPanel
 │           ├── hooks/useWebSocket.ts # WebSocket with reconnection
 │           └── stores/               # Zustand stores (session, files, skills)
+├── docs/
+│   └── skills-guide.md  # User-facing skills documentation
 ├── package.json         # Workspace root
 └── tsconfig.base.json   # Shared TypeScript config
 ```
@@ -145,7 +150,11 @@ Images are persisted in the database alongside their associated assistant messag
 
 ### Context usage and compaction
 
-A progress bar above the composer shows how much of the model's context window is in use. When context gets large, use the `/compact` command (type it in the composer) to compress the conversation and free up space.
+A progress bar in the right-panel footer shows how much of the model's context window is in use. When context gets large, use the `/compact` command (type it in the composer) to compress the conversation and free up space. During compaction, the status bar shows "Compacting context..." and the input is disabled until complete.
+
+### Live project instructions (AGENTS.md)
+
+If you create or edit an `AGENTS.md` file in your workspace, the updated instructions are automatically injected into the next prompt to the Pi agent — no session restart needed. This lets you iteratively refine project-level guidance (coding standards, output formats, domain rules) while the agent is running.
 
 ## User Skills (Promote / Demote)
 

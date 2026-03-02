@@ -76,7 +76,7 @@ Markdown files with YAML frontmatter (`SKILL.md`) for chart-generator, financial
   - Server-side (`session-stream.ts`): intercepts `files_changed` WebSocket events, accumulates image paths during a turn, and persists them in the `images` TEXT column of the messages table (JSON array) on `agent_end`.
   - Client-side: during live streaming, `files_changed` events trigger `addPendingImages()` in the session store; `agent_end` finalizes them into the timeline as `TurnImages` groups. On session reload, image groups are restored from the `images` field on messages with `seq = messageSeq + 0.5` so they sort in the correct position.
   - Component: `InlineImageGroup.tsx` renders thumbnails via auth-fetched blob URLs. Clicking an image selects it in the file panel.
-- **Docker sandbox**: When `SANDBOX_ENABLED=true`, each user gets an isolated Docker container. All four Pi tools — **bash, read, write, and edit** — are routed into the container. Bash runs via `docker exec` (`createSandboxBashOps`), file tools use `createSandboxFileOps` which executes through the container filesystem. The workspaces directory is bind-mounted (`-v {DATA_ROOT}/workspaces:/workspaces`) so the host can still serve file downloads/uploads. The sandbox manager (`sandbox-manager.ts`) handles container lifecycle.
+- **Docker sandbox**: When `SANDBOX_ENABLED=true`, each user gets an isolated Docker container. All four Pi tools — **bash, read, write, and edit** — are routed into the container. Bash runs via `docker exec` (`createSandboxBashOps`), file tools use `createSandboxFileOps` which executes through the container filesystem. The workspaces directory is bind-mounted (`-v {DATA_ROOT}/workspaces:/workspaces`) so the host can still serve file downloads/uploads. The sandbox manager (`sandbox-manager.ts`) handles container lifecycle. Pre-installed Python packages: pandas, numpy, scipy, matplotlib, seaborn, openpyxl, xlsxwriter, yfinance, fredapi, pandas-datareader, pypdf, pdfplumber, reportlab, Pillow, and more (see `Dockerfile.sandbox`).
 - **Docker sandbox — implementation details** (important for future changes):
   - `createSandboxBashOps(userId)` in `sandbox-manager.ts` returns a Pi SDK `BashOperations` object that routes commands through `docker exec` with host→container path translation.
   - `createSandboxFileOps()` returns `{ read, edit, write }` operation objects that route file I/O through the container.
@@ -86,6 +86,8 @@ Markdown files with YAML frontmatter (`SKILL.md`) for chart-generator, financial
     3. Call `session._buildRuntime()` to rebuild the tool registry from the override
   - These fields (`_baseToolsOverride`, `_buildRuntime`) are conventional-private (underscore prefix, not JS `#private`), so they're accessible at runtime but not in the TypeScript types — we cast via `as any`.
   - If the Pi SDK adds a public `baseToolsOverride` option to `createAgentSession` in the future, this patch can be replaced with a direct option pass.
+- **AGENTS.md live injection** (`agents-md-tracker.ts`): When the user (or Pi) edits `AGENTS.md` in a workspace, the tracker detects the change via the file watcher, hashes the content, and marks it dirty. On the next `sendPrompt()`, the updated content is prepended to the user message wrapped in `<updated-project-instructions>` XML tags. The dirty flag is cleared after injection so it's only sent once. This means Pi picks up new project instructions mid-session without a restart.
+- **`/compact` UI feedback**: The session store has an `isCompacting` boolean. Set to `true` when the user sends `/compact`, cleared automatically when the next `context_usage` event arrives (compact always emits one). ChatPanel shows a pulsing "Compacting context..." indicator and the composer is disabled during compaction. The context bar in `AppLayout.tsx` stays visible whenever `percent != null` (not just `> 0`) so it doesn't vanish after compact reduces context.
 - **MCP client**: Browork acts as an MCP client that connects to remote MCP servers. The system has three layers:
   - `mcp-manager.ts` — CRUD for server configs in SQLite (name, URL, transport, headers, enabled)
   - `mcp-client.ts` — Singleton `McpClientManager` that connects to remote servers via SSE or Streamable HTTP (`@modelcontextprotocol/sdk`), discovers tools via `client.listTools()`, and proxies `callTool()` requests. Auto-reconnects on 30s backoff.
@@ -94,6 +96,46 @@ Markdown files with YAML frontmatter (`SKILL.md`) for chart-generator, financial
   - MCP servers are global (shared across all users). Config stored in `mcp_servers` table (columns: `name`, `url`, `transport`, `headers`, `enabled`).
   - Routes (`/api/mcp/servers`) include live connection `status`, `toolCount`, and `error` from the client manager. Additional endpoints: `GET /api/mcp/servers/:name/tools`, `POST /api/mcp/servers/:name/reconnect`.
   - Test MCP server: `npx tsx scripts/test-mcp-server.ts` (port 3099, SSE, tools: `random_number`, `factorial`).
+
+## Pi System Prompt
+
+The system prompt is built by the Pi SDK (`node_modules/@mariozechner/pi-coding-agent/dist/core/system-prompt.js`), not by this codebase. Understanding its structure is important for customization.
+
+### Default base prompt (when no `SYSTEM.md` exists)
+```
+You are an expert coding assistant operating inside pi, a coding agent harness.
+You help users by reading files, executing commands, editing code, and writing new files.
+
+Available tools: [dynamically lists active tools with descriptions]
+
+Guidelines: [conditional on which tools are active — prefer grep over bash, use read before edit, etc.]
+
+Pi documentation: [paths to Pi's own docs, only read when user asks about Pi itself]
+```
+
+### Appended sections (in order)
+1. **`APPEND_SYSTEM.md`** — from project or `~/.pi/agent/APPEND_SYSTEM.md`
+2. **`# Project Context`** — all discovered `AGENTS.md` / `CLAUDE.md` files up the directory tree, each rendered as `## {filePath}\n\n{content}`
+3. **Skills** (only if `read` tool is active) — XML block listing available skills:
+   ```xml
+   <available_skills>
+     <skill><name>chart-generator</name><description>...</description><location>/path/to/SKILL.md</location></skill>
+   </available_skills>
+   ```
+   Skills with `disableModelInvocation: true` are excluded (triggered only via `/skill:<name>`).
+4. `Current date and time: {dateTime}`
+5. `Current working directory: {cwd}`
+
+### Customization hooks
+- **Replace entire prompt**: Place a `SYSTEM.md` in the project root or `~/.pi/agent/SYSTEM.md`
+- **Append to default prompt**: Use `APPEND_SYSTEM.md` files
+- **Inject project context**: Place an `AGENTS.md` or `CLAUDE.md` in the workspace (auto-discovered)
+- **Programmatic**: `DefaultResourceLoader` accepts `systemPromptOverride` and `appendSystemPromptOverride` callbacks
+
+### Call chain
+1. `DefaultResourceLoader.reload()` discovers `SYSTEM.md` → stored as `customPrompt`
+2. `AgentSession._rebuildSystemPrompt(toolNames)` calls `buildSystemPrompt({ cwd, skills, contextFiles, customPrompt, ... })`
+3. `_buildRuntime()` calls `_rebuildSystemPrompt()` and sets it via `agent.setSystemPrompt(...)`
 
 ## Tech Stack Summary
 

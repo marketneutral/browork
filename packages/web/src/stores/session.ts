@@ -49,6 +49,7 @@ interface SessionState {
   messages: ChatMessage[];
   currentAssistantText: string;
   isStreaming: boolean;
+  isCompacting: boolean;
   isLoading: boolean;
   error: string | null;
   activeToolCalls: ToolCall[];
@@ -56,6 +57,7 @@ interface SessionState {
   pendingImages: string[];
   completedImageGroups: TurnImages[];
   contextUsage: ContextUsage | null;
+  sandboxActive: boolean | null;
 
   // Actions
   setSessionId: (id: string | null) => void;
@@ -65,6 +67,7 @@ interface SessionState {
   appendAssistantDelta: (text: string) => void;
   finalizeAssistantMessage: () => void;
   setStreaming: (v: boolean) => void;
+  setCompacting: (v: boolean) => void;
   setLoading: (v: boolean) => void;
   setError: (msg: string | null) => void;
   addToolStart: (tool: string, args: unknown) => void;
@@ -75,6 +78,7 @@ interface SessionState {
   clearPendingImages: () => void;
   addRestoredImageGroup: (paths: string[], seq: number) => void;
   setContextUsage: (usage: ContextUsage) => void;
+  setSandboxActive: (active: boolean) => void;
   reset: () => void;
 }
 
@@ -96,6 +100,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   messages: [],
   currentAssistantText: "",
   isStreaming: false,
+  isCompacting: false,
   isLoading: true,
   error: null,
   activeToolCalls: [],
@@ -103,6 +108,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   pendingImages: [],
   completedImageGroups: [],
   contextUsage: null,
+  sandboxActive: null,
 
   setSessionId: (id) =>
     set({
@@ -116,6 +122,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       pendingImages: [],
       completedImageGroups: [],
       contextUsage: null,
+      sandboxActive: null,
     }),
 
   setSessions: (sessions) => set({ sessions }),
@@ -162,6 +169,7 @@ export const useSessionStore = create<SessionState>((set) => ({
     }),
 
   setStreaming: (v) => set({ isStreaming: v }),
+  setCompacting: (v) => set({ isCompacting: v }),
   setLoading: (v) => set({ isLoading: v }),
   setError: (msg) => set({ error: msg }),
 
@@ -224,17 +232,21 @@ export const useSessionStore = create<SessionState>((set) => ({
       ],
     })),
 
-  setContextUsage: (usage) => set({ contextUsage: usage }),
+  setContextUsage: (usage) => set({ contextUsage: usage, isCompacting: false }),
+
+  setSandboxActive: (active) => set({ sandboxActive: active }),
 
   reset: () =>
     set({
       messages: [],
       currentAssistantText: "",
       isStreaming: false,
+      isCompacting: false,
       activeToolCalls: [],
       completedToolGroups: [],
       pendingImages: [],
       completedImageGroups: [],
       contextUsage: null,
+      sandboxActive: null,
     }),
 }));

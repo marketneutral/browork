@@ -26,6 +26,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact }: 
   const messages = useSessionStore((s) => s.messages);
   const currentText = useSessionStore((s) => s.currentAssistantText);
   const isStreaming = useSessionStore((s) => s.isStreaming);
+  const isCompacting = useSessionStore((s) => s.isCompacting);
   const activeToolCalls = useSessionStore((s) => s.activeToolCalls);
   const completedToolGroups = useSessionStore((s) => s.completedToolGroups);
   const completedImageGroups = useSessionStore((s) => s.completedImageGroups);
@@ -142,6 +143,11 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact }: 
               Stop
             </button>
           </>
+        ) : isCompacting ? (
+          <>
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            <span className="text-foreground-secondary">Compacting context...</span>
+          </>
         ) : (
           <>
             <span className="w-1.5 h-1.5 rounded-full bg-foreground-tertiary/50" />
@@ -151,7 +157,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact }: 
       </div>
 
       {/* Message composer */}
-      <Composer onSend={onSendMessage} onInvokeSkill={onInvokeSkill} onCompact={onCompact} disabled={isStreaming} />
+      <Composer onSend={onSendMessage} onInvokeSkill={onInvokeSkill} onCompact={onCompact} disabled={isStreaming || isCompacting} />
     </div>
   );
 }

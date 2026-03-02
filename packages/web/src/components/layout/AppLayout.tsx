@@ -186,6 +186,7 @@ function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionSt
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const contextUsage = useSessionStore((s) => s.contextUsage);
+  const sandboxActive = useSessionStore((s) => s.sandboxActive);
   const [ctxTip, setCtxTip] = useState<{ x: number; y: number } | null>(null);
   const ctxBarRef = useRef<HTMLDivElement>(null);
 
@@ -209,8 +210,8 @@ function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionSt
       <div className="px-3 py-2 border-t border-border text-xs text-foreground-secondary">
         {connectionStatus === "connected" && (
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-success" />
-            Agent server connected
+            <span className={`w-2 h-2 rounded-full ${sandboxActive === false ? "bg-warning" : "bg-success"}`} />
+            Agent server connected{sandboxActive === false && " (local)"}
           </span>
         )}
         {connectionStatus === "connecting" && (
@@ -227,7 +228,7 @@ function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionSt
         )}
 
         {/* Context usage bar */}
-        {connectionStatus === "connected" && contextUsage?.percent != null && contextUsage.percent > 0 && (
+        {connectionStatus === "connected" && contextUsage?.percent != null && (
           <div
             ref={ctxBarRef}
             className="mt-1 py-1 cursor-default relative"

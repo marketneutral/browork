@@ -83,6 +83,9 @@ export function App() {
             percent: event.percent,
           });
           break;
+        case "session_info":
+          useSessionStore.getState().setSandboxActive(event.sandboxActive);
+          break;
         case "files_changed": {
           const currentSessionId = useSessionStore.getState().sessionId;
           if (currentSessionId) {
@@ -312,6 +315,7 @@ export function App() {
   }, [send]);
 
   const handleCompact = useCallback(() => {
+    useSessionStore.getState().setCompacting(true);
     send({ type: "compact" });
   }, [send]);
 

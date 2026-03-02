@@ -35,16 +35,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ── Python packages ─────────────────────────────────────────────
 # Data analysis (original) + PDF / PPTX / DOCX / XLSX skill deps
-RUN pip3 install --no-cache-dir --break-system-packages \
+# Allow pip install at runtime without --break-system-packages flag.
+# The container IS the isolated environment, so PEP 668 protection is redundant.
+RUN rm -f /usr/lib/python*/EXTERNALLY-MANAGED
+
+RUN pip3 install --no-cache-dir \
     # Data analysis baseline
     pandas \
     openpyxl \
     matplotlib \
+    seaborn \
     numpy \
     scipy \
     xlsxwriter \
     python-dateutil \
     requests \
+    yfinance \
+    fredapi \
+    pandas-datareader \
     # PDF skill
     pypdf \
     pypdfium2 \

@@ -100,7 +100,13 @@ export interface McpToolMeta {
   description: string;
 }
 
+export interface HealthStatus {
+  status: string;
+  sandbox: { enabled: boolean; dockerAvailable: boolean | null; imageAvailable: boolean | null; activeContainers: number };
+}
+
 export const api = {
+  health: () => fetch("/health").then((r) => r.json()) as Promise<HealthStatus>,
   auth: {
     login: (username: string, password: string) =>
       request<{ user: UserMeta; token: string }>("/auth/login", {

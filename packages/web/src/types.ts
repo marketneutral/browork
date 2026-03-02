@@ -10,6 +10,7 @@ export type BroworkEvent =
   | { type: "skill_end"; skill: string }
   | { type: "files_changed"; paths: string[] }
   | { type: "context_usage"; tokens: number | null; contextWindow: number; percent: number | null }
+  | { type: "session_info"; sandboxActive: boolean }
   | { type: "error"; message: string };
 
 /** Commands sent to the server over WebSocket */
