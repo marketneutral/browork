@@ -2,7 +2,8 @@ import type { FastifyPluginAsync } from "fastify";
 import type { RawData } from "ws";
 import { createPiSession, getSession } from "../services/pi-session.js";
 import type { BroworkCommand } from "../services/pi-session.js";
-import { subscribeWsToFileChanges } from "../services/file-watcher.js";
+import { subscribeWsToFileChanges, getFileWatcher } from "../services/file-watcher.js";
+import { initAgentsMdTracking, onFileChanged } from "../services/agents-md-tracker.js";
 import { getSkill, getUserSkill, getSessionSkill } from "../services/skill-manager.js";
 import { addMessage, setLastMessageImages, getSessionById } from "../db/session-store.js";
 import { resolve } from "path";
@@ -34,6 +35,11 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
       // Subscribe to file changes in the working directory
       const unsubFiles = subscribeWsToFileChanges(socket, workDir);
 
+      // Track AGENTS.md changes so updates are injected into the next prompt
+      const unsubAgentsMd = getFileWatcher(workDir).subscribe(
+        (paths) => onFileChanged(workDir, paths),
+      );
+
       // Create or reconnect to a Pi session
       let session = getSession(id);
       if (session) {
@@ -55,6 +61,9 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
           return;
         }
       }
+
+      // Snapshot the current AGENTS.md hash so first prompt doesn't re-inject
+      initAgentsMdTracking(workDir);
 
       // Track assistant text and images for persistence
       let assistantBuffer = "";
@@ -176,6 +185,7 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
       socket.on("close", () => {
         app.log.info({ sessionId: id }, "WebSocket disconnected");
         unsubFiles();
+        unsubAgentsMd();
         // Don't dispose session on disconnect — allow reconnection
       });
     },

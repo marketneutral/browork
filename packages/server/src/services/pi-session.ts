@@ -16,6 +16,7 @@ import { createWebTools } from "../tools/web-tools.js";
 import { mcpClientManager } from "./mcp-client.js";
 import { bridgeMcpTools } from "../tools/mcp-bridge.js";
 import { symlinkUserSkillsToWorkspace } from "./skill-manager.js";
+import { consumeAgentsMdUpdate, formatAgentsMdInjection } from "./agents-md-tracker.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
@@ -31,6 +32,7 @@ export type BroworkEvent =
   | { type: "skill_start"; skill: string; label: string }
   | { type: "skill_end"; skill: string }
   | { type: "context_usage"; tokens: number | null; contextWindow: number; percent: number | null }
+  | { type: "session_info"; sandboxActive: boolean }
   | { type: "error"; message: string };
 
 // ── Browork commands received from the frontend over WebSocket ──
@@ -84,6 +86,9 @@ export async function createPiSession(
     }
   }
 
+  // Tell the client whether sandbox is actually active for this session
+  send(ws, { type: "session_info", sandboxActive: !!sandboxUserId });
+
   // Symlink user's installed skills into the workspace so Pi discovers them
   if (userId) {
     await symlinkUserSkillsToWorkspace(userId, workDir);
@@ -99,7 +104,7 @@ export async function createPiSession(
   } catch {
     // Pi SDK not installed — use mock mode for development
     console.warn("Pi SDK not found, running in mock mode");
-    return createMockSession(sessionId, ws);
+    return createMockSession(sessionId, workDir, ws);
   }
 
   const thinkingLevel =
@@ -159,11 +164,17 @@ export async function createPiSession(
   // Translate Pi events → Browork events → WebSocket
   // Keep a mutable reference so rebindSocket can swap it
   let activeWs = ws;
+  let isRunning = false;
+  const isSandboxActive = !!sandboxUserId;
 
   const unsubscribe = session.subscribe((event) => {
     const broworkEvent = translatePiEvent(event);
     if (broworkEvent) {
       console.log(`[pi-event] ${broworkEvent.type} ${(broworkEvent as any).tool ?? ""}`);
+
+      if (broworkEvent.type === "agent_start") isRunning = true;
+      if (broworkEvent.type === "agent_end") isRunning = false;
+
       if (activeWs.readyState === activeWs.OPEN) {
         activeWs.send(JSON.stringify(broworkEvent));
 
@@ -194,7 +205,9 @@ export async function createPiSession(
   const handle: PiSessionHandle = {
     id: sessionId,
     async sendPrompt(text: string) {
-      await session.prompt(text);
+      const update = consumeAgentsMdUpdate(workDir);
+      const final = update ? formatAgentsMdInjection(update, text) : text;
+      await session.prompt(final);
     },
     async sendSteer(text: string) {
       await session.steer(text);
@@ -213,7 +226,11 @@ export async function createPiSession(
     },
     rebindSocket(newWs: WebSocket) {
       activeWs = newWs;
+      send(activeWs, { type: "session_info", sandboxActive: isSandboxActive });
       sendContextUsage();
+      if (isRunning) {
+        send(activeWs, { type: "agent_start" });
+      }
     },
   };
 
@@ -233,6 +250,7 @@ export function getSession(sessionId: string): PiSessionHandle | undefined {
 
 function createMockSession(
   sessionId: string,
+  workDir: string,
   ws: WebSocket,
 ): PiSessionHandle {
   let activeWs = ws;
@@ -251,6 +269,8 @@ function createMockSession(
   const handle: PiSessionHandle = {
     id: sessionId,
     async sendPrompt(text: string) {
+      const update = consumeAgentsMdUpdate(workDir);
+      const finalText = update ? formatAgentsMdInjection(update, text) : text;
       // Simulate Pi agent response with streaming
       send(activeWs, { type: "agent_start" });
 
