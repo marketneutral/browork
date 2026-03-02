@@ -69,7 +69,7 @@ export function DropZone({ onDrop, children }: DropZoneProps) {
 
   return (
     <div
-      className="flex-1 flex flex-col relative"
+      className="flex-1 flex flex-col relative min-h-0 overflow-y-auto"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
