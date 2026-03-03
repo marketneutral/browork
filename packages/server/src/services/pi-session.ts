@@ -27,6 +27,7 @@ const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 export type BroworkEvent =
   | { type: "agent_start" }
   | { type: "message_delta"; text: string }
+  | { type: "thinking_delta"; text: string }
   | { type: "message_end" }
   | { type: "tool_start"; tool: string; args: unknown }
   | { type: "tool_end"; tool: string; result: unknown; isError: boolean }

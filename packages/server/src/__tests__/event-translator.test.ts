@@ -32,11 +32,23 @@ describe("translatePiEvent", () => {
     });
   });
 
-  it("returns null for message_update without text_delta", () => {
+  it("translates message_update with thinking_delta", () => {
     const event = {
       type: "message_update",
       message: {},
       assistantMessageEvent: { type: "thinking_delta", delta: "..." },
+    };
+    expect(translatePiEvent(event)).toEqual({
+      type: "thinking_delta",
+      text: "...",
+    });
+  });
+
+  it("returns null for message_update with other event type", () => {
+    const event = {
+      type: "message_update",
+      message: {},
+      assistantMessageEvent: { type: "toolcall_delta", delta: "{}" },
     };
     expect(translatePiEvent(event)).toBeNull();
   });

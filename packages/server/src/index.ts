@@ -8,6 +8,7 @@ import { sessionRoutes } from "./routes/sessions.js";
 import { fileRoutes } from "./routes/files.js";
 import { skillRoutes } from "./routes/skills.js";
 import { mcpRoutes } from "./routes/mcp.js";
+import { settingsRoutes } from "./routes/settings.js";
 import { authRoutes } from "./routes/auth.js";
 import { healthRoutes } from "./routes/health.js";
 import { sessionStreamHandler } from "./ws/session-stream.js";
@@ -110,6 +111,7 @@ async function main() {
   await app.register(fileRoutes, { prefix: "/api" });
   await app.register(skillRoutes, { prefix: "/api" });
   await app.register(mcpRoutes, { prefix: "/api" });
+  await app.register(settingsRoutes, { prefix: "/api" });
 
   // WebSocket
   await app.register(sessionStreamHandler);

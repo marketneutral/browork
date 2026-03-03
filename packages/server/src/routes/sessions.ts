@@ -13,6 +13,7 @@ import {
   getMessages,
 } from "../db/session-store.js";
 import { removeFileWatcher } from "../services/file-watcher.js";
+import { readUserAgentsMd, DEFAULT_AGENTS_MD } from "./settings.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
@@ -32,7 +33,16 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     // Write AGENTS.md into the workspace so Pi keeps intermediates out of sight
     const wsDir = resolve(DATA_ROOT, "workspaces", session.workspaceDir);
     await mkdir(wsDir, { recursive: true });
-    await writeFile(join(wsDir, "AGENTS.md"), AGENTS_MD, "utf-8").catch(() => {});
+
+    // Use user's custom AGENTS.md if they have one, otherwise use default
+    let agentsContent = DEFAULT_AGENTS_MD;
+    if (userId) {
+      const userContent = await readUserAgentsMd(userId);
+      if (userContent) {
+        agentsContent = userContent;
+      }
+    }
+    await writeFile(join(wsDir, "AGENTS.md"), agentsContent, "utf-8").catch(() => {});
 
     return session;
   });
@@ -151,14 +161,3 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
   });
 };
 
-const AGENTS_MD = `# Project Instructions
-
-## Workspace Instructions
-
-### Intermediate files
-
-Write all intermediate and temporary files to a \`.pi-work/\` subdirectory
-(e.g. helper scripts, thumbnail images, intermediate PDFs, conversion artifacts).
-
-Only final deliverables belong in the workspace root. If the user asks for a document, powerpoint, plot, Excel sheet, etc. and doesn't specify a path, put it in the workspace root.
-`;

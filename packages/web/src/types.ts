@@ -2,6 +2,7 @@
 export type BroworkEvent =
   | { type: "agent_start" }
   | { type: "message_delta"; text: string }
+  | { type: "thinking_delta"; text: string }
   | { type: "message_end" }
   | { type: "tool_start"; tool: string; args: unknown }
   | { type: "tool_end"; tool: string; result: unknown; isError: boolean }

@@ -54,6 +54,7 @@ interface SessionState {
   sessions: SessionListItem[];
   messages: ChatMessage[];
   currentAssistantText: string;
+  thinkingText: string;
   isStreaming: boolean;
   isCompacting: boolean;
   isLoading: boolean;
@@ -72,6 +73,7 @@ interface SessionState {
   setMessages: (messages: Omit<ChatMessage, "seq">[]) => void;
   addUserMessage: (text: string) => void;
   appendAssistantDelta: (text: string) => void;
+  appendThinkingDelta: (text: string) => void;
   finalizeAssistantMessage: () => void;
   setStreaming: (v: boolean) => void;
   setCompacting: (v: boolean) => void;
@@ -108,6 +110,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   sessions: [],
   messages: [],
   currentAssistantText: "",
+  thinkingText: "",
   isStreaming: false,
   isCompacting: false,
   isLoading: true,
@@ -126,6 +129,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       // Clear chat state when switching sessions
       messages: [],
       currentAssistantText: "",
+      thinkingText: "",
       isStreaming: false,
       activeToolCalls: [],
       completedToolGroups: [],
@@ -159,7 +163,10 @@ export const useSessionStore = create<SessionState>((set) => ({
     })),
 
   appendAssistantDelta: (text) =>
-    set((s) => ({ currentAssistantText: s.currentAssistantText + text })),
+    set((s) => ({ currentAssistantText: s.currentAssistantText + text, thinkingText: "" })),
+
+  appendThinkingDelta: (text) =>
+    set((s) => ({ thinkingText: s.thinkingText + text })),
 
   finalizeAssistantMessage: () =>
     set((s) => {
@@ -254,6 +261,7 @@ export const useSessionStore = create<SessionState>((set) => ({
     set({
       messages: [],
       currentAssistantText: "",
+      thinkingText: "",
       isStreaming: false,
       isCompacting: false,
       activeToolCalls: [],

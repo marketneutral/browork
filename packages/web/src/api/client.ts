@@ -149,6 +149,15 @@ export const api = {
     tools: (name: string) =>
       request<McpToolMeta[]>(`/mcp/servers/${name}/tools`),
   },
+  settings: {
+    getAgentsMd: () =>
+      request<{ content: string; isCustom: boolean; defaultContent: string }>("/settings/agents-md"),
+    saveAgentsMd: (content: string) =>
+      request<{ ok: boolean }>("/settings/agents-md", {
+        method: "PUT",
+        body: JSON.stringify({ content }),
+      }),
+  },
   sessions: {
     list: () => request<SessionMeta[]>("/sessions"),
     create: () => request<SessionMeta>("/sessions", { method: "POST" }),

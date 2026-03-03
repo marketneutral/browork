@@ -39,6 +39,9 @@ export function App() {
           setStreaming(true);
           useSessionStore.getState().clearPendingImages();
           break;
+        case "thinking_delta":
+          useSessionStore.getState().appendThinkingDelta(event.text);
+          break;
         case "message_delta":
           if (!useSessionStore.getState().isStreaming) setStreaming(true);
           appendAssistantDelta(event.text);

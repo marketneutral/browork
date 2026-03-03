@@ -129,7 +129,7 @@ export function createAskUserTool(
           question: Type.String({ description: "The question to ask" }),
           options: Type.Array(
             Type.Object({
-              label: Type.String({ description: "Short label for the option" }),
+              label: Type.String({ description: "Short descriptive label for the option (do NOT prefix with letters like A, B, C)" }),
               description: Type.Optional(
                 Type.String({ description: "Longer description of what this option means" }),
               ),

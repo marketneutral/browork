@@ -19,6 +19,9 @@ export function translatePiEvent(event: any): BroworkEvent | null {
       if (ame?.type === "text_delta") {
         return { type: "message_delta", text: ame.delta };
       }
+      if (ame?.type === "thinking_delta") {
+        return { type: "thinking_delta", text: ame.delta };
+      }
       return null;
     }
 

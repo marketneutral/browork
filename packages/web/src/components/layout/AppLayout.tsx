@@ -3,7 +3,8 @@ import { ChatPanel } from "../chat/ChatPanel";
 import { FilePanel } from "../files/FilePanel";
 import { SessionSidebar } from "./SessionSidebar";
 import { StatusPanel } from "./StatusPanel";
-import { Menu, FolderOpen, PanelLeftOpen, LogOut } from "lucide-react";
+import { Menu, FolderOpen, PanelLeftOpen, LogOut, Settings } from "lucide-react";
+import { SettingsDialog } from "./SettingsDialog";
 import { useAuthStore } from "../../stores/auth";
 import { useSessionStore } from "../../stores/session";
 import { api } from "../../api/client";
@@ -192,6 +193,7 @@ function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionSt
   const sandboxActive = useSessionStore((s) => s.sandboxActive);
   const [ctxTip, setCtxTip] = useState<{ x: number; y: number } | null>(null);
   const ctxBarRef = useRef<HTMLDivElement>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const handleLogout = () => {
     api.auth.logout().catch(() => {});
@@ -268,15 +270,25 @@ function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionSt
           <span className="text-sm font-medium truncate">
             {user.displayName}
           </span>
-          <button
-            onClick={handleLogout}
-            title="Sign out"
-            className="p-1.5 rounded-md hover:bg-surface-glass-hover text-foreground-secondary hover:text-foreground transition-colors"
-          >
-            <LogOut size={16} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowSettings(true)}
+              title="Settings"
+              className="p-1.5 rounded-md hover:bg-surface-glass-hover text-foreground-secondary hover:text-foreground transition-colors"
+            >
+              <Settings size={16} />
+            </button>
+            <button
+              onClick={handleLogout}
+              title="Sign out"
+              className="p-1.5 rounded-md hover:bg-surface-glass-hover text-foreground-secondary hover:text-foreground transition-colors"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
       )}
+      {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
     </div>
   );
 }

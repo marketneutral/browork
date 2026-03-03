@@ -12,6 +12,16 @@ import { APP_NAME } from "../../config";
 import { toolLabel } from "../../utils/tool-labels";
 import type { AskUserAnswer } from "../../types";
 
+/** Extract the last meaningful line from streaming thinking text, truncated for the status bar. */
+function thinkingSnippet(text: string): string {
+  // Take the last non-empty line
+  const lines = text.split("\n").filter((l) => l.trim());
+  const last = lines[lines.length - 1]?.trim() ?? "";
+  if (!last) return "Thinking...";
+  const truncated = last.length > 80 ? last.slice(0, 80) + "\u2026" : last;
+  return `Thinking: ${truncated}`;
+}
+
 type TimelineItem =
   | { kind: "message"; data: ChatMessage }
   | { kind: "tool_group"; data: ToolCallGroupType }
@@ -34,6 +44,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
   const completedToolGroups = useSessionStore((s) => s.completedToolGroups);
   const completedImageGroups = useSessionStore((s) => s.completedImageGroups);
   const pendingQuestion = useSessionStore((s) => s.pendingQuestion);
+  const thinkingText = useSessionStore((s) => s.thinkingText);
   const activeSkill = useSkillsStore((s) => s.activeSkill);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -149,7 +160,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
                 ? "Waiting for your response..."
                 : activeSkill
                   ? `Running workflow: ${activeSkill.label}...`
-                  : runningToolLabel ?? "Thinking..."}
+                  : runningToolLabel ?? (thinkingText ? thinkingSnippet(thinkingText) : "Thinking...")}
             </span>
             <button
               onClick={onAbort}

@@ -67,7 +67,7 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
 
       // Track assistant text and images for persistence
       let assistantBuffer = "";
-      let turnImagePaths: string[] = [];
+      let turnImagePaths = new Set<string>();
 
       const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"]);
       const isImage = (p: string) => IMAGE_EXTS.has(p.slice(p.lastIndexOf(".")).toLowerCase());
@@ -82,13 +82,13 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
               assistantBuffer += event.text;
             } else if (event.type === "files_changed" && Array.isArray(event.paths)) {
               for (const p of event.paths) {
-                if (isImage(p)) turnImagePaths.push(p);
+                if (isImage(p)) turnImagePaths.add(p);
               }
             } else if (event.type === "message_end" && assistantBuffer) {
               addMessage(id, "assistant", assistantBuffer, Date.now());
               assistantBuffer = "";
             } else if (event.type === "agent_end") {
-              const images = turnImagePaths.length > 0 ? JSON.stringify(turnImagePaths) : null;
+              const images = turnImagePaths.size > 0 ? JSON.stringify([...turnImagePaths]) : null;
               if (assistantBuffer) {
                 // message_end didn't fire — save text with images
                 addMessage(id, "assistant", assistantBuffer, Date.now(), images);
@@ -97,7 +97,7 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
                 // Text was already saved on message_end — attach images to it
                 setLastMessageImages(id, images);
               }
-              turnImagePaths = [];
+              turnImagePaths = new Set();
             }
           }
         } catch {
