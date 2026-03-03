@@ -348,6 +348,14 @@ export function createSandboxFileOps(): {
     read: {
       readFile: (p) => fs.readFile(toHost(p)),
       access: (p) => fs.access(toHost(p)),
+      detectImageMimeType: async (p) => {
+        const ext = toHost(p).split(".").pop()?.toLowerCase();
+        const mimeMap: Record<string, string> = {
+          png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+          gif: "image/gif", webp: "image/webp",
+        };
+        return ext ? mimeMap[ext] ?? null : null;
+      },
     },
     write: {
       writeFile: (p, content) => fs.writeFile(toHost(p), content),

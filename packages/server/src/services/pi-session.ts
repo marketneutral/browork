@@ -19,6 +19,7 @@ import { mcpClientManager } from "./mcp-client.js";
 import { bridgeMcpTools } from "../tools/mcp-bridge.js";
 import { symlinkUserSkillsToWorkspace } from "./skill-manager.js";
 import { consumeAgentsMdUpdate, formatAgentsMdInjection } from "./agents-md-tracker.js";
+import { wrapBashWithImageInjection } from "../utils/image-inject.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
@@ -161,15 +162,32 @@ export async function createPiSession(
     s._cwd = containerWorkDir;
     s._baseToolsOverride = {
       read: piSdk.createReadTool(containerWorkDir, { operations: fileOps.read }),
-      bash: piSdk.createBashTool(containerWorkDir, {
-        operations: createSandboxBashOps(sandboxUserId),
-      }),
+      bash: wrapBashWithImageInjection(
+        piSdk.createBashTool(containerWorkDir, {
+          operations: createSandboxBashOps(sandboxUserId),
+        }),
+        workDir, // host path for scanning images on the bind-mounted fs
+      ),
       edit: piSdk.createEditTool(containerWorkDir, { operations: fileOps.edit }),
       write: piSdk.createWriteTool(containerWorkDir, { operations: fileOps.write }),
     };
     const activeToolNames = ["read", "bash", "edit", "write", ...customTools.map((t) => t.name)];
     s._buildRuntime({ activeToolNames, includeAllExtensionTools: true });
     console.log(`[pi-session] sandbox patched for user ${sandboxUserId}, cwd=${containerWorkDir}`);
+  } else {
+    // Non-sandbox: wrap bash tool with image injection so the LLM sees
+    // images it creates (e.g. matplotlib plots). We must override all
+    // base tools since _baseToolsOverride replaces the entire set.
+    const s = session as any;
+    s._baseToolsOverride = {
+      read: piSdk.createReadTool(workDir),
+      bash: wrapBashWithImageInjection(piSdk.createBashTool(workDir), workDir),
+      edit: piSdk.createEditTool(workDir),
+      write: piSdk.createWriteTool(workDir),
+    };
+    const activeToolNames = ["read", "bash", "edit", "write", ...customTools.map((t) => t.name)];
+    s._buildRuntime({ activeToolNames, includeAllExtensionTools: true });
+    console.log("[pi-session] bash wrapped with image injection (non-sandbox)");
   }
 
   // Translate Pi events → Browork events → WebSocket
