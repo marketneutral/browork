@@ -7,6 +7,7 @@ export interface User {
   username: string;
   displayName: string;
   createdAt: string;
+  isAdmin?: boolean;
 }
 
 interface AuthState {

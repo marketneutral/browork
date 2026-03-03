@@ -13,7 +13,7 @@ import {
   getMessages,
 } from "../db/session-store.js";
 import { removeFileWatcher } from "../services/file-watcher.js";
-import { readUserAgentsMd, DEFAULT_AGENTS_MD } from "./settings.js";
+import { readUserAgentsMd, readSystemDefault } from "./settings.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
@@ -34,8 +34,8 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     const wsDir = resolve(DATA_ROOT, "workspaces", session.workspaceDir);
     await mkdir(wsDir, { recursive: true });
 
-    // Use user's custom AGENTS.md if they have one, otherwise use default
-    let agentsContent = DEFAULT_AGENTS_MD;
+    // Use user's custom AGENTS.md if they have one, otherwise use system default
+    let agentsContent = await readSystemDefault();
     if (userId) {
       const userContent = await readUserAgentsMd(userId);
       if (userContent) {

@@ -8,6 +8,16 @@ import {
   getUserByUsername,
 } from "../db/user-store.js";
 
+function isAdminUser(username: string): boolean {
+  const admins = (process.env.ADMIN_USERNAMES || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return admins.includes(username.toLowerCase());
+}
+
+export { isAdminUser };
+
 export const authRoutes: FastifyPluginAsync = async (app) => {
   // Stricter rate limit for auth endpoints (brute-force protection)
   const authRateConfig = {
@@ -53,7 +63,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const user = createUser(id, username, displayName, password);
     const token = createToken(user.id);
 
-    return { user, token };
+    return { user: { ...user, isAdmin: isAdminUser(username) }, token };
   });
 
   // Login
@@ -78,7 +88,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       }
 
       const token = createToken(user.id);
-      return { user, token };
+      return { user: { ...user, isAdmin: isAdminUser(user.username) }, token };
     },
   );
 
@@ -101,6 +111,6 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     if (!user) {
       return reply.code(401).send({ error: "Not authenticated" });
     }
-    return { user };
+    return { user: { ...user, isAdmin: isAdminUser(user.username) } };
   });
 };
