@@ -104,18 +104,47 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
     return { query: query.toLowerCase(), start: atIdx, end: cursorPos };
   }, [text, cursorPos]);
 
-  // Filter workspace files by @ query
-  const filteredFiles = useMemo(() => {
+  // Filter workspace files/dirs by @ query
+  // No '/' in query → root-level files + root-level directories (for tab-completion)
+  // '/' in query → match against full path of all files, plus subdirs at that level
+  type MentionItem = { kind: "file"; name: string; path: string } | { kind: "dir"; name: string; path: string };
+  const filteredMentions = useMemo<MentionItem[]>(() => {
     if (atMention === null) return [];
+    const q = atMention.query;
     const files = fileEntries.filter((e) => e.type === "file");
-    if (atMention.query === "") return files.slice(0, 20);
-    return files
-      .filter(
-        (f) =>
-          f.name.toLowerCase().includes(atMention.query) ||
-          f.path.toLowerCase().includes(atMention.query),
-      )
-      .slice(0, 20);
+    const dirs = fileEntries.filter((e) => e.type === "directory");
+
+    if (q === "" || !q.includes("/")) {
+      // Show root-level dirs + root-level files
+      const rootDirs: MentionItem[] = dirs
+        .filter((d) => !d.path.includes("/") && (q === "" || d.name.toLowerCase().includes(q)))
+        .map((d) => ({ kind: "dir", name: d.name, path: d.path }));
+      const rootFiles: MentionItem[] = files
+        .filter((f) => !f.path.includes("/") && (q === "" || f.name.toLowerCase().includes(q)))
+        .map((f) => ({ kind: "file", name: f.name, path: f.path }));
+      return [...rootDirs, ...rootFiles].slice(0, 20);
+    }
+
+    // Query contains '/' — show entries under that path prefix
+    const lastSlash = q.lastIndexOf("/");
+    const dirPrefix = q.slice(0, lastSlash + 1); // e.g. "data/"
+    const remainder = q.slice(lastSlash + 1);     // e.g. "rep"
+
+    const subDirs: MentionItem[] = dirs
+      .filter((d) => {
+        const dp = d.path.toLowerCase() + "/";
+        return dp.startsWith(dirPrefix) && dp !== dirPrefix && !dp.slice(dirPrefix.length).slice(0, -1).includes("/")
+          && (remainder === "" || d.name.toLowerCase().includes(remainder));
+      })
+      .map((d) => ({ kind: "dir", name: d.name, path: d.path }));
+    const subFiles: MentionItem[] = files
+      .filter((f) => {
+        const fp = f.path.toLowerCase();
+        return fp.startsWith(dirPrefix) && !fp.slice(dirPrefix.length).includes("/")
+          && (remainder === "" || f.name.toLowerCase().includes(remainder));
+      })
+      .map((f) => ({ kind: "file", name: f.name, path: f.path }));
+    return [...subDirs, ...subFiles].slice(0, 20);
   }, [atMention, fileEntries]);
 
   // Combined flat list for keyboard navigation
@@ -141,13 +170,13 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
 
   // Derive popup visibility directly (no effect delay)
   const showSlashDerived = filteredItems.length > 0 && slashQuery !== null;
-  const showFileMention = filteredFiles.length > 0 && atMention !== null;
+  const showFileMention = filteredMentions.length > 0 && atMention !== null;
   const activePopup: "slash" | "file" | null = showSlashDerived ? "slash" : showFileMention ? "file" : null;
 
   // Reset selection when either popup's filtered list changes
   useEffect(() => {
     setSelectedIndex(0);
-  }, [filteredItems.length, slashQuery, filteredFiles.length, atMention?.query]);
+  }, [filteredItems.length, slashQuery, filteredMentions.length, atMention?.query]);
 
   // Re-focus textarea when it becomes enabled again
   useEffect(() => {
@@ -175,12 +204,14 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
     [],
   );
 
-  const selectFile = useCallback(
-    (filePath: string) => {
+  const selectMention = useCallback(
+    (item: MentionItem) => {
       if (!atMention) return;
       const before = text.slice(0, atMention.start);
       const after = text.slice(atMention.end);
-      const inserted = filePath + " ";
+      // Directories: insert "dir/" to drill down (no trailing space — keeps popup open)
+      // Files: insert "path " to complete the mention
+      const inserted = item.kind === "dir" ? "@" + item.path + "/" : item.path + " ";
       const newText = before + inserted + after;
       setText(newText);
       const newCursor = before.length + inserted.length;
@@ -280,7 +311,7 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
     if (activePopup === "file") {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, filteredFiles.length - 1));
+        setSelectedIndex((i) => Math.min(i + 1, filteredMentions.length - 1));
         return;
       }
       if (e.key === "ArrowUp") {
@@ -290,8 +321,8 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
       }
       if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
-        if (filteredFiles[selectedIndex]) {
-          selectFile(filteredFiles[selectedIndex].path);
+        if (filteredMentions[selectedIndex]) {
+          selectMention(filteredMentions[selectedIndex]);
         }
         return;
       }
@@ -434,21 +465,23 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
             <div className="px-3 py-1.5 text-xs text-foreground-tertiary border-b border-border">
               Files
             </div>
-            {filteredFiles.map((file, idx) => (
+            {filteredMentions.map((item, idx) => (
               <button
-                key={file.path}
+                key={item.path}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => selectFile(file.path)}
+                onClick={() => selectMention(item)}
                 className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors ${
                   idx === selectedIndex
                     ? "bg-surface-glass text-foreground"
                     : "text-foreground-secondary hover:bg-surface-glass-hover"
                 }`}
               >
-                <span className="text-xs text-foreground-tertiary">@</span>
-                <span className="text-sm font-medium text-primary truncate">{file.name}</span>
-                {file.name !== file.path && (
-                  <span className="text-xs text-foreground-tertiary truncate">{file.path}</span>
+                <span className="text-xs text-foreground-tertiary">{item.kind === "dir" ? "📁" : "@"}</span>
+                <span className="text-sm font-medium text-primary truncate">
+                  {item.name}{item.kind === "dir" ? "/" : ""}
+                </span>
+                {item.kind === "file" && item.name !== item.path && (
+                  <span className="text-xs text-foreground-tertiary truncate">{item.path}</span>
                 )}
               </button>
             ))}
