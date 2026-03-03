@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo, type KeyboardEvent } from "react";
 import { useSkillsStore } from "../../stores/skills";
+import { useFilesStore } from "../../stores/files";
 
 type SlashItem =
   | { kind: "skill"; name: string; description: string }
@@ -20,9 +21,12 @@ interface ComposerProps {
 export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: ComposerProps) {
   const [text, setText] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [cursorPos, setCursorPos] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
+  const filePopupRef = useRef<HTMLDivElement>(null);
 
+  const fileEntries = useFilesStore((s) => s.entries);
   const skills = useSkillsStore((s) => s.skills);
   const userSkills = useSkillsStore((s) => s.userSkills);
   const sessionSkills = useSkillsStore((s) => s.sessionSkills);
@@ -86,6 +90,34 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
     );
   }, [slashQuery]);
 
+  // Extract @ mention query: search backwards from cursor for '@'
+  const atMention = useMemo(() => {
+    if (cursorPos === 0) return null;
+    const before = text.slice(0, cursorPos);
+    const atIdx = before.lastIndexOf("@");
+    if (atIdx === -1) return null;
+    // '@' must be at start of input or preceded by a space/newline
+    if (atIdx > 0 && !/[\s]/.test(before[atIdx - 1])) return null;
+    const query = before.slice(atIdx + 1);
+    // Break on whitespace — the user has moved past the token
+    if (/\s/.test(query)) return null;
+    return { query: query.toLowerCase(), start: atIdx, end: cursorPos };
+  }, [text, cursorPos]);
+
+  // Filter workspace files by @ query
+  const filteredFiles = useMemo(() => {
+    if (atMention === null) return [];
+    const files = fileEntries.filter((e) => e.type === "file");
+    if (atMention.query === "") return files.slice(0, 20);
+    return files
+      .filter(
+        (f) =>
+          f.name.toLowerCase().includes(atMention.query) ||
+          f.path.toLowerCase().includes(atMention.query),
+      )
+      .slice(0, 20);
+  }, [atMention, fileEntries]);
+
   // Combined flat list for keyboard navigation
   const filteredItems = useMemo<SlashItem[]>(() => {
     const items: SlashItem[] = [];
@@ -109,11 +141,13 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
 
   // Derive popup visibility directly (no effect delay)
   const showSlashDerived = filteredItems.length > 0 && slashQuery !== null;
+  const showFileMention = filteredFiles.length > 0 && atMention !== null;
+  const activePopup: "slash" | "file" | null = showSlashDerived ? "slash" : showFileMention ? "file" : null;
 
-  // Reset selection when the filtered list changes
+  // Reset selection when either popup's filtered list changes
   useEffect(() => {
     setSelectedIndex(0);
-  }, [filteredItems.length, slashQuery]);
+  }, [filteredItems.length, slashQuery, filteredFiles.length, atMention?.query]);
 
   // Re-focus textarea when it becomes enabled again
   useEffect(() => {
@@ -139,6 +173,30 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
       });
     },
     [],
+  );
+
+  const selectFile = useCallback(
+    (filePath: string) => {
+      if (!atMention) return;
+      const before = text.slice(0, atMention.start);
+      const after = text.slice(atMention.end);
+      const inserted = filePath + " ";
+      const newText = before + inserted + after;
+      setText(newText);
+      const newCursor = before.length + inserted.length;
+      setCursorPos(newCursor);
+      requestAnimationFrame(() => {
+        const el = textareaRef.current;
+        if (el) {
+          el.style.height = "auto";
+          el.style.height = Math.min(el.scrollHeight, 200) + "px";
+          el.focus();
+          el.selectionStart = newCursor;
+          el.selectionEnd = newCursor;
+        }
+      });
+    },
+    [text, atMention],
   );
 
   const handleSend = useCallback(() => {
@@ -194,7 +252,7 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
   }, [text, disabled, onSend, onInvokeSkill, onCompact, enabledSkills, mcpTools]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (showSlashDerived) {
+    if (activePopup === "slash") {
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setSelectedIndex((i) => Math.min(i + 1, filteredItems.length - 1));
@@ -215,6 +273,46 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
       if (e.key === "Escape") {
         e.preventDefault();
         setText("");
+        return;
+      }
+    }
+
+    if (activePopup === "file") {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIndex((i) => Math.min(i + 1, filteredFiles.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIndex((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        if (filteredFiles[selectedIndex]) {
+          selectFile(filteredFiles[selectedIndex].path);
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        // Remove the @query text to dismiss
+        if (atMention) {
+          const before = text.slice(0, atMention.start);
+          const after = text.slice(atMention.end);
+          setText(before + after);
+          const newCursor = before.length;
+          setCursorPos(newCursor);
+          requestAnimationFrame(() => {
+            const el = textareaRef.current;
+            if (el) {
+              el.focus();
+              el.selectionStart = newCursor;
+              el.selectionEnd = newCursor;
+            }
+          });
+        }
         return;
       }
     }
@@ -327,6 +425,36 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
           </div>
         )}
 
+        {/* File mention popup */}
+        {activePopup === "file" && (
+          <div
+            ref={filePopupRef}
+            className="absolute bottom-full left-0 right-0 mb-2 bg-background-secondary border border-border rounded-[var(--radius-lg)] shadow-lg overflow-hidden z-50 max-h-64 overflow-y-auto"
+          >
+            <div className="px-3 py-1.5 text-xs text-foreground-tertiary border-b border-border">
+              Files
+            </div>
+            {filteredFiles.map((file, idx) => (
+              <button
+                key={file.path}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => selectFile(file.path)}
+                className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors ${
+                  idx === selectedIndex
+                    ? "bg-surface-glass text-foreground"
+                    : "text-foreground-secondary hover:bg-surface-glass-hover"
+                }`}
+              >
+                <span className="text-xs text-foreground-tertiary">@</span>
+                <span className="text-sm font-medium text-primary truncate">{file.name}</span>
+                {file.name !== file.path && (
+                  <span className="text-xs text-foreground-tertiary truncate">{file.path}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="bg-background-tertiary border border-border rounded-[var(--radius-xl)] p-3 focus-glow transition-all">
           <div className="flex gap-2 items-end">
             <textarea
@@ -334,10 +462,13 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
               value={text}
               onChange={(e) => {
                 setText(e.target.value);
+                setCursorPos(e.target.selectionStart ?? 0);
                 handleInput();
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Ask me to analyze your data... Type / for workflows and tools"
+              onKeyUp={(e) => setCursorPos((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
+              onClick={(e) => setCursorPos((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
+              placeholder="Ask me to analyze your data... Type / for workflows, @ to mention files"
               disabled={disabled}
               rows={1}
               className="flex-1 resize-none bg-transparent border-0 px-2 py-1.5 text-sm text-foreground placeholder:text-foreground-tertiary outline-none disabled:opacity-50 disabled:cursor-not-allowed"
