@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuthStore } from "../../stores/auth";
 import { useSessionStore } from "../../stores/session";
-import { useFilesStore } from "../../stores/files";
 import { api } from "../../api/client";
 
 interface InlineImageGroupProps {
@@ -44,7 +43,11 @@ function InlineImage({ path }: { path: string }) {
   }, [path, sessionId]);
 
   const handleClick = () => {
-    useFilesStore.getState().selectFile(path);
+    if (!blobUrl) return;
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = path.split("/").pop() ?? "image";
+    a.click();
   };
 
   if (error) {

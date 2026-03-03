@@ -146,7 +146,7 @@ Then add it in settings: Name=`test-tools`, URL=`http://localhost:3099/sse`, Tra
 
 ### Inline image previews
 
-When the Pi agent creates image files during a conversation (e.g. matplotlib charts, generated plots), they appear as clickable thumbnails inline in the chat — no need to switch to the file panel. Supported formats: PNG, JPG, JPEG, GIF, SVG, WebP.
+When the Pi agent creates image files during a conversation (e.g. matplotlib charts, generated plots), they appear as clickable thumbnails inline in the chat. Clicking an image downloads it. Supported formats: PNG, JPG, JPEG, GIF, SVG, WebP.
 
 Images are persisted in the database alongside their associated assistant message, so they restore in the correct position when you return to a session later. Pi also receives its own generated images back as visual context in tool results, so it can see and iterate on charts and plots it creates.
 
