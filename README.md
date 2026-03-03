@@ -73,9 +73,11 @@ browork/
 │   │   └── src/
 │   │       ├── index.ts              # Entry point
 │   │       ├── routes/health.ts      # GET /health
+│   │       ├── routes/auth.ts        # Login, register, me (includes isAdmin)
 │   │       ├── routes/sessions.ts    # Session CRUD
 │   │       ├── routes/files.ts       # File management API
 │   │       ├── routes/skills.ts      # Skills CRUD + invoke
+│   │       ├── routes/settings.ts    # Per-user & system-wide AGENTS.md settings
 │   │       ├── services/pi-session.ts # Pi SDK wrapper + mock mode
 │   │       ├── services/mcp-manager.ts # MCP server config CRUD (SQLite)
 │   │       ├── services/mcp-client.ts  # MCP client connections (SSE/HTTP)
@@ -84,24 +86,24 @@ browork/
 │   │       ├── services/agents-md-tracker.ts # Live AGENTS.md change injection
 │   │       ├── services/file-watcher.ts # Chokidar file watching
 │   │       ├── tools/web-tools.ts    # Web search & fetch tools (Brave API)
+│   │       ├── tools/ask-user.ts     # Interactive ask_user tool for mid-execution input
 │   │       ├── tools/mcp-bridge.ts   # MCP→Pi tool format bridge
+│   │       ├── utils/image-inject.ts # Injects Pi-created images back into tool results
 │   │       ├── db/database.ts        # SQLite init (better-sqlite3, WAL mode)
 │   │       ├── db/session-store.ts   # Session & message CRUD
 │   │       ├── utils/                # Testable utilities (CSV, safePath, events)
 │   │       ├── __tests__/            # Vitest tests
 │   │       └── ws/session-stream.ts  # WebSocket handler
-│   ├── skills/          # Bundled workflow skills
-│   │   ├── chart-generator/SKILL.md
-│   │   └── financial-report/SKILL.md
+│   ├── skills/          # Placeholder package (bundled skills removed)
 │   └── web/             # React frontend (Vite + Tailwind)
 │       └── src/
 │           ├── App.tsx               # Root component + WebSocket wiring
 │           ├── api/client.ts         # REST + WebSocket URL helpers
-│           ├── components/chat/      # ChatPanel, Composer, MessageBubble, InlineImageGroup, SkillBadge
+│           ├── components/chat/      # ChatPanel, Composer, MessageBubble, AskUserCard, InlineImageGroup
 │           ├── components/files/     # FilePanel, FileTree, editors, viewers
-│           ├── components/layout/    # AppLayout, SessionSidebar, StatusPanel
+│           ├── components/layout/    # AppLayout, SessionSidebar, StatusPanel, SettingsDialog
 │           ├── hooks/useWebSocket.ts # WebSocket with reconnection
-│           └── stores/               # Zustand stores (session, files, skills)
+│           └── stores/               # Zustand stores (session, files, skills, auth)
 ├── docs/
 │   └── skills-guide.md  # User-facing skills documentation
 ├── package.json         # Workspace root
@@ -146,7 +148,19 @@ Then add it in settings: Name=`test-tools`, URL=`http://localhost:3099/sse`, Tra
 
 When the Pi agent creates image files during a conversation (e.g. matplotlib charts, generated plots), they appear as clickable thumbnails inline in the chat — no need to switch to the file panel. Supported formats: PNG, JPG, JPEG, GIF, SVG, WebP.
 
-Images are persisted in the database alongside their associated assistant message, so they restore in the correct position when you return to a session later.
+Images are persisted in the database alongside their associated assistant message, so they restore in the correct position when you return to a session later. Pi also receives its own generated images back as visual context in tool results, so it can see and iterate on charts and plots it creates.
+
+### @ file mentions
+
+Type `@` in the composer to browse and reference workspace files inline. A popup appears with keyboard navigation (arrow keys, Enter, Escape) and directory drill-down — selecting a directory expands its contents rather than inserting it. Selected files are inserted as `@path/to/file` references in your message.
+
+### Interactive prompts (ask_user)
+
+Pi can pause mid-execution to ask you questions via a multi-choice card in the chat. Options support single-select, multi-select, and free-text "Other" input. The agent blocks until you respond (5-minute timeout), then continues with your answer.
+
+### Thinking transparency
+
+When Pi uses extended thinking (configurable via `DEFAULT_THINKING_LEVEL`), a live snippet of its reasoning is shown in the status area below the chat. This lets you see what Pi is considering as it works.
 
 ### Context usage and compaction
 
@@ -155,6 +169,10 @@ A progress bar in the right-panel footer shows how much of the model's context w
 ### Live project instructions (AGENTS.md)
 
 If you create or edit an `AGENTS.md` file in your workspace, the updated instructions are automatically injected into the next prompt to the Pi agent — no session restart needed. This lets you iteratively refine project-level guidance (coding standards, output formats, domain rules) while the agent is running.
+
+### Per-user AGENTS.md settings
+
+Open **Settings** (gear icon) to customize the default AGENTS.md content written into every new session. Each user can maintain their own version. Admin users (see below) can also save a system-wide default that applies to all users who haven't set a personal override.
 
 ## User Skills (Promote / Demote)
 
@@ -202,7 +220,7 @@ npm run install-skill -- https://github.com/anthropics/skills skill-creator --fo
 npm test
 ```
 
-Runs Vitest server-side tests (~203 tests): file routes, CSV parser, path traversal, Pi event translation, skill manager, user skills (promote/demote), session store, sandbox manager, MCP manager.
+Runs Vitest server-side tests (~213 tests): file routes, CSV parser, path traversal, Pi event translation, skill manager, user skills (promote/demote), session store, sandbox manager, MCP manager.
 
 ## Build
 
@@ -226,5 +244,6 @@ npm run build
 | `SANDBOX_MEMORY` | `512m` | Memory limit per sandbox container |
 | `SANDBOX_CPUS` | `1.0` | CPU limit per sandbox container |
 | `SANDBOX_NETWORK` | `bridge` | Docker network for sandbox containers (`none` to fully isolate) |
+| `ADMIN_USERNAMES` | — | Comma-separated list of admin usernames (can save system-wide AGENTS.md default) |
 | `BRAVE_API_KEY` | — | Brave Search API key (enables `web_search` and `web_fetch` tools) |
 | `VITE_APP_NAME` | `#opentowork` | User-facing app name |

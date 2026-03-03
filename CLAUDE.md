@@ -15,7 +15,7 @@ npm install              # Install all workspace dependencies
 npm run dev              # Run both server (:3001) and web (:5173) concurrently
 npm run dev:server       # Backend only (tsx watch, hot reload)
 npm run dev:web          # Frontend only (Vite dev server, proxies /api to :3001)
-npm test                 # Run server-side Vitest tests (~203 tests)
+npm test                 # Run server-side Vitest tests (~213 tests)
 npm run build            # Build server (tsc) then web (tsc + vite build)
 npm run lint             # ESLint across all packages
 npm run install-skill -- <repo-url> <skill-name>  # Install a single skill from a remote repo
@@ -30,9 +30,9 @@ Watch mode: `npm run test:watch --workspace=packages/server`
 
 ### `packages/server` — Fastify 5 backend
 - **Entry**: `src/index.ts`
-- **Routes** (`src/routes/`): REST endpoints for auth, sessions, files, skills, health, MCP
+- **Routes** (`src/routes/`): REST endpoints for auth, sessions, files, skills, settings, health, MCP
 - **Services** (`src/services/`): Pi SDK wrapper (with mock fallback), skill manager, file watcher (chokidar), MCP client manager, sandbox manager
-- **Tools** (`src/tools/`): Custom Pi tools — web search/fetch (`web-tools.ts`), MCP bridge (`mcp-bridge.ts`)
+- **Tools** (`src/tools/`): Custom Pi tools — web search/fetch (`web-tools.ts`), interactive ask_user (`ask-user.ts`), MCP bridge (`mcp-bridge.ts`)
 - **WebSocket** (`src/ws/session-stream.ts`): Streams Pi agent events to the client in real-time
 - **Database** (`src/db/`): SQLite via better-sqlite3 (WAL mode), no ORM — direct prepared statements. Tables: users, tokens, sessions, messages (with `images` column for inline image persistence), mcp_servers
 - **Auth** (`src/plugins/auth.ts`): Bearer token validation as a Fastify plugin; scrypt password hashing
@@ -43,18 +43,19 @@ Watch mode: `npm run test:watch --workspace=packages/server`
 - **Build**: Vite 6 with `@` path alias → `./src/`
 - **Styling**: Tailwind CSS 4 (v4 `@theme` tokens, `@tailwindcss/vite` plugin). Base font: Plus Jakarta Sans at 17px. No serif fonts.
 - **State**: Zustand stores in `src/stores/` — session (messages, streaming), files, skills, auth (localStorage-backed)
-- **Layout**: 3-panel (`src/components/layout/AppLayout.tsx`) — collapsible sidebar, chat panel, resizable file panel
+- **Layout**: 3-panel (`src/components/layout/AppLayout.tsx`) — collapsible sidebar, chat panel, resizable file panel. `SettingsDialog.tsx` for per-user AGENTS.md configuration.
 - **File tree**: react-arborist with drag-and-drop move, inline rename, per-file download, and colored Lucide file-type icons (`FileIcon` component in `FileTree.tsx`)
 - **Editors**: CodeMirror (code), AG Grid (CSV), Markdown editor (`@uiw/react-md-editor`) in `src/components/files/editors/`
 - **Viewers**: Image, PDF, and HTML (sandboxed iframe with source toggle) in `src/components/files/viewers/`
-- **Chat**: Message bubbles + rich tool call cards (`ToolCallCard.tsx`) with terminal-style bash output, color-coded diffs for edits, and expandable result details. Inline image previews (`InlineImageGroup.tsx`) for Pi-generated images (charts, plots).
+- **Chat**: Message bubbles + rich tool call cards (`ToolCallCard.tsx`) with terminal-style bash output, color-coded diffs for edits, and expandable result details. Inline image previews (`InlineImageGroup.tsx`) for Pi-generated images. Interactive `AskUserCard.tsx` for mid-execution user prompts. `@` file mention popup in Composer for inline file references with directory drill-down.
 - **Context bar**: Progress bar showing context window usage; `/compact` command to compress context
+- **Thinking transparency**: Live display of Pi's extended reasoning in the status area (from `thinking_delta` WebSocket events)
 - **App config**: `src/config.ts` exports `APP_NAME` from `VITE_APP_NAME` env var
 - **WebSocket hook**: `src/hooks/useWebSocket.ts` with automatic reconnection and backoff
 - **API client**: `src/api/client.ts` — centralized REST + WebSocket URL helpers
 
-### `packages/skills` — Bundled workflow definitions
-Markdown files with YAML frontmatter (`SKILL.md`) for chart-generator, financial-report, etc. At server startup, these are symlinked into `~/.pi/agent/skills/` so Pi's `DefaultResourceLoader` discovers them natively. Additional skills can be installed from remote repos via `npm run install-skill`.
+### `packages/skills` — Skill package placeholder
+Previously bundled workflow definitions (chart-generator, financial-report) which have been removed. Skills are now installed from remote repos via `npm run install-skill` into `~/.pi/agent/skills/`, or created by Pi during sessions in `{workspace}/.pi/skills/`, or promoted to per-user storage at `{DATA_ROOT}/user-skills/{userId}/`.
 
 ## Key Patterns
 
@@ -96,6 +97,15 @@ Markdown files with YAML frontmatter (`SKILL.md`) for chart-generator, financial
   - MCP servers are global (shared across all users). Config stored in `mcp_servers` table (columns: `name`, `url`, `transport`, `headers`, `enabled`).
   - Routes (`/api/mcp/servers`) include live connection `status`, `toolCount`, and `error` from the client manager. Additional endpoints: `GET /api/mcp/servers/:name/tools`, `POST /api/mcp/servers/:name/reconnect`.
   - Test MCP server: `npx tsx scripts/test-mcp-server.ts` (port 3099, SSE, tools: `random_number`, `factorial`).
+- **Admin role** (`ADMIN_USERNAMES` env var): Comma-separated list of admin usernames. `isAdminUser()` in `auth.ts` checks membership (case-insensitive). All auth endpoints (`login`, `register`, `me`) include `isAdmin: boolean` in the user response. No DB schema change — admin is config-driven. Currently admins can save a system-wide default AGENTS.md via `PUT /settings/agents-md/default` (403 for non-admins). The frontend shows a "Save as Default" button in `SettingsDialog.tsx` for admin users.
+- **Per-user AGENTS.md settings** (`settings.ts`):
+  - Each user can customize the AGENTS.md written into new sessions via `PUT /settings/agents-md`. Stored at `{DATA_ROOT}/user-settings/{userId}/AGENTS.md`.
+  - System-wide default stored at `{DATA_ROOT}/system-settings/AGENTS.md`, writable by admins. `readSystemDefault()` reads from disk, falls back to hardcoded `DEFAULT_AGENTS_MD`.
+  - Session creation (`sessions.ts`) uses `readSystemDefault()` as the base, overridden by user-specific content if present.
+  - Frontend: `SettingsDialog.tsx` (opened via gear icon) with textarea editor, "Revert to Default" button, and admin-only "Save as Default".
+- **ask_user tool** (`tools/ask-user.ts`): A Pi SDK `ToolDefinitionLike` that pauses agent execution to present a multi-choice questionnaire to the user. The tool creates a deferred Promise and sends the question via WebSocket. The user responds through `AskUserCard.tsx` (multi-step card with single/multi-select, free-text "Other" input). Response is sent back via WebSocket `ask_user_response` event, resolving the Promise so Pi continues. 5-minute timeout.
+- **Image injection** (`utils/image-inject.ts`): After Pi executes a bash command, `wrapBashWithImageInjection()` scans the workspace for newly created image files (PNG, JPG, GIF, WebP) and appends up to 3 as `ImageContent` objects to the bash tool result. This lets Pi see charts and plots it creates. The wrapped bash tool is injected into `_baseToolsOverride` in `pi-session.ts`.
+- **@ file mentions** (Composer): Typing `@` in the chat composer opens a popup showing workspace files with keyboard navigation and directory drill-down. Selecting a file inserts `@path/to/file` into the message; selecting a directory expands its contents. The file list is fetched from the files store.
 
 ## Pi System Prompt
 
