@@ -200,7 +200,7 @@ export function AskUserCard({ requestId, questions, onSubmit }: AskUserCardProps
 
         {/* Next / Submit */}
         {!submitted && (
-          <div className="border-t border-border/30 px-3 py-2">
+          <div className="border-t border-border/30 px-3 py-2 flex justify-end">
             {isLastStep ? (
               <button
                 disabled={!currentAnswered}
