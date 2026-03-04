@@ -109,21 +109,33 @@ export interface AuthConfig {
   authMode: "local" | "ldap";
 }
 
+/**
+ * Direct fetch for auth endpoints (login/register) that should NOT
+ * trigger the generic 401 → "Session expired" logout handler.
+ */
+async function authRequest<T>(path: string, body: object): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 export const api = {
   health: () => fetch("/health").then((r) => r.json()) as Promise<HealthStatus>,
   auth: {
     config: () =>
       fetch(`${BASE}/auth/config`).then((r) => r.json()) as Promise<AuthConfig>,
     login: (username: string, password: string) =>
-      request<{ user: UserMeta; token: string }>("/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ username, password }),
-      }),
+      authRequest<{ user: UserMeta; token: string }>("/auth/login", { username, password }),
     register: (username: string, displayName: string, password: string) =>
-      request<{ user: UserMeta; token: string }>("/auth/register", {
-        method: "POST",
-        body: JSON.stringify({ username, displayName, password }),
-      }),
+      authRequest<{ user: UserMeta; token: string }>("/auth/register", { username, displayName, password }),
     logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
     me: () => request<{ user: UserMeta }>("/auth/me"),
   },
