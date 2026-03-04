@@ -214,6 +214,10 @@ To overwrite an already-installed skill, pass `--force`:
 npm run install-skill -- https://github.com/anthropics/skills skill-creator --force
 ```
 
+After installing, restart the server so the skill is picked up. At startup, Browork:
+- Cleans up any broken symlinks in `~/.pi/agent/skills/`
+- Generates `~/.pi/agent/APPEND_SYSTEM.md` with a table mapping each skill to its absolute directory path (so Pi resolves relative script/doc references correctly) and a list of pre-installed packages (so Pi doesn't waste time reinstalling them)
+
 ## Tests
 
 ```bash

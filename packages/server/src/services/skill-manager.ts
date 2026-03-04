@@ -8,9 +8,9 @@
  * the Agent Skills standard (https://agentskills.io/specification).
  */
 
-import { readdir, readFile, mkdir, symlink, readlink, unlink, lstat, cp, rm } from "fs/promises";
-import { resolve, join, basename } from "path";
-import { existsSync } from "fs";
+import { readdir, readFile, mkdir, symlink, readlink, unlink, lstat, cp, rm, writeFile } from "fs/promises";
+import { resolve, join, basename, dirname } from "path";
+import { existsSync, realpathSync } from "fs";
 import { homedir } from "os";
 
 // ── Types ──
@@ -127,13 +127,19 @@ export async function initSkills(
   }
 
   // Symlink bundled skills to Pi's global skills directory
-  await symlinkGlobalSkills(opts?.globalSkillsDir);
+  const globalDir = opts?.globalSkillsDir ?? GLOBAL_SKILLS_DIR;
+  await symlinkGlobalSkills(globalDir);
+
+  // Clean up broken symlinks in the global skills directory
+  await cleanBrokenSymlinks(globalDir);
 
   // Scan global skills dir to pick up externally-installed skills (e.g. via install-skill)
-  const globalDir = opts?.globalSkillsDir ?? GLOBAL_SKILLS_DIR;
   if (existsSync(globalDir)) {
     await scanSkillDirectory(globalDir);
   }
+
+  // Write APPEND_SYSTEM.md with skill directory mappings so Pi resolves relative paths
+  await writeSkillPathsAppendPrompt(globalDir);
 
   console.log(
     `Loaded ${skills.size} skills: ${Array.from(skills.keys()).join(", ")}`,
@@ -255,6 +261,86 @@ export async function symlinkGlobalSkills(
       console.warn(`Failed to symlink skill ${skill.name} to ${linkPath}:`, err);
     }
   }
+}
+
+/**
+ * Remove broken symlinks from the skills directory.
+ * These can accumulate when bundled skills are removed or repos move.
+ */
+async function cleanBrokenSymlinks(dir: string): Promise<void> {
+  if (!existsSync(dir)) return;
+  try {
+    const entries = await readdir(dir);
+    for (const entry of entries) {
+      const fullPath = join(dir, entry);
+      try {
+        const stat = await lstat(fullPath);
+        if (!stat.isSymbolicLink()) continue;
+        // Check if target exists
+        try {
+          realpathSync(fullPath);
+        } catch {
+          // Target doesn't exist — broken symlink
+          console.log(`Removing broken skill symlink: ${entry}`);
+          await unlink(fullPath);
+        }
+      } catch {
+        // Skip entries we can't stat
+      }
+    }
+  } catch {
+    // Directory not readable
+  }
+}
+
+/**
+ * Write ~/.pi/agent/APPEND_SYSTEM.md with skill directory mappings.
+ * This tells Pi the absolute base directory for each installed skill so it
+ * can resolve relative paths (scripts, reference docs) in SKILL.md files.
+ */
+async function writeSkillPathsAppendPrompt(globalDir: string): Promise<void> {
+  const piAgentDir = dirname(globalDir);
+  const appendPath = join(piAgentDir, "APPEND_SYSTEM.md");
+
+  // Collect skills that have supporting files (scripts/ dir or extra .md files)
+  const skillEntries: { name: string; dirPath: string }[] = [];
+  for (const skill of skills.values()) {
+    skillEntries.push({ name: skill.name, dirPath: resolve(skill.dirPath) });
+  }
+
+  if (skillEntries.length === 0) {
+    // Clean up if no skills
+    await rm(appendPath, { force: true }).catch(() => {});
+    return;
+  }
+
+  const lines = [
+    "## Skill Directories",
+    "",
+    "When a SKILL.md references relative paths (e.g. `scripts/thumbnail.py`, `editing.md`),",
+    "resolve them against that skill's base directory listed below — NOT the workspace cwd.",
+    "Always use the absolute path in bash commands and read tool calls.",
+    "",
+    "| Skill | Base Directory |",
+    "|-------|---------------|",
+    ...skillEntries.map((s) => `| ${s.name} | \`${s.dirPath}\` |`),
+    "",
+    "## Pre-installed Packages",
+    "",
+    "The following packages are already installed globally. Do NOT run pip install or npm install for these.",
+    "",
+    "**Python:** pandas, numpy, scipy, matplotlib, seaborn, openpyxl, xlsxwriter, pypdf, pypdfium2,",
+    "pdfplumber, reportlab, Pillow, pytesseract, pdf2image, markitdown, defusedxml, yfinance, fredapi,",
+    "pandas-datareader, requests, python-dateutil",
+    "",
+    "**Node.js (global, NODE_PATH set):** pptxgenjs, docx, pdf-lib, pdfjs-dist",
+    "",
+    "**System tools:** LibreOffice (soffice), poppler-utils (pdftoppm, pdftotext, pdfimages),",
+    "qpdf, tesseract-ocr, imagemagick, pandoc, ripgrep, jq, git, curl",
+  ];
+
+  await mkdir(piAgentDir, { recursive: true });
+  await writeFile(appendPath, lines.join("\n") + "\n", "utf-8");
 }
 
 // ── User & Session Skills ──
