@@ -152,7 +152,9 @@ Images are persisted in the database alongside their associated assistant messag
 
 ### Tool call persistence
 
-Tool call cards (bash output, file reads/edits, diffs, etc.) are now persisted across session switches. When you leave a session and come back, the rich tool call cards reappear in the correct timeline position — not just the user/assistant message text. Tool results are truncated at 4000 characters to keep storage reasonable.
+Tool call cards (bash output, file reads/edits, diffs, etc.) are persisted across session reloads and session switches. When you leave a session and come back, the rich tool call cards reappear in the correct timeline position — not just the user/assistant message text. Tool results are truncated at 4000 characters to keep storage reasonable.
+
+If the Pi agent is still running when you switch away and come back, all tool calls that happened while you were away are replayed to the client immediately on reconnect — no data is lost.
 
 ### @ file mentions
 

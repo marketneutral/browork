@@ -20,6 +20,7 @@ import { bridgeMcpTools } from "../tools/mcp-bridge.js";
 import { symlinkUserSkillsToWorkspace } from "./skill-manager.js";
 import { consumeAgentsMdUpdate, formatAgentsMdInjection } from "./agents-md-tracker.js";
 import { wrapBashWithImageInjection } from "../utils/image-inject.js";
+import { addMessage, setLastMessageImages, setLastMessageToolCalls } from "../db/session-store.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
@@ -63,6 +64,12 @@ export interface PiSessionHandle {
   dispose(): void;
   /** Re-wire events to a new WebSocket (e.g. after reconnect) */
   rebindSocket(ws: WebSocket): void;
+  /** Turn-scoped buffers that survive WebSocket reconnects */
+  turnState: {
+    assistantBuffer: string;
+    turnImagePaths: Set<string>;
+    turnToolCalls: { tool: string; args: unknown; result?: unknown; isError?: boolean }[];
+  };
 }
 
 // Active sessions keyed by session ID
@@ -194,21 +201,86 @@ export async function createPiSession(
   let isRunning = false;
   const isSandboxActive = !!sandboxUserId;
 
+  // Turn-scoped buffers live here (not in the WebSocket handler closure)
+  // so they survive socket reconnects when the user switches sessions.
+  const turnState: PiSessionHandle["turnState"] = {
+    assistantBuffer: "",
+    turnImagePaths: new Set(),
+    turnToolCalls: [],
+  };
+
+  const MAX_RESULT_LENGTH = 4000;
+  function truncateToolResult(result: unknown): unknown {
+    if (typeof result === "string") {
+      return result.length > MAX_RESULT_LENGTH
+        ? result.slice(0, MAX_RESULT_LENGTH) + "… (truncated)"
+        : result;
+    }
+    if (result && typeof result === "object") {
+      const json = JSON.stringify(result);
+      if (json.length > MAX_RESULT_LENGTH) {
+        return json.slice(0, MAX_RESULT_LENGTH) + "… (truncated)";
+      }
+    }
+    return result;
+  }
+
   const unsubscribe = session.subscribe((event) => {
     const broworkEvent = translatePiEvent(event);
-    if (broworkEvent) {
-      console.log(`[pi-event] ${broworkEvent.type} ${(broworkEvent as any).tool ?? ""}`);
+    if (!broworkEvent) return;
 
-      if (broworkEvent.type === "agent_start") isRunning = true;
-      if (broworkEvent.type === "agent_end") isRunning = false;
+    console.log(`[pi-event] ${broworkEvent.type} ${(broworkEvent as any).tool ?? ""}`);
 
-      if (activeWs.readyState === activeWs.OPEN) {
-        activeWs.send(JSON.stringify(broworkEvent));
-
-        // After agent_end, send context usage info
-        if (broworkEvent.type === "agent_end") {
-          sendContextUsage();
+    // Always accumulate into turnState regardless of socket state,
+    // so tool calls and messages are captured even during disconnection.
+    switch (broworkEvent.type) {
+      case "agent_start":
+        isRunning = true;
+        break;
+      case "message_delta":
+        turnState.assistantBuffer += broworkEvent.text;
+        break;
+      case "tool_start":
+        turnState.turnToolCalls.push({ tool: broworkEvent.tool, args: broworkEvent.args });
+        break;
+      case "tool_end":
+        for (let i = turnState.turnToolCalls.length - 1; i >= 0; i--) {
+          if (turnState.turnToolCalls[i].tool === broworkEvent.tool && turnState.turnToolCalls[i].result === undefined) {
+            turnState.turnToolCalls[i].result = truncateToolResult(broworkEvent.result);
+            turnState.turnToolCalls[i].isError = broworkEvent.isError || false;
+            break;
+          }
         }
+        break;
+      case "message_end":
+        if (turnState.assistantBuffer) {
+          addMessage(sessionId, "assistant", turnState.assistantBuffer, Date.now());
+          turnState.assistantBuffer = "";
+        }
+        break;
+      case "agent_end": {
+        const images = turnState.turnImagePaths.size > 0 ? JSON.stringify([...turnState.turnImagePaths]) : null;
+        const toolCallsJson = turnState.turnToolCalls.length > 0 ? JSON.stringify(turnState.turnToolCalls) : null;
+        if (turnState.assistantBuffer) {
+          addMessage(sessionId, "assistant", turnState.assistantBuffer, Date.now(), images, toolCallsJson);
+          turnState.assistantBuffer = "";
+        } else {
+          if (images) setLastMessageImages(sessionId, images);
+          if (toolCallsJson) setLastMessageToolCalls(sessionId, toolCallsJson);
+        }
+        turnState.turnImagePaths = new Set();
+        turnState.turnToolCalls = [];
+        isRunning = false;
+        break;
+      }
+    }
+
+    // Forward to client if connected
+    if (activeWs.readyState === activeWs.OPEN) {
+      activeWs.send(JSON.stringify(broworkEvent));
+
+      if (broworkEvent.type === "agent_end") {
+        sendContextUsage();
       }
     }
   });
@@ -231,6 +303,7 @@ export async function createPiSession(
 
   const handle: PiSessionHandle = {
     id: sessionId,
+    turnState,
     async sendPrompt(text: string) {
       const update = consumeAgentsMdUpdate(workDir);
       const final = update ? formatAgentsMdInjection(update, text) : text;
@@ -261,6 +334,20 @@ export async function createPiSession(
       sendContextUsage();
       if (isRunning) {
         send(activeWs, { type: "agent_start" });
+
+        // Replay accumulated tool calls so the client catches up on
+        // everything that happened while it was disconnected.
+        for (const tc of turnState.turnToolCalls) {
+          send(activeWs, { type: "tool_start", tool: tc.tool, args: tc.args });
+          if (tc.result !== undefined) {
+            send(activeWs, { type: "tool_end", tool: tc.tool, result: tc.result, isError: tc.isError || false });
+          }
+        }
+
+        // Replay any assistant text accumulated so far in this turn
+        if (turnState.assistantBuffer) {
+          send(activeWs, { type: "message_delta", text: turnState.assistantBuffer });
+        }
       }
     },
   };
@@ -299,6 +386,11 @@ function createMockSession(
 
   const handle: PiSessionHandle = {
     id: sessionId,
+    turnState: {
+      assistantBuffer: "",
+      turnImagePaths: new Set(),
+      turnToolCalls: [],
+    },
     async sendPrompt(text: string) {
       const update = consumeAgentsMdUpdate(workDir);
       const finalText = update ? formatAgentsMdInjection(update, text) : text;
