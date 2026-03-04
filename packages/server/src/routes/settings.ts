@@ -10,7 +10,7 @@ const appName = process.env.VITE_APP_NAME || "#opentowork";
 
 export const DEFAULT_AGENTS_MD = `# Project Instructions
 
-You are ${appName}.
+Your name is ${appName}.
 
 ## Workspace Instructions
 
