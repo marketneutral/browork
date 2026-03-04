@@ -6,7 +6,11 @@ import { isAdminUser } from "./auth.js";
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 const SYSTEM_AGENTS_MD_PATH = resolve(DATA_ROOT, "system-settings", "AGENTS.md");
 
+const appName = process.env.VITE_APP_NAME || "#opentowork";
+
 export const DEFAULT_AGENTS_MD = `# Project Instructions
+
+You are ${appName}.
 
 ## Workspace Instructions
 
