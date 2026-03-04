@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useSessionStore } from "../../stores/session";
 import type { ChatMessage, ToolCallGroup as ToolCallGroupType, TurnImages } from "../../stores/session";
 import { useSkillsStore } from "../../stores/skills";
@@ -47,6 +47,20 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
   const thinkingText = useSessionStore((s) => s.thinkingText);
   const activeSkill = useSkillsStore((s) => s.activeSkill);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const thinkingPanelRef = useRef<HTMLPreElement>(null);
+  const [thinkingOpen, setThinkingOpen] = useState(false);
+
+  // Auto-close thinking popover when thinking ends
+  useEffect(() => {
+    if (!thinkingText) setThinkingOpen(false);
+  }, [thinkingText]);
+
+  // Auto-scroll thinking panel while streaming
+  useEffect(() => {
+    if (thinkingOpen && thinkingPanelRef.current) {
+      thinkingPanelRef.current.scrollTop = thinkingPanelRef.current.scrollHeight;
+    }
+  }, [thinkingOpen, thinkingText]);
 
   // Merge messages and tool call groups into a single timeline sorted by seq
   const timeline = useMemo<TimelineItem[]>(() => {
@@ -150,6 +164,28 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
 
       </div>
 
+      {/* Thinking popover — above status bar */}
+      {thinkingOpen && thinkingText && (
+        <div className="mx-4 mb-1 border border-border/50 rounded-lg bg-surface-glass shadow-lg overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/30">
+            <span className="text-xs text-foreground-tertiary italic">Extended thinking</span>
+            <button
+              onClick={() => setThinkingOpen(false)}
+              className="text-xs text-foreground-tertiary hover:text-foreground-secondary"
+            >
+              Close
+            </button>
+          </div>
+          <pre
+            ref={thinkingPanelRef}
+            className="px-3 py-2 text-xs font-mono text-foreground-tertiary max-h-48 overflow-y-auto whitespace-pre-wrap break-words"
+          >
+            {thinkingText}
+            <span className="inline-block w-1.5 h-3.5 bg-foreground-tertiary/50 animate-pulse ml-0.5 align-text-bottom" />
+          </pre>
+        </div>
+      )}
+
       {/* Agent status bar — always visible above composer */}
       <div className="px-4 pt-1.5 text-xs text-foreground-tertiary border-t border-border flex items-center gap-2">
         {isStreaming ? (
@@ -160,7 +196,14 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
                 ? "Waiting for your response..."
                 : activeSkill
                   ? `Running workflow: ${activeSkill.label}...`
-                  : runningToolLabel ?? (thinkingText ? thinkingSnippet(thinkingText) : "Thinking...")}
+                  : runningToolLabel ?? (thinkingText ? (
+                    <button
+                      onClick={() => setThinkingOpen((v) => !v)}
+                      className="hover:text-foreground transition-colors cursor-pointer"
+                    >
+                      {thinkingSnippet(thinkingText)}
+                    </button>
+                  ) : "Thinking...")}
             </span>
             <button
               onClick={onAbort}
