@@ -13,12 +13,12 @@
   --color-border-hover:         #3d3a36;
   --color-muted:                #1c1b1a;
   --color-muted-foreground:     #8c857e;
-  --color-primary:              #c15f3c;
-  --color-primary-hover:        #d97757;
-  --color-primary-foreground:   #ffffff;
-  --color-accent-start:         #c15f3c;
-  --color-accent-mid:           #c15f3c;
-  --color-accent-end:           #c15f3c;
+  --color-primary:              #75B8DB;
+  --color-primary-hover:        #9BDDFF;
+  --color-primary-foreground:   #0a1a24;
+  --color-accent-start:         #75B8DB;
+  --color-accent-mid:           #75B8DB;
+  --color-accent-end:           #75B8DB;
   --color-card:                 #21201f;
   --color-surface-glass:        rgba(255,255,255,0.03);
   --color-surface-glass-border: rgba(255,255,255,0.06);
@@ -41,12 +41,12 @@
   --border-hover:         #3d3a36;
   --muted:                #1c1b1a;
   --muted-foreground:     #8c857e;
-  --primary:              #c15f3c;
-  --primary-hover:        #d97757;
-  --primary-foreground:   #ffffff;
-  --accent-start:         #c15f3c;
-  --accent-mid:           #c15f3c;
-  --accent-end:           #c15f3c;
+  --primary:              #75B8DB;
+  --primary-hover:        #9BDDFF;
+  --primary-foreground:   #0a1a24;
+  --accent-start:         #75B8DB;
+  --accent-mid:           #75B8DB;
+  --accent-end:           #75B8DB;
   --card:                 #21201f;
   --surface-glass:        rgba(255,255,255,0.03);
   --surface-glass-border: rgba(255,255,255,0.06);
@@ -61,7 +61,7 @@
   --radius-xl:            1rem;
   --glow-primary:         none;
   --glow-accent:          none;
-  --glow-focus:           0 0 0 2px rgba(193,95,60,0.3);
+  --glow-focus:           0 0 0 2px rgba(117,184,219,0.3);
   --glow-hover:           none;
 
   /* Typography */
@@ -160,15 +160,15 @@ code, pre, .font-mono {
 /* ── Utility classes ── */
 
 @utility text-gradient {
-  color: #c15f3c;
+  color: #75B8DB;
 }
 
 @utility bg-gradient-primary {
-  background: #c15f3c;
+  background: #75B8DB;
 }
 
 @utility bg-gradient-accent {
-  background: #c15f3c;
+  background: #75B8DB;
 }
 
 @utility glass {
@@ -231,7 +231,7 @@ code, pre, .font-mono {
 /* ── Selection ── */
 
 ::selection {
-  background: rgba(193, 95, 60, 0.3);
+  background: rgba(117, 184, 219, 0.3);
   color: #faf9f5;
 }
 
