@@ -100,7 +100,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       }
 
       if (isLdapMode()) {
-        // LDAP authentication
+        // LDAP authentication — use full input (name@domain) for bind
         let valid: boolean;
         try {
           valid = await authenticateLdap(username, password);
@@ -112,15 +112,19 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         if (!valid) {
           return reply.code(401).send({ error: "Invalid credentials" });
         }
+        // Strip @domain for the local Browork username
+        const localUsername = username.includes("@")
+          ? username.slice(0, username.indexOf("@"))
+          : username;
         // Auto-provision user in local DB if not present
-        const existing = getUserByUsername(username);
+        const existing = getUserByUsername(localUsername);
         let user;
         if (existing) {
           user = { id: existing.id, username: existing.username, displayName: existing.display_name, createdAt: existing.created_at };
         } else {
           const id = nanoid(12);
           const placeholder = randomBytes(32).toString("hex");
-          user = createUser(id, username, username, placeholder);
+          user = createUser(id, localUsername, localUsername, placeholder);
         }
         const token = createToken(user.id);
         return { user: { ...user, isAdmin: isAdminUser(user.username) }, token };
