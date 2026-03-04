@@ -519,7 +519,7 @@ export function ToolCallCard({ toolCall, nested }: ToolCallCardProps) {
 
   const card = (
     <div
-      className={`w-full rounded-[var(--radius)] border border-border/50 border-l-2 ${borderClass} bg-background-secondary/40 overflow-hidden transition-colors ${nested ? "" : "max-w-xl"}`}
+      className={`w-full rounded-lg border border-border/50 border-l-2 ${borderClass} bg-background-secondary/40 overflow-hidden transition-colors ${nested ? "" : "max-w-xl"}`}
     >
       {/* Header */}
       <button

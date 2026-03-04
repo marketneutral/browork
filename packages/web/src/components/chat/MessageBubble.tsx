@@ -41,7 +41,7 @@ export const MessageBubble = memo(function MessageBubble({
       className={`flex ${isUser ? "justify-end" : "justify-start"} animate-fade-in-up`}
     >
       <div
-        className={`relative group max-w-[75%] rounded-lg px-4 py-2.5 text-sm leading-relaxed ${
+        className={`relative group max-w-[75%] rounded-md px-4 py-2.5 text-sm leading-relaxed ${
           isUser
             ? "bg-gradient-primary text-white"
             : "glass text-foreground"

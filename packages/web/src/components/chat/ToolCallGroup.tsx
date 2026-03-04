@@ -42,7 +42,7 @@ export function ToolCallGroup({ group, defaultExpanded = false }: ToolCallGroupP
 
   return (
     <div className="flex justify-start animate-fade-in">
-      <div className="w-full max-w-xl rounded-[var(--radius)] border border-border/50 bg-background-secondary/40 overflow-hidden">
+      <div className="w-full max-w-xl rounded-lg border border-border/50 bg-background-secondary/40 overflow-hidden">
         {/* Collapsed header */}
         <button
           onClick={() => setExpanded((v) => !v)}

@@ -7,7 +7,6 @@ import { Composer } from "./Composer";
 import { ToolCallGroup } from "./ToolCallGroup";
 import { InlineImageGroup } from "./InlineImageGroup";
 import { AskUserCard } from "./AskUserCard";
-import { SkillBadge } from "./SkillBadge";
 import { APP_NAME } from "../../config";
 import { toolLabel } from "../../utils/tool-labels";
 import type { AskUserAnswer } from "../../types";
@@ -134,11 +133,6 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
           ),
         )}
 
-        {/* Active skill badge */}
-        {activeSkill && (
-          <SkillBadge skill={activeSkill.skill} label={activeSkill.label} />
-        )}
-
         {/* Streaming assistant text */}
         {currentText && (
           <MessageBubble
@@ -194,9 +188,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
             <span className="text-foreground-secondary">
               {pendingQuestion
                 ? "Waiting for your response..."
-                : activeSkill
-                  ? `Running workflow: ${activeSkill.label}...`
-                  : runningToolLabel ?? (thinkingText ? (
+                : runningToolLabel ?? (thinkingText ? (
                     <button
                       onClick={() => setThinkingOpen((v) => !v)}
                       className="hover:text-foreground transition-colors cursor-pointer"

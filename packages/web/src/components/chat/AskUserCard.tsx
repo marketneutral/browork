@@ -104,7 +104,7 @@ export function AskUserCard({ requestId, questions, onSubmit }: AskUserCardProps
 
   return (
     <div className="flex justify-start animate-fade-in-up">
-      <div className="w-full max-w-xl rounded-[var(--radius)] border border-border/50 border-l-2 border-l-primary/50 bg-background-secondary/60 overflow-hidden">
+      <div className="w-full max-w-xl rounded-lg border border-border/50 border-l-2 border-l-primary/50 bg-background-secondary/60 overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-2 text-xs">
           <MessageCircleQuestion className="w-4 h-4 text-primary shrink-0" />
