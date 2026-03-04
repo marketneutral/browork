@@ -73,7 +73,13 @@ RUN npm install -g pptxgenjs docx pdf-lib pdfjs-dist
 ENV NODE_PATH=/usr/local/lib/node_modules
 
 # Create a non-root user for safer execution
-RUN useradd -m -s /bin/bash analyst
+# UID/GID can be overridden at build time to match the host user so
+# bind-mounted workspace directories are writable on Linux.
+# Build with: docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) ...
+ARG UID=1000
+ARG GID=1000
+RUN groupadd -g $GID analyst 2>/dev/null || true \
+ && useradd -m -s /bin/bash -u $UID -g $GID analyst
 USER analyst
 
 WORKDIR /workspaces
