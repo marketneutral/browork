@@ -18,6 +18,7 @@ const PUBLIC_PATHS = [
   "/health",
   "/api/auth/login",
   "/api/auth/register",
+  "/api/auth/config",
 ];
 
 declare module "fastify" {

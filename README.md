@@ -48,6 +48,19 @@ AZURE_OPENAI_RESOURCE_NAME=<your-resource>
 DEFAULT_THINKING_LEVEL=medium
 ```
 
+## LDAP Authentication
+
+Set `AUTH_MODE=ldap` to authenticate users against an LDAP directory instead of local passwords. Users are auto-provisioned in the local database on first successful login.
+
+```bash
+# .env
+AUTH_MODE=ldap
+LDAP_URL=ldap://ldap.example.com:389
+LDAP_BIND_DN_TEMPLATE=uid={},ou=users,dc=example,dc=com
+```
+
+The `{}` in `LDAP_BIND_DN_TEMPLATE` is replaced with the username at login time. Registration is disabled in LDAP mode — the login page automatically hides the registration link.
+
 ## Docker Sandbox
 
 When `SANDBOX_ENABLED=true`, each user gets an isolated Docker container. All four Pi tools — **bash, read, write, and edit** — are routed into the container. Bash commands run via `docker exec` (`createSandboxBashOps`), and file operations use `createSandboxFileOps` which executes reads/writes/edits through the container filesystem. The workspaces directory is bind-mounted (`-v {DATA_ROOT}/workspaces:/workspaces`) so the host can still serve file downloads and uploads.
@@ -254,6 +267,9 @@ npm run build
 | `SANDBOX_MEMORY` | `512m` | Memory limit per sandbox container |
 | `SANDBOX_CPUS` | `1.0` | CPU limit per sandbox container |
 | `SANDBOX_NETWORK` | `bridge` | Docker network for sandbox containers (`none` to fully isolate) |
+| `AUTH_MODE` | `local` | Authentication mode: `local` (scrypt passwords) or `ldap` (LDAP simple bind) |
+| `LDAP_URL` | — | LDAP server URL (e.g. `ldap://ldap.example.com:389`). Required when `AUTH_MODE=ldap` |
+| `LDAP_BIND_DN_TEMPLATE` | — | DN template with `{}` placeholder for username (e.g. `uid={},ou=users,dc=example,dc=com`). Required when `AUTH_MODE=ldap` |
 | `ADMIN_USERNAMES` | — | Comma-separated list of admin usernames (can save system-wide AGENTS.md default) |
 | `BRAVE_API_KEY` | — | Brave Search API key (enables `web_search` and `web_fetch` tools) |
 | `VITE_APP_NAME` | `#opentowork` | User-facing app name |

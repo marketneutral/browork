@@ -103,6 +103,7 @@ Previously bundled workflow definitions (chart-generator, financial-report) whic
   - MCP servers are global (shared across all users). Config stored in `mcp_servers` table (columns: `name`, `url`, `transport`, `headers`, `enabled`).
   - Routes (`/api/mcp/servers`) include live connection `status`, `toolCount`, and `error` from the client manager. Additional endpoints: `GET /api/mcp/servers/:name/tools`, `POST /api/mcp/servers/:name/reconnect`.
   - Test MCP server: `npx tsx scripts/test-mcp-server.ts` (port 3099, SSE, tools: `random_number`, `factorial`).
+- **LDAP authentication** (`services/ldap-auth.ts`): When `AUTH_MODE=ldap`, login authenticates via LDAP simple bind instead of local scrypt password comparison. `LDAP_URL` and `LDAP_BIND_DN_TEMPLATE` (with `{}` placeholder for username) must be set. On first successful LDAP login, the user is auto-provisioned in the local SQLite DB with a random placeholder password. Registration is disabled in LDAP mode (403). The frontend fetches `GET /api/auth/config` on load to determine the auth mode and hides the registration link when in LDAP mode. Uses `ldapts` package.
 - **Admin role** (`ADMIN_USERNAMES` env var): Comma-separated list of admin usernames. `isAdminUser()` in `auth.ts` checks membership (case-insensitive). All auth endpoints (`login`, `register`, `me`) include `isAdmin: boolean` in the user response. No DB schema change — admin is config-driven. Currently admins can save a system-wide default AGENTS.md via `PUT /settings/agents-md/default` (403 for non-admins). The frontend shows a "Save as Default" button in `SettingsDialog.tsx` for admin users.
 - **Per-user AGENTS.md settings** (`settings.ts`):
   - Each user can customize the AGENTS.md written into new sessions via `PUT /settings/agents-md`. Stored at `{DATA_ROOT}/user-settings/{userId}/AGENTS.md`.
@@ -159,7 +160,7 @@ Pi documentation: [paths to Pi's own docs, only read when user asks about Pi its
 |-------|-----------|
 | Runtime | Node.js 22+, ESM throughout |
 | Language | TypeScript 5.7 strict |
-| Backend | Fastify 5, better-sqlite3, @fastify/websocket, adm-zip, @modelcontextprotocol/sdk |
+| Backend | Fastify 5, better-sqlite3, @fastify/websocket, adm-zip, @modelcontextprotocol/sdk, ldapts |
 | Frontend | React 19, Vite 6, Tailwind CSS 4, Zustand 5 |
 | File tree | react-arborist 3 |
 | Code editing | CodeMirror 6, AG Grid 33 |

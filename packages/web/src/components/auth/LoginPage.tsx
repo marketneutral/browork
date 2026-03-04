@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "../../api/client";
+import type { AuthConfig } from "../../api/client";
 import { useAuthStore } from "../../stores/auth";
 import { LogIn, UserPlus } from "lucide-react";
 import { APP_NAME } from "../../config";
@@ -11,6 +12,13 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
+
+  useEffect(() => {
+    api.auth.config().then(setAuthConfig).catch(() => {});
+  }, []);
+
+  const isLdap = authConfig?.authMode === "ldap";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,37 +111,39 @@ export function LoginPage() {
             )}
           </button>
 
-          <div className="text-center text-sm text-foreground-secondary">
-            {mode === "login" ? (
-              <>
-                Don't have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode("register");
-                    setError("");
-                  }}
-                  className="text-primary hover:text-primary-hover hover:underline"
-                >
-                  Register
-                </button>
-              </>
-            ) : (
-              <>
-                Already have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode("login");
-                    setError("");
-                  }}
-                  className="text-primary hover:text-primary-hover hover:underline"
-                >
-                  Sign in
-                </button>
-              </>
-            )}
-          </div>
+          {!isLdap && (
+            <div className="text-center text-sm text-foreground-secondary">
+              {mode === "login" ? (
+                <>
+                  Don't have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("register");
+                      setError("");
+                    }}
+                    className="text-primary hover:text-primary-hover hover:underline"
+                  >
+                    Register
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("login");
+                      setError("");
+                    }}
+                    className="text-primary hover:text-primary-hover hover:underline"
+                  >
+                    Sign in
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </form>
       </div>
     </div>

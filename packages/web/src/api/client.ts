@@ -105,9 +105,15 @@ export interface HealthStatus {
   sandbox: { enabled: boolean; dockerAvailable: boolean | null; imageAvailable: boolean | null; activeContainers: number };
 }
 
+export interface AuthConfig {
+  authMode: "local" | "ldap";
+}
+
 export const api = {
   health: () => fetch("/health").then((r) => r.json()) as Promise<HealthStatus>,
   auth: {
+    config: () =>
+      fetch(`${BASE}/auth/config`).then((r) => r.json()) as Promise<AuthConfig>,
     login: (username: string, password: string) =>
       request<{ user: UserMeta; token: string }>("/auth/login", {
         method: "POST",

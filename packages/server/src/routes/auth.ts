@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
+import { randomBytes } from "node:crypto";
 import { nanoid } from "nanoid";
 import {
   createUser,
@@ -7,6 +8,11 @@ import {
   deleteToken,
   getUserByUsername,
 } from "../db/user-store.js";
+import {
+  isLdapMode,
+  getAuthMode,
+  authenticateLdap,
+} from "../services/ldap-auth.js";
 
 function isAdminUser(username: string): boolean {
   const admins = (process.env.ADMIN_USERNAMES || "")
@@ -26,10 +32,21 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     },
   };
 
+  // Public config endpoint (no auth required)
+  app.get("/auth/config", async () => {
+    return { authMode: getAuthMode() };
+  });
+
   // Register a new user
   app.post<{
     Body: { username: string; displayName: string; password: string };
   }>("/auth/register", authRateConfig, async (req, reply) => {
+    if (isLdapMode()) {
+      return reply
+        .code(403)
+        .send({ error: "Registration is disabled when using LDAP authentication" });
+    }
+
     const { username, displayName, password } = req.body as {
       username: string;
       displayName: string;
@@ -82,6 +99,34 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
           .send({ error: "username and password are required" });
       }
 
+      if (isLdapMode()) {
+        // LDAP authentication
+        let valid: boolean;
+        try {
+          valid = await authenticateLdap(username, password);
+        } catch {
+          return reply
+            .code(502)
+            .send({ error: "Authentication service unavailable" });
+        }
+        if (!valid) {
+          return reply.code(401).send({ error: "Invalid credentials" });
+        }
+        // Auto-provision user in local DB if not present
+        const existing = getUserByUsername(username);
+        let user;
+        if (existing) {
+          user = { id: existing.id, username: existing.username, displayName: existing.display_name, createdAt: existing.created_at };
+        } else {
+          const id = nanoid(12);
+          const placeholder = randomBytes(32).toString("hex");
+          user = createUser(id, username, username, placeholder);
+        }
+        const token = createToken(user.id);
+        return { user: { ...user, isAdmin: isAdminUser(user.username) }, token };
+      }
+
+      // Local authentication
       const user = authenticateUser(username, password);
       if (!user) {
         return reply.code(401).send({ error: "Invalid credentials" });
