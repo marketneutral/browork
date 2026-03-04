@@ -244,6 +244,15 @@ export function App() {
                 }
               } catch { /* ignore malformed JSON */ }
             }
+            if (m.tool_calls) {
+              try {
+                const toolCalls = JSON.parse(m.tool_calls) as { tool: string; args: unknown; result?: unknown; isError?: boolean }[];
+                const msgSeq = seqByMsgId.get(`msg-${m.id}`);
+                if (toolCalls.length > 0 && msgSeq !== undefined) {
+                  useSessionStore.getState().addRestoredToolGroup(toolCalls, msgSeq - 0.5);
+                }
+              } catch { /* ignore malformed JSON */ }
+            }
           }
         }
       }).catch((err) => setError(err.message));

@@ -31,6 +31,7 @@ export interface MessageRow {
   content: string;
   timestamp: number;
   images: string | null;
+  tool_calls: string | null;
 }
 
 // ── Sessions ──
@@ -158,8 +159,8 @@ export function forkSession(
 
   // Copy all messages from source to fork
   db.prepare(`
-    INSERT INTO messages (session_id, role, content, timestamp, images)
-    SELECT ?, role, content, timestamp, images
+    INSERT INTO messages (session_id, role, content, timestamp, images, tool_calls)
+    SELECT ?, role, content, timestamp, images, tool_calls
     FROM messages
     WHERE session_id = ?
     ORDER BY timestamp
@@ -176,11 +177,12 @@ export function addMessage(
   content: string,
   timestamp: number,
   images?: string | null,
+  toolCalls?: string | null,
 ): void {
   const db = getDb();
   db.prepare(
-    "INSERT INTO messages (session_id, role, content, timestamp, images) VALUES (?, ?, ?, ?, ?)",
-  ).run(sessionId, role, content, timestamp, images ?? null);
+    "INSERT INTO messages (session_id, role, content, timestamp, images, tool_calls) VALUES (?, ?, ?, ?, ?, ?)",
+  ).run(sessionId, role, content, timestamp, images ?? null, toolCalls ?? null);
 
   // Touch session updated_at (use JS ISO string for millisecond precision)
   db.prepare(
@@ -204,16 +206,30 @@ export function setLastMessageImages(
   ).run(images, sessionId);
 }
 
+export function setLastMessageToolCalls(
+  sessionId: string,
+  toolCalls: string,
+): void {
+  const db = getDb();
+  db.prepare(
+    `UPDATE messages SET tool_calls = ?
+     WHERE id = (
+       SELECT id FROM messages
+       WHERE session_id = ? AND role = 'assistant'
+       ORDER BY timestamp DESC LIMIT 1
+     )`,
+  ).run(toolCalls, sessionId);
+}
+
 export function getMessages(
   sessionId: string,
   userId?: string,
-): { id: number; role: "user" | "assistant"; content: string; timestamp: number; images: string | null }[] {
+): { id: number; role: "user" | "assistant"; content: string; timestamp: number; images: string | null; tool_calls: string | null }[] {
   const db = getDb();
   if (userId) {
-    // Join against sessions to verify ownership at the DB layer
     return db
       .prepare(
-        `SELECT m.id, m.role, m.content, m.timestamp, m.images
+        `SELECT m.id, m.role, m.content, m.timestamp, m.images, m.tool_calls
          FROM messages m
          JOIN sessions s ON s.id = m.session_id
          WHERE m.session_id = ? AND s.user_id = ?
@@ -223,7 +239,7 @@ export function getMessages(
   }
   return db
     .prepare(
-      "SELECT id, role, content, timestamp, images FROM messages WHERE session_id = ? ORDER BY timestamp",
+      "SELECT id, role, content, timestamp, images, tool_calls FROM messages WHERE session_id = ? ORDER BY timestamp",
     )
     .all(sessionId) as MessageRow[];
 }

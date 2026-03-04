@@ -11,6 +11,7 @@ import {
   forkSession,
   addMessage,
   getMessages,
+  setLastMessageToolCalls,
 } from "../db/session-store.js";
 import { createUser } from "../db/user-store.js";
 
@@ -210,6 +211,52 @@ describe("session-store", () => {
       expect(session!.updatedAt).toBeDefined();
       // updated_at should be a valid date string
       expect(new Date(session!.updatedAt).getTime()).not.toBeNaN();
+    });
+
+    it("should persist tool_calls when provided", () => {
+      createSession("s1", "Session 1");
+      const toolCalls = JSON.stringify([{ tool: "bash", args: { command: "ls" }, result: "file.txt", isError: false }]);
+      addMessage("s1", "assistant", "Here are the files", 1000, null, toolCalls);
+
+      const messages = getMessages("s1");
+      expect(messages[0].tool_calls).toBe(toolCalls);
+    });
+
+    it("should return null tool_calls when not provided", () => {
+      createSession("s1", "Session 1");
+      addMessage("s1", "assistant", "Hello", 1000);
+
+      const messages = getMessages("s1");
+      expect(messages[0].tool_calls).toBeNull();
+    });
+  });
+
+  describe("setLastMessageToolCalls", () => {
+    it("should attach tool_calls to the last assistant message", () => {
+      createSession("s1", "Session 1");
+      addMessage("s1", "user", "Do something", 1000);
+      addMessage("s1", "assistant", "Done", 2000);
+
+      const toolCalls = JSON.stringify([{ tool: "bash", args: { command: "echo hi" }, result: "hi", isError: false }]);
+      setLastMessageToolCalls("s1", toolCalls);
+
+      const messages = getMessages("s1");
+      expect(messages[1].tool_calls).toBe(toolCalls);
+      expect(messages[0].tool_calls).toBeNull();
+    });
+  });
+
+  describe("forkSession with tool_calls", () => {
+    it("should copy tool_calls when forking", () => {
+      createSession("s1", "Original");
+      const toolCalls = JSON.stringify([{ tool: "read", args: { path: "a.txt" }, result: "content" }]);
+      addMessage("s1", "assistant", "Read the file", 1000, null, toolCalls);
+
+      const forked = forkSession("s1", "s2", "Fork");
+      expect(forked).toBeDefined();
+
+      const messages = getMessages("s2");
+      expect(messages[0].tool_calls).toBe(toolCalls);
     });
   });
 });

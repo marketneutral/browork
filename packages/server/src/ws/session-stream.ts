@@ -5,7 +5,7 @@ import type { BroworkCommand } from "../services/pi-session.js";
 import { subscribeWsToFileChanges, getFileWatcher } from "../services/file-watcher.js";
 import { initAgentsMdTracking, onFileChanged } from "../services/agents-md-tracker.js";
 import { getSkill, getUserSkill, getSessionSkill } from "../services/skill-manager.js";
-import { addMessage, setLastMessageImages, getSessionById } from "../db/session-store.js";
+import { addMessage, setLastMessageImages, setLastMessageToolCalls, getSessionById } from "../db/session-store.js";
 import { resolve } from "path";
 import { mkdirSync } from "fs";
 
@@ -65,12 +65,30 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
       // Snapshot the current AGENTS.md hash so first prompt doesn't re-inject
       initAgentsMdTracking(workDir);
 
-      // Track assistant text and images for persistence
+      // Track assistant text, images, and tool calls for persistence
       let assistantBuffer = "";
       let turnImagePaths = new Set<string>();
+      let turnToolCalls: { tool: string; args: unknown; result?: unknown; isError?: boolean }[] = [];
 
       const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"]);
       const isImage = (p: string) => IMAGE_EXTS.has(p.slice(p.lastIndexOf(".")).toLowerCase());
+
+      const MAX_RESULT_LENGTH = 4000;
+      function truncateToolResult(result: unknown): unknown {
+        if (typeof result === "string") {
+          if (result.length > MAX_RESULT_LENGTH) {
+            return result.slice(0, MAX_RESULT_LENGTH) + "… (truncated)";
+          }
+          return result;
+        }
+        if (result && typeof result === "object") {
+          const json = JSON.stringify(result);
+          if (json.length > MAX_RESULT_LENGTH) {
+            return json.slice(0, MAX_RESULT_LENGTH) + "… (truncated)";
+          }
+        }
+        return result;
+      }
 
       // Listen for outgoing events to capture assistant messages and images
       const origSend = socket.send.bind(socket);
@@ -80,6 +98,17 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
           if (event) {
             if (event.type === "message_delta" && event.text) {
               assistantBuffer += event.text;
+            } else if (event.type === "tool_start") {
+              turnToolCalls.push({ tool: event.tool, args: event.args });
+            } else if (event.type === "tool_end") {
+              // Attach result to the most recent matching tool call
+              for (let i = turnToolCalls.length - 1; i >= 0; i--) {
+                if (turnToolCalls[i].tool === event.tool && turnToolCalls[i].result === undefined) {
+                  turnToolCalls[i].result = truncateToolResult(event.result);
+                  turnToolCalls[i].isError = event.isError || false;
+                  break;
+                }
+              }
             } else if (event.type === "files_changed" && Array.isArray(event.paths)) {
               for (const p of event.paths) {
                 if (isImage(p)) turnImagePaths.add(p);
@@ -89,15 +118,18 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
               assistantBuffer = "";
             } else if (event.type === "agent_end") {
               const images = turnImagePaths.size > 0 ? JSON.stringify([...turnImagePaths]) : null;
+              const toolCallsJson = turnToolCalls.length > 0 ? JSON.stringify(turnToolCalls) : null;
               if (assistantBuffer) {
-                // message_end didn't fire — save text with images
-                addMessage(id, "assistant", assistantBuffer, Date.now(), images);
+                // message_end didn't fire — save text with images and tool calls
+                addMessage(id, "assistant", assistantBuffer, Date.now(), images, toolCallsJson);
                 assistantBuffer = "";
-              } else if (images) {
-                // Text was already saved on message_end — attach images to it
-                setLastMessageImages(id, images);
+              } else {
+                // Text was already saved on message_end — attach images/tool calls to it
+                if (images) setLastMessageImages(id, images);
+                if (toolCallsJson) setLastMessageToolCalls(id, toolCallsJson);
               }
               turnImagePaths = new Set();
+              turnToolCalls = [];
             }
           }
         } catch {

@@ -109,6 +109,13 @@ function runMigrations() {
     // Column already exists
   }
 
+  // Add tool_calls column to messages for tool call persistence
+  try {
+    db.exec("ALTER TABLE messages ADD COLUMN tool_calls TEXT");
+  } catch {
+    // Column already exists
+  }
+
   // Migrate mcp_servers from stdio (command/args/env) to remote (url/transport/headers)
   try {
     const row = db.prepare("SELECT command FROM mcp_servers LIMIT 1").get();

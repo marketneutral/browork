@@ -86,6 +86,7 @@ interface SessionState {
   finalizePendingImages: () => void;
   clearPendingImages: () => void;
   addRestoredImageGroup: (paths: string[], seq: number) => void;
+  addRestoredToolGroup: (toolCalls: { tool: string; args: unknown; result?: unknown; isError?: boolean }[], seq: number) => void;
   setContextUsage: (usage: ContextUsage) => void;
   setSandboxActive: (active: boolean) => void;
   setPendingQuestion: (pq: PendingQuestion) => void;
@@ -247,6 +248,25 @@ export const useSessionStore = create<SessionState>((set) => ({
       completedImageGroups: [
         ...s.completedImageGroups,
         { id: `images-${++imageGroupCounter}`, paths, seq },
+      ],
+    })),
+
+  addRestoredToolGroup: (toolCalls, seq) =>
+    set((s) => ({
+      completedToolGroups: [
+        ...s.completedToolGroups,
+        {
+          id: `turn-${++turnCounter}`,
+          toolCalls: toolCalls.map((tc) => ({
+            tool: tc.tool,
+            args: tc.args,
+            result: tc.result,
+            isError: tc.isError,
+            status: "done" as const,
+            seq,
+          })),
+          seq,
+        },
       ],
     })),
 

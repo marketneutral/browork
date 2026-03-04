@@ -15,7 +15,7 @@ npm install              # Install all workspace dependencies
 npm run dev              # Run both server (:3001) and web (:5173) concurrently
 npm run dev:server       # Backend only (tsx watch, hot reload)
 npm run dev:web          # Frontend only (Vite dev server, proxies /api to :3001)
-npm test                 # Run server-side Vitest tests (~213 tests)
+npm test                 # Run server-side Vitest tests (~217 tests)
 npm run build            # Build server (tsc) then web (tsc + vite build)
 npm run lint             # ESLint across all packages
 npm run install-skill -- <repo-url> <skill-name>  # Install a single skill from a remote repo
@@ -34,7 +34,7 @@ Watch mode: `npm run test:watch --workspace=packages/server`
 - **Services** (`src/services/`): Pi SDK wrapper (with mock fallback), skill manager, file watcher (chokidar), MCP client manager, sandbox manager
 - **Tools** (`src/tools/`): Custom Pi tools — web search/fetch (`web-tools.ts`), interactive ask_user (`ask-user.ts`), MCP bridge (`mcp-bridge.ts`)
 - **WebSocket** (`src/ws/session-stream.ts`): Streams Pi agent events to the client in real-time
-- **Database** (`src/db/`): SQLite via better-sqlite3 (WAL mode), no ORM — direct prepared statements. Tables: users, tokens, sessions, messages (with `images` column for inline image persistence), mcp_servers
+- **Database** (`src/db/`): SQLite via better-sqlite3 (WAL mode), no ORM — direct prepared statements. Tables: users, tokens, sessions, messages (with `images` and `tool_calls` columns for inline image and tool call persistence), mcp_servers
 - **Auth** (`src/plugins/auth.ts`): Bearer token validation as a Fastify plugin; scrypt password hashing
 - **Zip handling**: Uploaded `.zip` files are auto-extracted server-side (adm-zip). Download-all-as-zip endpoint for workspace export.
 - **Tests** (`src/__tests__/`): Vitest with temp directory + test DB per suite
@@ -79,6 +79,10 @@ Previously bundled workflow definitions (chart-generator, financial-report) whic
   - Server-side (`session-stream.ts`): intercepts `files_changed` WebSocket events, accumulates image paths during a turn, and persists them in the `images` TEXT column of the messages table (JSON array) on `agent_end`.
   - Client-side: during live streaming, `files_changed` events trigger `addPendingImages()` in the session store; `agent_end` finalizes them into the timeline as `TurnImages` groups. On session reload, image groups are restored from the `images` field on messages with `seq = messageSeq + 0.5` so they sort in the correct position.
   - Component: `InlineImageGroup.tsx` renders thumbnails via auth-fetched blob URLs. Clicking an image downloads it.
+- **Tool call persistence**: Tool calls (bash output, file reads/edits, etc.) are persisted in the `tool_calls` TEXT column of the messages table, following the same pattern as inline images. The flow:
+  - Server-side (`session-stream.ts`): intercepts `tool_start` and `tool_end` WebSocket events, accumulates tool call records (`{ tool, args, result, isError }`) in a `turnToolCalls` buffer during a turn. Results are truncated at 4000 chars. On `agent_end`, the buffer is serialized to JSON and attached to the assistant message via `addMessage()` or `setLastMessageToolCalls()`.
+  - Client-side: on session reload, `tool_calls` JSON is parsed and restored as completed `ToolCallGroup` entries at `seq = messageSeq - 0.5` (before the assistant message, complementing images at `+0.5`). The `addRestoredToolGroup()` action in the session store creates groups with all tools set to `status: "done"`.
+  - Fork: `forkSession()` copies `tool_calls` alongside `images` when duplicating messages.
 - **Docker sandbox**: When `SANDBOX_ENABLED=true`, each user gets an isolated Docker container. All four Pi tools — **bash, read, write, and edit** — are routed into the container. Bash runs via `docker exec` (`createSandboxBashOps`), file tools use `createSandboxFileOps` which executes through the container filesystem. The workspaces directory is bind-mounted (`-v {DATA_ROOT}/workspaces:/workspaces`) so the host can still serve file downloads/uploads. The sandbox manager (`sandbox-manager.ts`) handles container lifecycle. Pre-installed Python packages: pandas, numpy, scipy, matplotlib, seaborn, openpyxl, xlsxwriter, yfinance, fredapi, pandas-datareader, pypdf, pdfplumber, reportlab, Pillow, and more (see `Dockerfile.sandbox`).
 - **Docker sandbox — implementation details** (important for future changes):
   - `createSandboxBashOps(userId)` in `sandbox-manager.ts` returns a Pi SDK `BashOperations` object that routes commands through `docker exec` with host→container path translation.

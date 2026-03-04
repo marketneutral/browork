@@ -55,7 +55,7 @@ export interface SessionMeta {
 }
 
 export interface SessionWithMessages extends SessionMeta {
-  messages: { id: number; role: "user" | "assistant"; content: string; timestamp: number; images?: string | null }[];
+  messages: { id: number; role: "user" | "assistant"; content: string; timestamp: number; images?: string | null; tool_calls?: string | null }[];
 }
 
 export interface FileEntry {

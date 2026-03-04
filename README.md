@@ -150,6 +150,10 @@ When the Pi agent creates image files during a conversation (e.g. matplotlib cha
 
 Images are persisted in the database alongside their associated assistant message, so they restore in the correct position when you return to a session later. Pi also receives its own generated images back as visual context in tool results, so it can see and iterate on charts and plots it creates.
 
+### Tool call persistence
+
+Tool call cards (bash output, file reads/edits, diffs, etc.) are now persisted across session switches. When you leave a session and come back, the rich tool call cards reappear in the correct timeline position — not just the user/assistant message text. Tool results are truncated at 4000 characters to keep storage reasonable.
+
 ### @ file mentions
 
 Type `@` in the composer to browse and reference workspace files inline. A popup appears with keyboard navigation (arrow keys, Enter, Escape) and directory drill-down — selecting a directory expands its contents rather than inserting it. Selected files are inserted as `@path/to/file` references in your message.
@@ -224,7 +228,7 @@ After installing, restart the server so the skill is picked up. At startup, Brow
 npm test
 ```
 
-Runs Vitest server-side tests (~213 tests): file routes, CSV parser, path traversal, Pi event translation, skill manager, user skills (promote/demote), session store, sandbox manager, MCP manager.
+Runs Vitest server-side tests (~217 tests): file routes, CSV parser, path traversal, Pi event translation, skill manager, user skills (promote/demote), session store, sandbox manager, MCP manager.
 
 ## Build
 
