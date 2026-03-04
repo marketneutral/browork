@@ -308,13 +308,21 @@ async function writeSkillPathsAppendPrompt(globalDir: string): Promise<void> {
     skillEntries.push({ name: skill.name, dirPath: resolve(skill.dirPath) });
   }
 
+  const appName = process.env.VITE_APP_NAME || "#opentowork";
+
+  const lines = [
+    `Your name is ${appName}.`,
+  ];
+
   if (skillEntries.length === 0) {
-    // Clean up if no skills
-    await rm(appendPath, { force: true }).catch(() => {});
+    // No skills — just write the identity line
+    await mkdir(piAgentDir, { recursive: true });
+    await writeFile(appendPath, lines.join("\n") + "\n", "utf-8");
     return;
   }
 
-  const lines = [
+  lines.push(
+    "",
     "## Skill Directories",
     "",
     "When a SKILL.md references relative paths (e.g. `scripts/thumbnail.py`, `editing.md`),",
@@ -337,7 +345,7 @@ async function writeSkillPathsAppendPrompt(globalDir: string): Promise<void> {
     "",
     "**System tools:** LibreOffice (soffice), poppler-utils (pdftoppm, pdftotext, pdfimages),",
     "qpdf, tesseract-ocr, imagemagick, pandoc, ripgrep, jq, git, curl",
-  ];
+  );
 
   await mkdir(piAgentDir, { recursive: true });
   await writeFile(appendPath, lines.join("\n") + "\n", "utf-8");
