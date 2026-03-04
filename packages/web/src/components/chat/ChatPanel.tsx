@@ -103,8 +103,8 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
             <div className="text-center max-w-lg mx-auto">
               <h2 className="text-4xl text-gradient mb-3 animate-fade-in-up" style={{ fontFamily: "var(--font-display)" }}>{`Welcome to ${APP_NAME}`}</h2>
               <p className="text-sm text-foreground-secondary mb-8 animate-fade-in-up stagger-1">
-                You AI-powered analyst.<br />
-                Upload files and data, run workflows, generate reports, get insights.
+                Your AI-powered analyst.<br />
+                Upload files and data, run workflows, perform research, get insights, generate reports, spreadsheets, and presentations.
               </p>
 
               {/* Decorative gradient line */}
