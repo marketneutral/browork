@@ -73,7 +73,7 @@ export function UsersPage() {
               {filtered.map((user) => (
                 <tr
                   key={user.id}
-                  onClick={() => navigate(`/admin/users/${user.id}`)}
+                  onClick={() => navigate(`/users/${user.id}`)}
                   className="cursor-pointer border-b border-border/50 transition-colors hover:bg-surface-glass-hover"
                 >
                   <td className="px-4 py-3">

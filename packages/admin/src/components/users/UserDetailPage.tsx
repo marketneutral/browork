@@ -30,7 +30,7 @@ export function UserDetailPage() {
     setDeleteError("");
     try {
       await adminApi.deleteUser(id);
-      navigate("/admin/users");
+      navigate("/users");
     } catch (e: any) {
       setDeleteError(e.message);
       setDeleting(false);
@@ -60,7 +60,7 @@ export function UserDetailPage() {
     return (
       <div className="text-center text-destructive">
         <p>{error || "User not found"}</p>
-        <button onClick={() => navigate("/admin/users")} className="mt-4 text-primary hover:underline">
+        <button onClick={() => navigate("/users")} className="mt-4 text-primary hover:underline">
           Back to users
         </button>
       </div>
@@ -71,7 +71,7 @@ export function UserDetailPage() {
     <div className="space-y-6">
       {/* Back + header */}
       <button
-        onClick={() => navigate("/admin/users")}
+        onClick={() => navigate("/users")}
         className="flex items-center gap-1.5 text-sm text-foreground-secondary hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" /> Back to Users

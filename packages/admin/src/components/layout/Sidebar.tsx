@@ -13,15 +13,15 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { path: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { path: "/admin/users", label: "Users", icon: Users },
-  { path: "/admin/activity", label: "Activity", icon: TrendingUp },
-  { path: "/admin/tools", label: "Tools", icon: Wrench },
-  { path: "/admin/mcp", label: "MCP Servers", icon: Plug },
-  { path: "/admin/skills", label: "Skills", icon: Sparkles },
-  { path: "/admin/sessions", label: "Sessions", icon: Radio },
-  { path: "/admin/system", label: "System", icon: Server },
-  { path: "/admin/settings", label: "Settings", icon: Settings },
+  { path: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { path: "/users", label: "Users", icon: Users },
+  { path: "/activity", label: "Activity", icon: TrendingUp },
+  { path: "/tools", label: "Tools", icon: Wrench },
+  { path: "/mcp", label: "MCP Servers", icon: Plug },
+  { path: "/skills", label: "Skills", icon: Sparkles },
+  { path: "/sessions", label: "Sessions", icon: Radio },
+  { path: "/system", label: "System", icon: Server },
+  { path: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar() {
