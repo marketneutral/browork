@@ -161,15 +161,17 @@ export function SettingsPage() {
             title="Assembled System Prompt"
             description="The full prompt Pi receives, built by the SDK from SYSTEM.md, APPEND_SYSTEM.md, AGENTS.md, skills, and tool descriptions."
             content={prompts.assembledPrompt}
-            emptyLabel="Pi SDK not installed (mock mode)"
+            emptyLabel={prompts.promptError || "Pi SDK not installed (mock mode)"}
             defaultOpen={!!prompts.assembledPrompt}
           />
           <PromptViewer
             title="SYSTEM.md"
-            description="Custom base prompt override. When absent, the SDK uses its built-in default."
+            description={prompts.systemMd
+              ? "Custom base prompt override file."
+              : "No custom override file — the SDK uses its built-in default (see Assembled System Prompt above)."}
             content={prompts.systemMd}
             filePath={prompts.systemMdPath}
-            emptyLabel="Not set"
+            emptyLabel="Using SDK built-in default"
           />
           <PromptViewer
             title="APPEND_SYSTEM.md"

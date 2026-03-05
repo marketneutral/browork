@@ -7,6 +7,7 @@ import {
   isSandboxImageAvailable,
   listSandboxes,
   listSandboxStats,
+  removeSandbox,
 } from "../services/sandbox-manager.js";
 import { resolve, join, dirname } from "path";
 import { readdir, stat, readFile, rm } from "fs/promises";
@@ -17,7 +18,7 @@ import { listMcpServers, getMcpServer, updateMcpServer, addMcpServer, deleteMcpS
 import { mcpClientManager } from "../services/mcp-client.js";
 import { listSkills, listUserSkills, removeSystemSkill, scanSkillDirectory, GLOBAL_SKILLS_DIR } from "../services/skill-manager.js";
 import { listUsers, deleteUser, getUserById } from "../db/user-store.js";
-import { listActiveSessions } from "../services/pi-session.js";
+import { listActiveSessions, getActiveSystemPrompt } from "../services/pi-session.js";
 import { getSkillUsageStats, getSkillUsageTimeseries } from "../db/session-store.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
@@ -242,35 +243,10 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     const systemMd = await safeRead(systemMdPath);
     const appendSystemMd = await safeRead(appendSystemMdPath);
 
-    // Try to build the full assembled prompt using the Pi SDK (same code path as real sessions)
-    let assembledPrompt: string | null = null;
-    try {
-      const piSdk: any = await import("@mariozechner/pi-coding-agent");
-      // Deep import for buildSystemPrompt (not re-exported from main entry)
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore — deep import path has no type declarations
-      const systemPromptMod: any = await import("@mariozechner/pi-coding-agent/dist/core/system-prompt.js");
-      const buildSystemPrompt: (...args: any[]) => string = systemPromptMod.buildSystemPrompt;
-
-      // Use the SDK's resource loader to discover files exactly as a real session would
-      const loader = new piSdk.DefaultResourceLoader({ cwd: process.cwd() });
-      await loader.reload();
-
-      const customPrompt = loader.getSystemPrompt();
-      const appendParts = loader.getAppendSystemPrompt();
-      const { agentsFiles } = loader.getAgentsFiles();
-      const { skills } = loader.getSkills();
-
-      assembledPrompt = buildSystemPrompt({
-        customPrompt,
-        appendSystemPrompt: appendParts.join("\n\n"),
-        contextFiles: agentsFiles,
-        skills,
-        cwd: process.cwd(),
-      });
-    } catch {
-      // Pi SDK not installed — mock mode, show raw files only
-    }
+    // Get the assembled system prompt from an active Pi session (most robust —
+    // uses the SDK's own buildSystemPrompt, stays in sync with SDK updates)
+    const assembledPrompt = getActiveSystemPrompt();
+    const promptError = assembledPrompt ? null : "No active Pi sessions — start a chat to see the assembled prompt";
 
     return {
       systemMd,
@@ -278,6 +254,8 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
       appendSystemMd,
       appendSystemMdPath,
       assembledPrompt,
+      promptError,
+      builtInDefault: null,
     };
   });
 
@@ -292,6 +270,23 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
       return { ...c, username: user?.username ?? null, displayName: user?.displayName ?? null };
     });
     return { enabled: true, containers: enriched };
+  });
+
+  // Kill a user's sandbox container
+  app.delete<{ Params: { userId: string } }>("/admin/containers/:userId", async (req, reply) => {
+    const { userId } = req.params;
+    try {
+      // removeSandbox cleans the in-memory map + runs docker rm -f
+      removeSandbox(userId);
+      // Also force-remove by container name in case in-memory map was out of sync
+      const containerName = `opentowork-sandbox-${userId}`;
+      try {
+        execSync(`docker rm -f ${containerName}`, { stdio: "ignore", timeout: 10000 });
+      } catch { /* already removed */ }
+      return { ok: true };
+    } catch (err: any) {
+      return reply.code(500).send({ error: err.message || "Failed to kill container" });
+    }
   });
 
   // ─── MCP Servers ───

@@ -80,6 +80,7 @@ interface SessionMeta {
   userId: string | null;
   getIsRunning: () => boolean;
   getHasSocket: () => boolean;
+  getSystemPrompt?: () => string;
 }
 const activeSessionMeta = new Map<string, SessionMeta>();
 
@@ -394,6 +395,7 @@ export async function createPiSession(
     userId: userId ?? null,
     getIsRunning: () => isRunning,
     getHasSocket: () => activeWs.readyState === activeWs.OPEN,
+    getSystemPrompt: () => session.systemPrompt,
   });
 
   // Send initial context usage (system prompt, tools, etc. already consume tokens)
@@ -404,6 +406,16 @@ export async function createPiSession(
 
 export function getSession(sessionId: string): PiSessionHandle | undefined {
   return activeSessions.get(sessionId);
+}
+
+/** Get the assembled system prompt from any active (real) Pi session */
+export function getActiveSystemPrompt(): string | null {
+  for (const meta of activeSessionMeta.values()) {
+    if (meta.getSystemPrompt) {
+      try { return meta.getSystemPrompt(); } catch { /* skip */ }
+    }
+  }
+  return null;
 }
 
 // ── Mock session for development without Pi SDK ──

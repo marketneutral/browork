@@ -148,6 +148,8 @@ export interface PromptsResponse {
   appendSystemMd: string | null;
   appendSystemMdPath: string;
   assembledPrompt: string | null;
+  promptError: string | null;
+  builtInDefault: string | null;
 }
 
 // ─── MCP Types ───
@@ -231,6 +233,8 @@ export const adminApi = {
   tools: () => request<ToolUsageResponse>("/admin/tools"),
   system: () => request<SystemResponse>("/admin/system"),
   containers: () => request<ContainersResponse>("/admin/containers"),
+  killContainer: (userId: string) =>
+    request<{ ok: boolean }>(`/admin/containers/${userId}`, { method: "DELETE" }),
   prompts: () => request<PromptsResponse>("/admin/prompts"),
   getAgentsMd: () => request<{ content: string; isCustom: boolean; defaultContent: string }>("/settings/agents-md"),
   saveDefaultAgentsMd: (content: string) =>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAdminStore } from "@/stores/admin";
 import { adminApi, type ContainersResponse } from "@/api/client";
-import { Clock, Cpu, Database, Container, HardDrive, MemoryStick, Server, Check, X, AlertTriangle, RefreshCw } from "lucide-react";
+import { Clock, Cpu, Database, Container, HardDrive, MemoryStick, Server, Check, X, AlertTriangle, RefreshCw, Skull } from "lucide-react";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -48,6 +48,8 @@ export function SystemPage() {
   const { system, loading, fetchSystem } = useAdminStore();
   const [containers, setContainers] = useState<ContainersResponse | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [confirmKill, setConfirmKill] = useState<string | null>(null);
+  const [killing, setKilling] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSystem();
@@ -56,6 +58,19 @@ export function SystemPage() {
 
   async function loadContainers() {
     try { setContainers(await adminApi.containers()); } catch {}
+  }
+
+  async function handleKill(userId: string) {
+    setKilling(userId);
+    try {
+      await adminApi.killContainer(userId);
+      setConfirmKill(null);
+      await loadContainers();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setKilling(null);
+    }
   }
 
   async function handleRefresh() {
@@ -211,8 +226,8 @@ export function SystemPage() {
               <p className="text-2xl font-bold">{system.sandbox.activeContainers}</p>
               <p className="text-xs text-foreground-secondary">Active containers</p>
               <div className="mt-2 space-y-1 text-xs">
-                <StatusBadge ok={system.sandbox.dockerAvailable} label="Docker" />
-                <StatusBadge ok={system.sandbox.imageAvailable} label="Image" />
+                <StatusBadge ok={system.sandbox.dockerAvailable} label="Docker Engine" />
+                <StatusBadge ok={system.sandbox.imageAvailable} label="Sandbox Image Built" />
               </div>
             </>
           ) : (
@@ -256,6 +271,7 @@ export function SystemPage() {
                       <th className="px-4 py-2.5 font-medium text-right">Limit</th>
                       <th className="px-4 py-2.5 font-medium text-right">Net I/O</th>
                       <th className="px-4 py-2.5 font-medium text-right">PIDs</th>
+                      <th className="w-16 px-4 py-2.5" />
                     </tr>
                   </thead>
                   <tbody>
@@ -304,6 +320,33 @@ export function SystemPage() {
                           <td className="px-4 py-2.5 text-right font-mono text-foreground-secondary">{c.memLimit}</td>
                           <td className="px-4 py-2.5 text-right font-mono text-foreground-secondary">{c.netIO}</td>
                           <td className="px-4 py-2.5 text-right font-mono">{c.pids}</td>
+                          <td className="px-4 py-2.5 text-right">
+                            {confirmKill === c.userId ? (
+                              <div className="flex items-center gap-2 justify-end">
+                                <button
+                                  onClick={() => handleKill(c.userId)}
+                                  disabled={killing === c.userId}
+                                  className="rounded bg-destructive/15 px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/25"
+                                >
+                                  {killing === c.userId ? "..." : "Kill"}
+                                </button>
+                                <button
+                                  onClick={() => setConfirmKill(null)}
+                                  className="rounded bg-surface-glass px-2 py-1 text-xs text-foreground-secondary hover:bg-surface-glass-hover"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmKill(c.userId)}
+                                className="rounded p-1 text-foreground-tertiary hover:bg-destructive/10 hover:text-destructive"
+                                title="Kill container"
+                              >
+                                <Skull className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
