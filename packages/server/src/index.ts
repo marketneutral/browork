@@ -127,16 +127,15 @@ async function main() {
   // Serve admin SPA static files in production
   const adminDist = resolve(__dirname, "../../admin/dist");
   if (existsSync(adminDist)) {
-    await app.register(async (scope) => {
-      await scope.register(fastifyStatic, {
-        root: adminDist,
-        prefix: "/admin/",
-        decorateReply: false,
-      });
-      // SPA fallback: serve index.html for all unmatched /admin/* routes
-      scope.setNotFoundHandler(async (_req, reply) => {
-        return reply.sendFile("index.html", adminDist);
-      });
+    await app.register(fastifyStatic, {
+      root: adminDist,
+      prefix: "/admin/",
+      decorateReply: false,
+      wildcard: false, // Don't register catch-all — we handle SPA fallback below
+    });
+    // SPA fallback: serve index.html for all /admin/* routes not matched by static files
+    app.get("/admin/*", async (_req, reply) => {
+      return (reply as any).sendFile("index.html", adminDist);
     });
     app.get("/admin", async (_req, reply) => {
       return reply.redirect("/admin/");
