@@ -93,7 +93,7 @@ const skills = new Map<string, SkillContent>();
 const skillDirs: string[] = [];
 
 /** Default global skills directory for Pi's DefaultResourceLoader */
-const GLOBAL_SKILLS_DIR = join(homedir(), ".pi", "agent", "skills");
+export const GLOBAL_SKILLS_DIR = join(homedir(), ".pi", "agent", "skills");
 
 function getDataRoot(): string {
   return process.env.DATA_ROOT || resolve(process.cwd(), "data");
@@ -217,6 +217,21 @@ export function setSkillEnabled(
   if (!skill) return undefined;
   skill.enabled = enabled;
   return { name: skill.name, description: skill.description, enabled };
+}
+
+/**
+ * Remove a system skill: delete its symlink from the global skills directory
+ * and remove from the in-memory skills map.
+ */
+export async function removeSystemSkill(name: string): Promise<boolean> {
+  const linkPath = join(GLOBAL_SKILLS_DIR, name);
+  try {
+    await lstat(linkPath);
+    await rm(linkPath, { recursive: true });
+  } catch {
+    // Nothing at linkPath
+  }
+  return skills.delete(name);
 }
 
 /**

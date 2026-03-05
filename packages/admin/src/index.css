@@ -1,0 +1,166 @@
+@import "tailwindcss";
+
+/* ── Theme tokens (Tailwind v4 @theme) ── */
+
+@theme {
+  --color-background:           #141413;
+  --color-background-secondary: #1a1a19;
+  --color-background-tertiary:  #21201f;
+  --color-foreground:           #faf9f5;
+  --color-foreground-secondary: #a8a29e;
+  --color-foreground-tertiary:  #78716c;
+  --color-border:               #2a2926;
+  --color-border-hover:         #3d3a36;
+  --color-muted:                #1c1b1a;
+  --color-muted-foreground:     #8c857e;
+  --color-primary:              #75B8DB;
+  --color-primary-hover:        #9BDDFF;
+  --color-primary-foreground:   #0a1a24;
+  --color-accent-start:         #75B8DB;
+  --color-accent-mid:           #75B8DB;
+  --color-accent-end:           #75B8DB;
+  --color-card:                 #21201f;
+  --color-surface-glass:        rgba(255,255,255,0.03);
+  --color-surface-glass-border: rgba(255,255,255,0.06);
+  --color-surface-glass-hover:  rgba(255,255,255,0.06);
+  --color-success:              #22c55e;
+  --color-warning:              #f59e0b;
+  --color-destructive:          #ef4444;
+}
+
+:root {
+  color-scheme: dark;
+
+  --background:           #141413;
+  --background-secondary: #1a1a19;
+  --background-tertiary:  #21201f;
+  --foreground:           #faf9f5;
+  --foreground-secondary: #a8a29e;
+  --foreground-tertiary:  #78716c;
+  --border:               #2a2926;
+  --border-hover:         #3d3a36;
+  --muted:                #1c1b1a;
+  --muted-foreground:     #8c857e;
+  --primary:              #75B8DB;
+  --primary-hover:        #9BDDFF;
+  --primary-foreground:   #0a1a24;
+  --accent-start:         #75B8DB;
+  --accent-mid:           #75B8DB;
+  --accent-end:           #75B8DB;
+  --card:                 #21201f;
+  --surface-glass:        rgba(255,255,255,0.03);
+  --surface-glass-border: rgba(255,255,255,0.06);
+  --surface-glass-hover:  rgba(255,255,255,0.06);
+  --surface-glass-strong:        rgba(255,255,255,0.06);
+  --surface-glass-strong-border: rgba(255,255,255,0.10);
+  --success:              #22c55e;
+  --warning:              #f59e0b;
+  --destructive:          #ef4444;
+  --radius:               0.625rem;
+  --radius-lg:            0.875rem;
+  --radius-xl:            1rem;
+  --glow-focus:           0 0 0 2px rgba(117,184,219,0.3);
+
+  --font-body:    "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, monospace;
+}
+
+html {
+  background: #141413;
+  color: #faf9f5;
+  color-scheme: dark;
+  font-size: 17px;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--background);
+  color: var(--foreground);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3 { font-family: var(--font-display); }
+code, pre, .font-mono { font-family: var(--font-mono); }
+
+#root {
+  min-height: 100vh;
+  position: relative;
+  background: var(--background);
+}
+
+/* ── Keyframes ── */
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes subtle-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 0.7; }
+}
+
+/* ── Animation utilities ── */
+
+@utility animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out both;
+}
+
+@utility animate-fade-in {
+  animation: fade-in 0.4s ease-out both;
+}
+
+@utility animate-shimmer {
+  animation: subtle-pulse 1.8s ease-in-out infinite;
+}
+
+@utility stagger-1 { animation-delay: 0.05s; }
+@utility stagger-2 { animation-delay: 0.1s; }
+@utility stagger-3 { animation-delay: 0.15s; }
+@utility stagger-4 { animation-delay: 0.2s; }
+@utility stagger-5 { animation-delay: 0.25s; }
+
+/* ── Utility classes ── */
+
+@utility text-gradient { color: #75B8DB; }
+@utility bg-gradient-primary { background: #75B8DB; }
+
+@utility glass {
+  background: var(--surface-glass);
+  border: 1px solid var(--surface-glass-border);
+}
+
+@utility glass-strong {
+  background: var(--surface-glass-strong);
+  border: 1px solid var(--surface-glass-strong-border);
+}
+
+@utility glass-hover {
+  &:hover { background: var(--surface-glass-hover); }
+}
+
+@utility focus-glow {
+  &:focus, &:focus-within { box-shadow: var(--glow-focus); }
+}
+
+@utility hover-lift {
+  transition: background 0.2s ease;
+  &:hover { background: rgba(255,255,255,0.06); }
+}
+
+/* ── Scrollbar ── */
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+::selection { background: rgba(117, 184, 219, 0.3); color: #faf9f5; }

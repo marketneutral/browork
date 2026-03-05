@@ -175,11 +175,6 @@ export const api = {
         method: "PUT",
         body: JSON.stringify({ content }),
       }),
-    saveDefaultAgentsMd: (content: string) =>
-      request<{ ok: boolean }>("/settings/agents-md/default", {
-        method: "PUT",
-        body: JSON.stringify({ content }),
-      }),
   },
   sessions: {
     list: () => request<SessionMeta[]>("/sessions"),

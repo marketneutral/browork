@@ -15,6 +15,7 @@ npm install              # Install all workspace dependencies
 npm run dev              # Run both server (:3001) and web (:5173) concurrently
 npm run dev:server       # Backend only (tsx watch, hot reload)
 npm run dev:web          # Frontend only (Vite dev server, proxies /api to :3001)
+npm run dev:admin        # Admin dashboard only (Vite dev server, :5174, proxies /api to :3001)
 npm test                 # Run server-side Vitest tests (~217 tests)
 npm run build            # Build server (tsc) then web (tsc + vite build)
 npm run lint             # ESLint across all packages
@@ -26,7 +27,7 @@ Watch mode: `npm run test:watch --workspace=packages/server`
 
 ## Architecture
 
-**Monorepo** (`npm workspaces`) with three packages under `packages/`:
+**Monorepo** (`npm workspaces`) with four packages under `packages/`:
 
 ### `packages/server` — Fastify 5 backend
 - **Entry**: `src/index.ts`
@@ -53,6 +54,23 @@ Watch mode: `npm run test:watch --workspace=packages/server`
 - **App config**: `src/config.ts` exports `APP_NAME` from `VITE_APP_NAME` env var
 - **WebSocket hook**: `src/hooks/useWebSocket.ts` with automatic reconnection and backoff
 - **API client**: `src/api/client.ts` — centralized REST + WebSocket URL helpers
+
+### `packages/admin` — Admin dashboard SPA
+- **Build**: Vite 6 on port 5174 with `@` path alias, proxies `/api` to `:3001`
+- **Styling**: Tailwind CSS 4 (same dark theme as web), glass morphism UI, Recharts charts
+- **State**: Zustand stores for auth (token/user in localStorage) and admin data
+- **Auth**: Token-based with `isAdmin` role check via `AdminAuthGate.tsx`
+- **Pages**:
+  - **Dashboard**: Overview stats (users, sessions, messages, storage) + activity charts
+  - **Users**: Searchable/sortable user list, user detail with sessions table, **delete user** (with cascade confirmation showing session/message/storage impact). Cannot delete self.
+  - **Activity**: Time-series analytics (7d/30d/90d) for sessions, messages, DAU, signups
+  - **Tools**: Pi tool usage bar chart + error rates table
+  - **MCP Servers**: Full CRUD — add new servers (name, URL, transport), view status badges (connected/connecting/disconnected/error), tool count, enable/disable toggle, reconnect button, expandable tool list, delete with confirmation. MCP server management is **admin-only**.
+  - **Skills**: System skills table (name, description, directory, delete button) + per-user installed skills grouped by user
+  - **Sessions**: Live active sessions monitor with auto-refresh (5s). Shows user, session name, status (Running/Idle/Disconnected), tool calls in progress, buffer length, connection state.
+  - **System**: CPU, memory, disk, database, Docker container stats, sandbox status
+  - **Settings**: System-wide default AGENTS.md editor, Pi prompt inspection (SYSTEM.md, APPEND_SYSTEM.md, assembled prompt)
+- **Routes**: `/admin` (dashboard), `/admin/users`, `/admin/users/:id`, `/admin/activity`, `/admin/tools`, `/admin/mcp`, `/admin/skills`, `/admin/sessions`, `/admin/system`, `/admin/settings`
 
 ### `packages/skills` — Skill package placeholder
 Previously bundled workflow definitions (chart-generator, financial-report) which have been removed. Skills are now installed from remote repos via `npm run install-skill` into `~/.pi/agent/skills/`, or created by Pi during sessions in `{workspace}/.pi/skills/`, or promoted to per-user storage at `{DATA_ROOT}/user-skills/{userId}/`.
@@ -105,6 +123,11 @@ Previously bundled workflow definitions (chart-generator, financial-report) whic
   - Test MCP server: `npx tsx scripts/test-mcp-server.ts` (port 3099, SSE, tools: `random_number`, `factorial`).
 - **LDAP authentication** (`services/ldap-auth.ts`): When `AUTH_MODE=ldap`, login authenticates via LDAP simple bind instead of local scrypt password comparison. `LDAP_URL` and `LDAP_BIND_DN_TEMPLATE` (with `{}` placeholder for username) must be set. On first successful LDAP login, the user is auto-provisioned in the local SQLite DB with a random placeholder password. Registration is disabled in LDAP mode (403). The frontend fetches `GET /api/auth/config` on load to determine the auth mode and hides the registration link when in LDAP mode. Uses `ldapts` package.
 - **Admin role** (`ADMIN_USERNAMES` env var): Comma-separated list of admin usernames. `isAdminUser()` in `auth.ts` checks membership (case-insensitive). All auth endpoints (`login`, `register`, `me`) include `isAdmin: boolean` in the user response. No DB schema change — admin is config-driven. Currently admins can save a system-wide default AGENTS.md via `PUT /settings/agents-md/default` (403 for non-admins). The frontend shows a "Save as Default" button in `SettingsDialog.tsx` for admin users.
+- **Admin dashboard** (`packages/admin/`): Separate SPA at `/admin` with its own Vite config (port 5174). All admin API routes (`/api/admin/*`) are guarded by `adminGuard` (checks `isAdminUser()`). Key admin-only capabilities:
+  - **MCP server CRUD**: Add, delete, enable/disable, reconnect MCP servers via `POST/DELETE/PATCH /api/admin/mcp/servers`. Read-only MCP status is also available to regular users via `/api/mcp/servers`.
+  - **Skill removal**: `DELETE /api/admin/skills/:name` removes a system skill's symlink from `~/.pi/agent/skills/` and the in-memory map via `removeSystemSkill()`.
+  - **Active sessions**: `GET /api/admin/sessions/active` returns live session state from the `activeSessionMeta` Map in `pi-session.ts` (userId, isRunning, hasSocket, toolCallsInProgress, bufferLength), joined with DB metadata.
+  - **User deletion**: `DELETE /api/admin/users/:id` cascades through sessions, messages, tokens (DB `ON DELETE CASCADE`) and cleans up workspace dirs, user-skills, and user-settings on disk. Self-deletion is blocked.
 - **Per-user AGENTS.md settings** (`settings.ts`):
   - Each user can customize the AGENTS.md written into new sessions via `PUT /settings/agents-md`. Stored at `{DATA_ROOT}/user-settings/{userId}/AGENTS.md`.
   - System-wide default stored at `{DATA_ROOT}/system-settings/AGENTS.md`, writable by admins. `readSystemDefault()` reads from disk, falls back to hardcoded `DEFAULT_AGENTS_MD`.

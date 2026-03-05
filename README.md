@@ -31,7 +31,12 @@ npm run dev:server
 
 # Terminal 2 — frontend
 npm run dev:web
+
+# Terminal 3 — admin dashboard (optional)
+npm run dev:admin
 ```
+
+The admin dashboard runs on `http://localhost:5174/admin` and requires an admin account (see `ADMIN_USERNAMES` env var).
 
 ## Pi Agent Integration
 
@@ -91,11 +96,13 @@ browork/
 │   │       ├── routes/files.ts       # File management API
 │   │       ├── routes/skills.ts      # Skills CRUD + invoke
 │   │       ├── routes/settings.ts    # Per-user & system-wide AGENTS.md settings
-│   │       ├── services/pi-session.ts # Pi SDK wrapper + mock mode
+│   │       ├── routes/admin.ts       # Admin dashboard API (overview, users, MCP, skills, sessions)
+│   │       ├── routes/mcp.ts         # MCP server status (read-only, all users)
+│   │       ├── services/pi-session.ts # Pi SDK wrapper + mock mode + listActiveSessions()
 │   │       ├── services/mcp-manager.ts # MCP server config CRUD (SQLite)
 │   │       ├── services/mcp-client.ts  # MCP client connections (SSE/HTTP)
 │   │       ├── services/sandbox-manager.ts # Docker container-per-user isolation
-│   │       ├── services/skill-manager.ts # Skill discovery, loading, promote/demote
+│   │       ├── services/skill-manager.ts # Skill discovery, loading, promote/demote, removeSystemSkill
 │   │       ├── services/agents-md-tracker.ts # Live AGENTS.md change injection
 │   │       ├── services/file-watcher.ts # Chokidar file watching
 │   │       ├── tools/web-tools.ts    # Web search & fetch tools (Brave API)
@@ -107,6 +114,20 @@ browork/
 │   │       ├── utils/                # Testable utilities (CSV, safePath, events)
 │   │       ├── __tests__/            # Vitest tests
 │   │       └── ws/session-stream.ts  # WebSocket handler
+│   ├── admin/           # Admin dashboard SPA (React + Vite, port 5174)
+│   │   └── src/
+│   │       ├── App.tsx               # Routes for all admin pages
+│   │       ├── api/client.ts         # Admin API client + types
+│   │       ├── components/dashboard/ # Overview stats + charts
+│   │       ├── components/users/     # User list, detail, delete
+│   │       ├── components/activity/  # Activity time-series analytics
+│   │       ├── components/tools/     # Pi tool usage charts
+│   │       ├── components/mcp/       # MCP server CRUD (add/delete/toggle/reconnect)
+│   │       ├── components/skills/    # System + user skills management
+│   │       ├── components/sessions/  # Active sessions live monitor
+│   │       ├── components/system/    # System health + Docker containers
+│   │       ├── components/settings/  # AGENTS.md editor + prompt inspection
+│   │       └── stores/               # Zustand stores (auth, admin)
 │   ├── skills/          # Placeholder package (bundled skills removed)
 │   └── web/             # React frontend (Vite + Tailwind)
 │       └── src/
@@ -129,17 +150,35 @@ Browork can connect to remote [MCP (Model Context Protocol)](https://modelcontex
 
 ### Adding a server
 
-Open **Settings > MCP Servers** in the UI, or use the REST API:
+MCP server management is **admin-only**. Use the admin dashboard (**MCP Servers** page) to add, remove, enable/disable, and reconnect servers. You can also use the REST API with an admin token:
 
 ```bash
-curl -X POST http://localhost:3001/api/mcp/servers \
+# Add a new MCP server
+curl -X POST http://localhost:3001/api/admin/mcp/servers \
+  -H "Authorization: Bearer <admin-token>" \
   -H "Content-Type: application/json" \
   -d '{"name": "my-tools", "url": "http://localhost:3099/sse"}'
+
+# Delete an MCP server
+curl -X DELETE http://localhost:3001/api/admin/mcp/servers/my-tools \
+  -H "Authorization: Bearer <admin-token>"
+
+# Toggle enable/disable
+curl -X PATCH http://localhost:3001/api/admin/mcp/servers/my-tools \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false}'
+
+# Reconnect
+curl -X POST http://localhost:3001/api/admin/mcp/servers/my-tools/reconnect \
+  -H "Authorization: Bearer <admin-token>"
 ```
 
 Browork connects in the background, discovers available tools via `listTools()`, and injects them into all subsequent Pi sessions. Tools appear namespaced as `mcp__<server>__<tool>` to avoid conflicts.
 
 Supported transports: **SSE** (default) and **Streamable HTTP**. Custom headers (e.g. `Authorization`) can be added per server.
+
+All users can view MCP server status and tool lists via the read-only endpoint `GET /api/mcp/servers`.
 
 ### Test MCP server
 
@@ -153,7 +192,45 @@ This starts an SSE server on port 3099 with two tools:
 - `random_number(n)` — generate N random numbers as CSV
 - `factorial(x)` — compute factorial (memoized)
 
-Then add it in settings: Name=`test-tools`, URL=`http://localhost:3099/sse`, Transport=SSE.
+Then add it via the admin dashboard: Name=`test-tools`, URL=`http://localhost:3099/sse`, Transport=SSE.
+
+## Admin Dashboard
+
+The admin dashboard is a separate SPA at `/admin` (port 5174 in dev). Only users listed in `ADMIN_USERNAMES` can access it.
+
+```bash
+# Start the admin dashboard (alongside the server)
+npm run dev:admin
+```
+
+### Features
+
+| Page | Description |
+|------|-------------|
+| **Dashboard** | Overview stats: users, sessions, messages, storage, activity charts |
+| **Users** | Search/sort users, view details, **delete users** (cascades all data) |
+| **Activity** | Time-series analytics (7d/30d/90d) for sessions, messages, DAU, signups |
+| **Tools** | Pi tool usage distribution and error rates |
+| **MCP Servers** | Full CRUD for MCP servers — add, delete, enable/disable, reconnect, view tools |
+| **Skills** | View system skills (with delete), view per-user installed skills |
+| **Sessions** | Live active sessions monitor (auto-refreshes every 5s) — see who's connected, agent status, tool calls in progress |
+| **System** | CPU, memory, disk, database, Docker container stats |
+| **Settings** | System-wide AGENTS.md editor, Pi prompt inspection |
+
+### Removing skills
+
+System skills can be removed from the admin dashboard **Skills** page (deletes the symlink from `~/.pi/agent/skills/` and removes from the in-memory map). This takes effect immediately — no server restart required.
+
+Alternatively via API:
+
+```bash
+curl -X DELETE http://localhost:3001/api/admin/skills/my-skill \
+  -H "Authorization: Bearer <admin-token>"
+```
+
+### Deleting users
+
+Navigate to a user's detail page and click "Delete User". A confirmation dialog shows the impact (session count, message count, storage). Deletion cascades through all database tables (`ON DELETE CASCADE`) and removes workspace directories, user-skills, and user-settings from disk. You cannot delete your own account.
 
 ## Chat Features
 

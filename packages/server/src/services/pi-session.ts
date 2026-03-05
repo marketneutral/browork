@@ -75,6 +75,42 @@ export interface PiSessionHandle {
 // Active sessions keyed by session ID
 const activeSessions = new Map<string, PiSessionHandle>();
 
+// Metadata for active sessions (closures expose getters for internal state)
+interface SessionMeta {
+  userId: string | null;
+  getIsRunning: () => boolean;
+  getHasSocket: () => boolean;
+}
+const activeSessionMeta = new Map<string, SessionMeta>();
+
+export interface ActiveSessionInfo {
+  sessionId: string;
+  userId: string | null;
+  isRunning: boolean;
+  hasSocket: boolean;
+  toolCallsInProgress: number;
+  bufferLength: number;
+}
+
+export function listActiveSessions(): ActiveSessionInfo[] {
+  const result: ActiveSessionInfo[] = [];
+  for (const [sessionId, handle] of activeSessions) {
+    const meta = activeSessionMeta.get(sessionId);
+    const inProgressTools = handle.turnState.turnToolCalls.filter(
+      (tc) => tc.result === undefined,
+    ).length;
+    result.push({
+      sessionId,
+      userId: meta?.userId ?? null,
+      isRunning: meta?.getIsRunning() ?? false,
+      hasSocket: meta?.getHasSocket() ?? false,
+      toolCallsInProgress: inProgressTools,
+      bufferLength: handle.turnState.assistantBuffer.length,
+    });
+  }
+  return result;
+}
+
 /**
  * Create a new Pi agent session and wire its events to a WebSocket.
  *
@@ -327,6 +363,7 @@ export async function createPiSession(
       unsubscribe();
       session.dispose();
       activeSessions.delete(sessionId);
+      activeSessionMeta.delete(sessionId);
     },
     rebindSocket(newWs: WebSocket) {
       activeWs = newWs;
@@ -353,6 +390,11 @@ export async function createPiSession(
   };
 
   activeSessions.set(sessionId, handle);
+  activeSessionMeta.set(sessionId, {
+    userId: userId ?? null,
+    getIsRunning: () => isRunning,
+    getHasSocket: () => activeWs.readyState === activeWs.OPEN,
+  });
 
   // Send initial context usage (system prompt, tools, etc. already consume tokens)
   sendContextUsage();
@@ -494,6 +536,7 @@ function createMockSession(
     dispose() {
       rejectAllPending(sessionId);
       activeSessions.delete(sessionId);
+      activeSessionMeta.delete(sessionId);
     },
     rebindSocket(newWs: WebSocket) {
       activeWs = newWs;
@@ -502,6 +545,11 @@ function createMockSession(
   };
 
   activeSessions.set(sessionId, handle);
+  activeSessionMeta.set(sessionId, {
+    userId: null,
+    getIsRunning: () => false,
+    getHasSocket: () => activeWs.readyState === activeWs.OPEN,
+  });
 
   // Send initial context usage after a tick so the WebSocket is fully ready
   setTimeout(sendMockContextUsage, 50);

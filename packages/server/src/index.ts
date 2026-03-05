@@ -11,12 +11,19 @@ import { mcpRoutes } from "./routes/mcp.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { authRoutes } from "./routes/auth.js";
 import { healthRoutes } from "./routes/health.js";
+import { adminRoutes } from "./routes/admin.js";
 import { sessionStreamHandler } from "./ws/session-stream.js";
 import { initSkills } from "./services/skill-manager.js";
 import { initDatabase } from "./db/database.js";
 import { authPlugin } from "./plugins/auth.js";
 import { isSandboxEnabled, isDockerAvailable } from "./services/sandbox-manager.js";
 import { mcpClientManager } from "./services/mcp-client.js";
+import fastifyStatic from "@fastify/static";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+import { existsSync } from "fs";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -112,9 +119,27 @@ async function main() {
   await app.register(skillRoutes, { prefix: "/api" });
   await app.register(mcpRoutes, { prefix: "/api" });
   await app.register(settingsRoutes, { prefix: "/api" });
+  await app.register(adminRoutes, { prefix: "/api" });
 
   // WebSocket
   await app.register(sessionStreamHandler);
+
+  // Serve admin SPA static files in production
+  const adminDist = resolve(__dirname, "../../admin/dist");
+  if (existsSync(adminDist)) {
+    await app.register(fastifyStatic, {
+      root: adminDist,
+      prefix: "/admin/",
+      decorateReply: false,
+    });
+    // SPA fallback: serve index.html for all /admin/* routes
+    app.get("/admin/*", async (_req, reply) => {
+      return reply.sendFile("index.html", adminDist);
+    });
+    app.get("/admin", async (_req, reply) => {
+      return reply.redirect("/admin/");
+    });
+  }
 
   await app.listen({ port: PORT, host: HOST });
   console.log(`Server listening on http://${HOST}:${PORT}`);

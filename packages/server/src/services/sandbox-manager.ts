@@ -203,6 +203,62 @@ export function listSandboxes(): SandboxInfo[] {
   }
 }
 
+export interface SandboxStats {
+  userId: string;
+  containerId: string;
+  name: string;
+  status: string;
+  cpuPercent: string;
+  memUsage: string;
+  memLimit: string;
+  memPercent: string;
+  netIO: string;
+  pids: string;
+}
+
+/**
+ * List all sandbox containers with live resource stats (CPU, memory, network, PIDs).
+ * Uses `docker stats --no-stream` for a single snapshot.
+ */
+export function listSandboxStats(): SandboxStats[] {
+  try {
+    // Get container IDs first
+    const ids = execSync(
+      `docker ps -q --filter "label=opentowork.sandbox=true"`,
+      { encoding: "utf-8", timeout: 5000 },
+    ).trim();
+
+    if (!ids) return [];
+
+    // Get stats for those containers in one call
+    const output = execSync(
+      `docker stats --no-stream --format "{{.Name}}\\t{{.Container}}\\t{{.CPUPerc}}\\t{{.MemUsage}}\\t{{.MemPerc}}\\t{{.NetIO}}\\t{{.PIDs}}" ${ids.split("\n").join(" ")}`,
+      { encoding: "utf-8", timeout: 10000 },
+    ).trim();
+
+    if (!output) return [];
+
+    return output.split("\n").map((line) => {
+      const [name, containerId, cpuPercent, memUsage, memPercent, netIO, pids] = line.split("\t");
+      const [memUse, memLim] = memUsage.split(" / ");
+      return {
+        userId: name.replace("opentowork-sandbox-", ""),
+        containerId,
+        name,
+        status: "running",
+        cpuPercent,
+        memUsage: memUse?.trim() ?? "",
+        memLimit: memLim?.trim() ?? "",
+        memPercent,
+        netIO,
+        pids,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Remove all sandbox containers (used for cleanup).
  */

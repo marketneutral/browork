@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, RotateCcw } from "lucide-react";
 import { api } from "@/api/client";
-import { useAuthStore } from "@/stores/auth";
 
 interface SettingsDialogProps {
   onClose: () => void;
@@ -12,10 +11,7 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
   const [defaultContent, setDefaultContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [savingDefault, setSavingDefault] = useState(false);
-  const [defaultSaved, setDefaultSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
     api.settings.getAgentsMd().then((res) => {
@@ -40,20 +36,6 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
       setSaving(false);
     }
   }, [content, onClose]);
-
-  const handleSaveDefault = useCallback(async () => {
-    setSavingDefault(true);
-    setError(null);
-    try {
-      await api.settings.saveDefaultAgentsMd(content);
-      setDefaultSaved(true);
-      setTimeout(() => setDefaultSaved(false), 2000);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to save default");
-    } finally {
-      setSavingDefault(false);
-    }
-  }, [content]);
 
   return (
     <div
@@ -116,15 +98,6 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
-          {user?.isAdmin && (
-            <button
-              onClick={handleSaveDefault}
-              disabled={savingDefault || loading}
-              className="mr-auto px-3 py-1.5 text-sm rounded-md border border-border hover:bg-surface-glass-hover text-foreground-secondary transition-colors disabled:opacity-50"
-            >
-              {defaultSaved ? "Saved!" : savingDefault ? "Saving..." : "Save as Default"}
-            </button>
-          )}
           <button
             onClick={onClose}
             className="px-3 py-1.5 text-sm rounded-md hover:bg-surface-glass-hover text-foreground-secondary transition-colors"
