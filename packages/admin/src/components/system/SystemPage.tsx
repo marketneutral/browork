@@ -267,9 +267,12 @@ export function SystemPage() {
                           <td className="px-4 py-2.5">
                             <div className="flex items-center gap-2">
                               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
-                                {c.userId[0]?.toUpperCase()}
+                                {(c.username ?? c.userId)[0]?.toUpperCase()}
                               </div>
-                              <span className="font-medium">{c.userId}</span>
+                              <div>
+                                <span className="font-medium">{c.displayName ?? c.username ?? c.userId}</span>
+                                {c.username && <p className="text-xs text-foreground-tertiary">@{c.username}</p>}
+                              </div>
                             </div>
                           </td>
                           <td className="px-4 py-2.5 font-mono text-xs text-foreground-secondary">

@@ -133,6 +133,8 @@ export interface ContainerStats {
   memPercent: string;
   netIO: string;
   pids: string;
+  username: string | null;
+  displayName: string | null;
 }
 
 export interface ContainersResponse {

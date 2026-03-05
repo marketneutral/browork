@@ -285,7 +285,12 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     if (!isSandboxEnabled()) {
       return { enabled: false, containers: [] };
     }
-    return { enabled: true, containers: listSandboxStats() };
+    const stats = listSandboxStats();
+    const enriched = stats.map((c) => {
+      const user = getUserById(c.userId);
+      return { ...c, username: user?.username ?? null, displayName: user?.displayName ?? null };
+    });
+    return { enabled: true, containers: enriched };
   });
 
   // ─── MCP Servers ───
