@@ -74,6 +74,9 @@ RUN pip3 install --no-cache-dir \
     "markitdown[pptx]" \
     Pillow \
     defusedxml \
+    # ML & statistics
+    scikit-learn \
+    statsmodels \
     # Quarto rendering engine
     jupyter \
     ipykernel

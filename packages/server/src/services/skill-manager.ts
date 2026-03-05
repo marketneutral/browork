@@ -352,7 +352,7 @@ async function writeSkillPathsAppendPrompt(globalDir: string): Promise<void> {
     "",
     "The following packages are already installed globally. Do NOT run pip install or npm install for these.",
     "",
-    "**Python:** pandas, numpy, scipy, matplotlib, seaborn, openpyxl, xlsxwriter, pypdf, pypdfium2,",
+    "**Python:** pandas, numpy, scipy, scikit-learn, statsmodels, matplotlib, seaborn, openpyxl, xlsxwriter, pypdf, pypdfium2,",
     "pdfplumber, reportlab, Pillow, pytesseract, pdf2image, markitdown, defusedxml, yfinance, fredapi,",
     "pandas-datareader, requests, python-dateutil",
     "",
