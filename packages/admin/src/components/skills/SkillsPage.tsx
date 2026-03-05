@@ -1,19 +1,36 @@
 import { useEffect, useState } from "react";
-import { adminApi, type SystemSkill, type UserSkillGroup } from "@/api/client";
-import { Sparkles, Trash2, Users, RefreshCw } from "lucide-react";
+import { adminApi, type SystemSkill, type UserSkillGroup, type SkillUsageStat } from "@/api/client";
+import { Sparkles, Trash2, Users, RefreshCw, BarChart3 } from "lucide-react";
+
+function timeAgo(ms: number): string {
+  const seconds = Math.floor((Date.now() - ms) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
 
 export function SkillsPage() {
   const [systemSkills, setSystemSkills] = useState<SystemSkill[]>([]);
   const [userSkills, setUserSkills] = useState<UserSkillGroup[]>([]);
+  const [usage, setUsage] = useState<SkillUsageStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
-      const [sys, usr] = await Promise.all([adminApi.skills(), adminApi.skillUsers()]);
+      const [sys, usr, usageRes] = await Promise.all([
+        adminApi.skills(),
+        adminApi.skillUsers(),
+        adminApi.skillUsage(),
+      ]);
       setSystemSkills(sys);
       setUserSkills(usr);
+      setUsage(usageRes.stats);
     } catch (e) {
       console.error(e);
     } finally {
@@ -36,6 +53,9 @@ export function SkillsPage() {
     }
   };
 
+  // Find max count for bar scaling
+  const maxCount = Math.max(1, ...usage.map((u) => u.count));
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -55,6 +75,44 @@ export function SkillsPage() {
         <button onClick={fetchData} className="flex items-center gap-2 rounded-lg bg-surface-glass px-3 py-1.5 text-sm hover:bg-surface-glass-hover">
           <RefreshCw className="h-3.5 w-3.5" /> Refresh
         </button>
+      </div>
+
+      {/* Skill Usage */}
+      <div className="glass overflow-hidden rounded-xl">
+        <div className="border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-foreground-secondary" />
+            <h3 className="text-sm font-semibold text-foreground-secondary">
+              Skill Invocations
+            </h3>
+          </div>
+        </div>
+        {usage.length === 0 ? (
+          <div className="py-6 text-center text-foreground-secondary">No skill invocations recorded yet</div>
+        ) : (
+          <div className="divide-y divide-border/50">
+            {usage.map((u) => (
+              <div key={u.skill_name} className="flex items-center gap-4 px-4 py-3">
+                <code className="w-32 shrink-0 text-sm font-medium text-primary">{u.skill_name}</code>
+                <div className="flex-1">
+                  <div className="h-2 overflow-hidden rounded-full bg-border">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${(u.count / maxCount) * 100}%` }}
+                    />
+                  </div>
+                </div>
+                <span className="w-16 text-right font-mono text-sm">{u.count}</span>
+                <span className="w-20 text-right text-xs text-foreground-tertiary">
+                  {u.user_count} user{u.user_count !== 1 ? "s" : ""}
+                </span>
+                <span className="w-20 text-right text-xs text-foreground-tertiary">
+                  {timeAgo(u.last_used)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* System Skills */}

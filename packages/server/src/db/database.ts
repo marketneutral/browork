@@ -116,6 +116,27 @@ function runMigrations() {
     // Column already exists
   }
 
+  // Add skill_invocations table for tracking skill usage
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS skill_invocations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT,
+      session_id TEXT,
+      skill_name TEXT NOT NULL,
+      args TEXT,
+      timestamp INTEGER NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+    )
+  `);
+  try {
+    db.exec("CREATE INDEX IF NOT EXISTS idx_skill_invocations_skill ON skill_invocations(skill_name)");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_skill_invocations_user ON skill_invocations(user_id)");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_skill_invocations_time ON skill_invocations(timestamp)");
+  } catch {
+    // Indexes already exist
+  }
+
   // Migrate mcp_servers from stdio (command/args/env) to remote (url/transport/headers)
   try {
     const row = db.prepare("SELECT command FROM mcp_servers LIMIT 1").get();

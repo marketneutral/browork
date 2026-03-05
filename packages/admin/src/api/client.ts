@@ -188,6 +188,19 @@ export interface UserSkillGroup {
   skills: { name: string; description: string }[];
 }
 
+export interface SkillUsageStat {
+  skill_name: string;
+  count: number;
+  last_used: number;
+  user_count: number;
+}
+
+export interface SkillUsageResponse {
+  stats: SkillUsageStat[];
+  timeseries: { day: string; skill_name: string; count: number }[];
+  days: number;
+}
+
 // ─── Active Sessions Types ───
 
 export interface ActiveSessionInfo {
@@ -245,6 +258,8 @@ export const adminApi = {
   skillUsers: () => request<UserSkillGroup[]>("/admin/skills/users"),
   deleteSkill: (name: string) =>
     request<{ ok: boolean }>(`/admin/skills/${encodeURIComponent(name)}`, { method: "DELETE" }),
+  skillUsage: (days?: number) =>
+    request<SkillUsageResponse>(`/admin/skills/usage${days ? `?days=${days}` : ""}`),
   // Active Sessions
   activeSessions: () => request<ActiveSessionInfo[]>("/admin/sessions/active"),
   // User management

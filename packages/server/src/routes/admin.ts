@@ -18,6 +18,7 @@ import { mcpClientManager } from "../services/mcp-client.js";
 import { listSkills, listUserSkills, removeSystemSkill, scanSkillDirectory, GLOBAL_SKILLS_DIR } from "../services/skill-manager.js";
 import { listUsers, deleteUser, getUserById } from "../db/user-store.js";
 import { listActiveSessions } from "../services/pi-session.js";
+import { getSkillUsageStats, getSkillUsageTimeseries } from "../db/session-store.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
@@ -379,6 +380,13 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     const removed = await removeSystemSkill(req.params.name);
     if (!removed) return reply.code(404).send({ error: "Skill not found" });
     return { ok: true };
+  });
+
+  app.get<{ Querystring: { days?: string } }>("/admin/skills/usage", async (req) => {
+    const stats = getSkillUsageStats();
+    const days = parseInt(req.query.days || "30", 10);
+    const timeseries = getSkillUsageTimeseries(days);
+    return { stats, timeseries, days };
   });
 
   // ─── Active Sessions ───

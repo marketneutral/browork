@@ -5,7 +5,7 @@ import type { BroworkCommand } from "../services/pi-session.js";
 import { subscribeWsToFileChanges, getFileWatcher } from "../services/file-watcher.js";
 import { initAgentsMdTracking, onFileChanged } from "../services/agents-md-tracker.js";
 import { getSkill, getUserSkill, getSessionSkill } from "../services/skill-manager.js";
-import { addMessage, getSessionById } from "../db/session-store.js";
+import { addMessage, getSessionById, logSkillInvocation } from "../db/session-store.js";
 import { resolve } from "path";
 import { mkdirSync } from "fs";
 
@@ -127,6 +127,7 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
                 ? `[Workflow: ${cmd.skill}] ${cmd.args}`
                 : `[Workflow: ${cmd.skill}]`;
               addMessage(id, "user", userMsg, Date.now());
+              logSkillInvocation(userId, id, cmd.skill, cmd.args);
               // Notify frontend that a skill is active
               socket.send(
                 JSON.stringify({

@@ -244,6 +244,56 @@ export function getMessages(
     .all(sessionId) as MessageRow[];
 }
 
+// ── Skill Invocations ──
+
+export function logSkillInvocation(
+  userId: string | undefined,
+  sessionId: string,
+  skillName: string,
+  args?: string,
+): void {
+  const db = getDb();
+  db.prepare(
+    "INSERT INTO skill_invocations (user_id, session_id, skill_name, args, timestamp) VALUES (?, ?, ?, ?, ?)",
+  ).run(userId ?? null, sessionId, skillName, args ?? null, Date.now());
+}
+
+export interface SkillUsageRow {
+  skill_name: string;
+  count: number;
+  last_used: number;
+  user_count: number;
+}
+
+export function getSkillUsageStats(): SkillUsageRow[] {
+  const db = getDb();
+  return db.prepare(`
+    SELECT
+      skill_name,
+      COUNT(*) as count,
+      MAX(timestamp) as last_used,
+      COUNT(DISTINCT user_id) as user_count
+    FROM skill_invocations
+    GROUP BY skill_name
+    ORDER BY count DESC
+  `).all() as SkillUsageRow[];
+}
+
+export function getSkillUsageTimeseries(days: number = 30): { day: string; skill_name: string; count: number }[] {
+  const db = getDb();
+  const cutoffMs = Date.now() - days * 86_400_000;
+  return db.prepare(`
+    SELECT
+      date(datetime(timestamp / 1000, 'unixepoch')) as day,
+      skill_name,
+      COUNT(*) as count
+    FROM skill_invocations
+    WHERE timestamp >= ?
+    GROUP BY day, skill_name
+    ORDER BY day
+  `).all(cutoffMs) as any[];
+}
+
 // ── Helpers ──
 
 function truncate(str: string, maxLen: number): string {
