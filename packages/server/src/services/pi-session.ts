@@ -10,7 +10,8 @@
 
 import type { WebSocket } from "ws";
 import { translatePiEvent } from "../utils/event-translator.js";
-import { resolve } from "path";
+import { resolve, join } from "path";
+import { existsSync } from "fs";
 import { isSandboxEnabled, ensureSandbox, createSandboxBashOps, createSandboxFileOps } from "./sandbox-manager.js";
 import { createWebTools } from "../tools/web-tools.js";
 import { createAskUserTool, resolveQuestion, rejectAllPending, registerPending } from "../tools/ask-user.js";
@@ -296,6 +297,13 @@ export async function createPiSession(
         }
         break;
       case "agent_end": {
+        // Filter out images that no longer exist (e.g. intermediate files
+        // from Quarto renders that get cleaned up after the render finishes)
+        for (const p of turnState.turnImagePaths) {
+          if (!existsSync(join(workDir, p))) {
+            turnState.turnImagePaths.delete(p);
+          }
+        }
         const images = turnState.turnImagePaths.size > 0 ? JSON.stringify([...turnState.turnImagePaths]) : null;
         const toolCallsJson = turnState.turnToolCalls.length > 0 ? JSON.stringify(turnState.turnToolCalls) : null;
         if (turnState.assistantBuffer) {

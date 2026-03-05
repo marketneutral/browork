@@ -309,9 +309,10 @@ export function isSandboxImageAvailable(): boolean {
 export function createSandboxBashOps(userId: string): BashOperations {
   return {
     async exec(command, cwd, options) {
-      const containerId = containers.get(userId);
-      if (!containerId) {
-        throw new Error(`No sandbox container for user ${userId}`);
+      // Re-provision if container was killed (e.g. by admin) or disappeared
+      let containerId = containers.get(userId);
+      if (!containerId || !isContainerRunning(containerId)) {
+        containerId = ensureSandbox(userId);
       }
 
       // Translate host path → container path

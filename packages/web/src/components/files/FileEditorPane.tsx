@@ -145,11 +145,11 @@ export function FileEditorPane({ onBack, onRefresh }: FileEditorPaneProps) {
         {ext === "csv" && (
           <CsvEditor content={openFile.content} onChange={handleChange} />
         )}
-        {ext === "md" && (
+        {(ext === "md" || ext === "qmd") && (
           <MarkdownEditor content={openFile.content} onChange={handleChange} />
         )}
-        {ext === "html" && htmlPreview && (
-          <HtmlViewer content={openFile.content} />
+        {ext === "html" && htmlPreview && sessionId && (
+          <HtmlViewer url={api.files.download(openFile.path, sessionId)} />
         )}
         {ext === "html" && !htmlPreview && (
           <CodeEditor

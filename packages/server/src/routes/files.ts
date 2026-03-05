@@ -396,7 +396,7 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
         return { type: "csv", content: raw, headers, rows, totalRows: lines.length - 1 };
       }
 
-      if ([".json", ".txt", ".md", ".yaml", ".yml", ".ts", ".js", ".py", ".html", ".css"].includes(ext)) {
+      if ([".json", ".txt", ".md", ".qmd", ".yaml", ".yml", ".ts", ".js", ".py", ".html", ".css"].includes(ext)) {
         const content = await readFile(resolved, "utf-8");
         return { type: "text", content: content.slice(0, 100_000) };
       }

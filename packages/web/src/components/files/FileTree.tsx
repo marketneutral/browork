@@ -507,6 +507,7 @@ export function FileIcon({ name, isDir }: { name: string; isDir?: boolean }) {
       return <Braces className={`${ICON_CLS} text-sky-400/70`} />;
     case "md":
     case "mdx":
+    case "qmd":
       return <FileText className={`${ICON_CLS} text-violet-400/70`} />;
     case "png":
     case "jpg":

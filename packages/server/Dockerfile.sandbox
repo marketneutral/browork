@@ -30,8 +30,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice-calc \
     libreoffice-writer \
     libreoffice-impress \
+    # Quarto: wget + gdebi for .deb install
+    wget \
+    gdebi-core \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3 /usr/bin/python
+
+# ── Quarto CLI ───────────────────────────────────────────────
+# Renders .qmd files (uses Jupyter as execution engine for Python)
+RUN QUARTO_VERSION=$(curl -s https://api.github.com/repos/quarto-dev/quarto-cli/releases/latest | grep -oP '"tag_name":\s*"v\K[^"]+') \
+    && wget -q "https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb" \
+    && gdebi -n "quarto-${QUARTO_VERSION}-linux-amd64.deb" \
+    && rm "quarto-${QUARTO_VERSION}-linux-amd64.deb"
 
 # ── Python packages ─────────────────────────────────────────────
 # Data analysis (original) + PDF / PPTX / DOCX / XLSX skill deps
@@ -63,7 +73,10 @@ RUN pip3 install --no-cache-dir \
     # PPTX skill
     "markitdown[pptx]" \
     Pillow \
-    defusedxml
+    defusedxml \
+    # Quarto rendering engine
+    jupyter \
+    ipykernel
 
 # ── NPM global packages ────────────────────────────────────────
 # PPTX: pptxgenjs | DOCX: docx | PDF: pdf-lib, pdfjs-dist
@@ -79,8 +92,14 @@ ENV NODE_PATH=/usr/local/lib/node_modules
 ARG UID=1000
 ARG GID=1000
 RUN groupadd -g $GID analyst 2>/dev/null || true \
- && useradd -m -s /bin/bash -u $UID -g $GID analyst
+ && useradd -m -s /bin/bash -u $UID -g $GID -o analyst
 USER analyst
+
+# Quarto + Jupyter need writable cache/config dirs at runtime.
+# Pre-create them and register the IPython kernel for the analyst user
+# so `quarto render` works without permission errors.
+RUN mkdir -p /home/analyst/.cache /home/analyst/.local /home/analyst/.jupyter \
+ && python3 -m ipykernel install --user --name python3
 
 WORKDIR /workspaces
 
