@@ -114,9 +114,23 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
       ORDER BY lastActive DESC
     `).all() as any[];
 
+    // Compute per-user storage from workspace directories
+    const workspaceDirs = db.prepare(`
+      SELECT user_id, workspace_dir FROM sessions WHERE user_id IS NOT NULL
+    `).all() as { user_id: string; workspace_dir: string }[];
+
+    const userStorageMap = new Map<string, number>();
+    await Promise.all(
+      workspaceDirs.map(async ({ user_id, workspace_dir }) => {
+        const bytes = await getSessionWorkspaceSize(workspace_dir);
+        userStorageMap.set(user_id, (userStorageMap.get(user_id) ?? 0) + bytes);
+      }),
+    );
+
     return rows.map((r) => ({
       ...r,
       isAdmin: isAdminUser(r.username),
+      storageBytes: userStorageMap.get(r.id) ?? 0,
     }));
   });
 

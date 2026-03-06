@@ -63,6 +63,7 @@ export interface AdminUserSummary {
   messageCount: number;
   lastActive: string | null;
   isAdmin: boolean;
+  storageBytes: number;
 }
 
 export interface AdminUserDetail {

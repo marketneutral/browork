@@ -6,7 +6,7 @@ import { Search, Shield, ChevronRight } from "lucide-react";
 export function UsersPage() {
   const { users, loading, fetchUsers } = useAdminStore();
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<"lastActive" | "messageCount" | "sessionCount">("lastActive");
+  const [sortBy, setSortBy] = useState<"lastActive" | "messageCount" | "sessionCount" | "storageBytes">("lastActive");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -47,6 +47,7 @@ export function UsersPage() {
           <option value="lastActive">Last Active</option>
           <option value="messageCount">Messages</option>
           <option value="sessionCount">Sessions</option>
+          <option value="storageBytes">Storage</option>
         </select>
       </div>
 
@@ -65,6 +66,7 @@ export function UsersPage() {
                 <th className="px-4 py-3 font-medium">User</th>
                 <th className="px-4 py-3 font-medium text-right">Sessions</th>
                 <th className="px-4 py-3 font-medium text-right">Messages</th>
+                <th className="px-4 py-3 font-medium text-right">Storage</th>
                 <th className="px-4 py-3 font-medium text-right">Last Active</th>
                 <th className="px-4 py-3 w-10" />
               </tr>
@@ -94,6 +96,7 @@ export function UsersPage() {
                   </td>
                   <td className="px-4 py-3 text-right font-mono">{user.sessionCount}</td>
                   <td className="px-4 py-3 text-right font-mono">{user.messageCount}</td>
+                  <td className="px-4 py-3 text-right font-mono text-foreground-secondary">{formatBytes(user.storageBytes)}</td>
                   <td className="px-4 py-3 text-right text-foreground-secondary">
                     {user.lastActive ? formatRelative(user.lastActive) : "Never"}
                   </td>
@@ -111,6 +114,14 @@ export function UsersPage() {
       )}
     </div>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const val = bytes / 1024 ** i;
+  return `${val < 10 ? val.toFixed(1) : Math.round(val)} ${units[i]}`;
 }
 
 function formatRelative(date: string): string {
