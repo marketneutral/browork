@@ -34,12 +34,12 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     const wsDir = resolve(DATA_ROOT, "workspaces", session.workspaceDir);
     await mkdir(wsDir, { recursive: true });
 
-    // Use user's custom AGENTS.md if they have one, otherwise use system default
+    // System default + user's custom additions appended
     let agentsContent = await readSystemDefault();
     if (userId) {
       const userContent = await readUserAgentsMd(userId);
       if (userContent) {
-        agentsContent = userContent;
+        agentsContent = agentsContent + "\n\n" + userContent;
       }
     }
     await writeFile(join(wsDir, "AGENTS.md"), agentsContent, "utf-8").catch(() => {});

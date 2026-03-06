@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 export interface SkillMeta {
   name: string;
+  dirName: string;
   description: string;
   enabled: boolean;
 }

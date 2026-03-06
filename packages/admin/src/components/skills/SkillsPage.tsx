@@ -182,7 +182,7 @@ export function SkillsPage() {
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-foreground-secondary" />
             <h3 className="text-sm font-semibold text-foreground-secondary">
-              User-Installed Skills
+              User-Installed Skills <span className="font-normal">(promoted cross-session only)</span>
             </h3>
           </div>
         </div>

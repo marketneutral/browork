@@ -139,13 +139,14 @@ export async function createPiSession(
     }
   }
 
-  // Tell the client whether sandbox is actually active for this session
-  send(ws, { type: "session_info", sandboxActive: !!sandboxUserId });
-
   // Symlink user's installed skills into the workspace so Pi discovers them
   if (userId) {
     await symlinkUserSkillsToWorkspace(userId, workDir);
   }
+
+  // Tell the client whether sandbox is actually active for this session
+  // (sent after skill symlinks so the client can use this as a "session ready" signal)
+  send(ws, { type: "session_info", sandboxActive: !!sandboxUserId });
 
   // Dynamically import the Pi SDK — it may not be installed yet
   let piSdk: typeof import("@mariozechner/pi-coding-agent") | null = null;

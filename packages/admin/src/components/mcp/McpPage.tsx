@@ -216,7 +216,7 @@ export function McpPage() {
                       </button>
                     </td>
                     <td className="px-4 py-2.5 font-medium">{s.name}</td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-foreground-secondary max-w-[300px] truncate">{s.url}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs text-foreground-secondary max-w-[300px] truncate" title={s.url}>{s.url}</td>
                     <td className="px-4 py-2.5">
                       <span className="rounded bg-surface-glass px-2 py-0.5 text-xs">{s.transport}</span>
                     </td>

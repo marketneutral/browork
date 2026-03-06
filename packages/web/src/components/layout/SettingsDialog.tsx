@@ -7,16 +7,16 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ onClose }: SettingsDialogProps) {
-  const [content, setContent] = useState("");
-  const [defaultContent, setDefaultContent] = useState("");
+  const [userContent, setUserContent] = useState("");
+  const [systemDefault, setSystemDefault] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.settings.getAgentsMd().then((res) => {
-      setContent(res.content);
-      setDefaultContent(res.defaultContent);
+      setUserContent(res.userContent);
+      setSystemDefault(res.systemDefault);
       setLoading(false);
     }).catch((err) => {
       setError(err.message);
@@ -28,14 +28,14 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
     setSaving(true);
     setError(null);
     try {
-      await api.settings.saveAgentsMd(content);
+      await api.settings.saveAgentsMd(userContent);
       onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setSaving(false);
     }
-  }, [content, onClose]);
+  }, [userContent, onClose]);
 
   return (
     <div
@@ -59,36 +59,52 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
         </div>
 
         {/* Body */}
-        <div className="flex-1 min-h-0 flex flex-col px-4 py-3 overflow-hidden">
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-sm font-medium">AGENTS.md</label>
-            {!loading && (
-              <button
-                onClick={() => setContent(defaultContent)}
-                className="flex items-center gap-1 px-2 py-1 text-xs rounded-md hover:bg-surface-glass-hover text-foreground-secondary hover:text-foreground transition-colors"
-                title="Revert to system default"
-              >
-                <RotateCcw size={12} />
-                Default
-              </button>
-            )}
-          </div>
-          <p className="text-xs text-foreground-secondary mb-2">
-            Project instructions written into every new session's workspace.
-          </p>
-
+        <div className="flex-1 min-h-0 flex flex-col px-4 py-3 overflow-y-auto">
           {loading ? (
             <div className="flex-1 flex items-center justify-center text-foreground-secondary text-sm">
               Loading...
             </div>
           ) : (
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="w-full rounded-md border border-border bg-background p-3 text-sm font-mono text-foreground placeholder:text-foreground-secondary/50 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-              style={{ height: "40vh" }}
-              spellCheck={false}
-            />
+            <>
+              {/* System default (read-only) */}
+              <label className="text-sm font-medium mb-1">System Default</label>
+              <p className="text-xs text-foreground-secondary mb-2">
+                Set by your administrator. Applied to every new session.
+              </p>
+              <textarea
+                value={systemDefault}
+                readOnly
+                className="w-full rounded-md border border-border bg-background/50 p-3 text-sm font-mono text-foreground-secondary resize-none cursor-default"
+                style={{ height: "16vh" }}
+                spellCheck={false}
+              />
+
+              {/* User additions */}
+              <div className="flex items-center justify-between mt-4 mb-1">
+                <label className="text-sm font-medium">Your Additions</label>
+                {userContent && (
+                  <button
+                    onClick={() => setUserContent("")}
+                    className="flex items-center gap-1 px-2 py-1 text-xs rounded-md hover:bg-surface-glass-hover text-foreground-secondary hover:text-foreground transition-colors"
+                    title="Clear your additions"
+                  >
+                    <RotateCcw size={12} />
+                    Clear
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-foreground-secondary mb-2">
+                Your custom instructions, appended after the system default in every new session.
+              </p>
+              <textarea
+                value={userContent}
+                onChange={(e) => setUserContent(e.target.value)}
+                placeholder="Add your custom instructions here..."
+                className="w-full rounded-md border border-border bg-background p-3 text-sm font-mono text-foreground placeholder:text-foreground-secondary/50 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                style={{ height: "24vh" }}
+                spellCheck={false}
+              />
+            </>
           )}
 
           {error && (

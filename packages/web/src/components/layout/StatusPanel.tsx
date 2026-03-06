@@ -13,6 +13,7 @@ export function StatusPanel() {
   const sessionId = useSessionStore((s) => s.sessionId);
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const totalSkills = skills.length + userSkills.length + sessionSkills.length;
   const serverCount = mcpServers.length;
@@ -26,51 +27,54 @@ export function StatusPanel() {
   if (serverCount > 0) parts.push(`${serverCount} MCP server${serverCount !== 1 ? "s" : ""}`);
   if (totalSkills > 0) parts.push(`${totalSkills} skill${totalSkills !== 1 ? "s" : ""}`);
 
-  const handlePromote = async (skillName: string) => {
+  const handlePromote = async (dirName: string) => {
     if (!sessionId || busy) return;
     setBusy(true);
+    setError(null);
     try {
-      await api.skills.promote(sessionId, skillName);
+      await api.skills.promote(sessionId, dirName);
       const [user, session] = await Promise.all([
         api.skills.listUser(),
         api.skills.listSession(sessionId),
       ]);
       useSkillsStore.getState().setUserSkills(user);
       useSkillsStore.getState().setSessionSkills(session);
-    } catch (err) {
-      console.error("Failed to promote skill:", err);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to promote skill");
     } finally {
       setBusy(false);
     }
   };
 
-  const handleDemote = async (skillName: string) => {
+  const handleDemote = async (dirName: string) => {
     if (!sessionId || busy) return;
     setBusy(true);
+    setError(null);
     try {
-      await api.skills.demote(sessionId, skillName);
+      await api.skills.demote(sessionId, dirName);
       const [user, session] = await Promise.all([
         api.skills.listUser(),
         api.skills.listSession(sessionId),
       ]);
       useSkillsStore.getState().setUserSkills(user);
       useSkillsStore.getState().setSessionSkills(session);
-    } catch (err) {
-      console.error("Failed to demote skill:", err);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to demote skill");
     } finally {
       setBusy(false);
     }
   };
 
-  const handleDeleteUser = async (skillName: string) => {
+  const handleDeleteUser = async (dirName: string) => {
     if (busy) return;
     setBusy(true);
+    setError(null);
     try {
-      await api.skills.deleteUser(skillName);
+      await api.skills.deleteUser(dirName);
       const user = await api.skills.listUser();
       useSkillsStore.getState().setUserSkills(user);
-    } catch (err) {
-      console.error("Failed to delete skill:", err);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete skill");
     } finally {
       setBusy(false);
     }
@@ -93,28 +97,35 @@ export function StatusPanel() {
 
       {expanded && (
         <div className="px-3 pb-2 space-y-2 text-xs max-h-[40vh] overflow-y-auto">
+          {error && (
+            <p className="text-destructive text-[11px] py-1">{error}</p>
+          )}
           {/* Built-in (admin) skills */}
           {skills.length > 0 && (
-            <SkillGroup label="Built-in" skills={skills} />
+            <SkillGroup label="Built-in Skills" skills={skills} />
           )}
 
           {/* User-installed cross-session skills */}
           {userSkills.length > 0 && (
             <SkillGroup
-              label="My Skills"
+              label="My Private Skills"
               skills={userSkills}
               actions={(skill) => (
                 <>
                   <ActionButton
                     title="Edit in session"
-                    onClick={() => handleDemote(skill.name)}
+                    onClick={() => handleDemote(skill.dirName)}
                     disabled={busy}
                   >
                     <ArrowDown size={10} />
                   </ActionButton>
                   <ActionButton
                     title="Delete"
-                    onClick={() => handleDeleteUser(skill.name)}
+                    onClick={() => {
+                      if (confirm(`Delete skill "${skill.name}"? This cannot be undone.`)) {
+                        handleDeleteUser(skill.dirName);
+                      }
+                    }}
                     className="hover:text-destructive"
                     disabled={busy}
                   >
@@ -128,12 +139,12 @@ export function StatusPanel() {
           {/* Session-local skills */}
           {sessionSkills.length > 0 && (
             <SkillGroup
-              label="Session"
+              label="My Private Skills (this session only)"
               skills={sessionSkills}
               actions={(skill) => (
                 <ActionButton
                   title="Install for all sessions"
-                  onClick={() => handlePromote(skill.name)}
+                  onClick={() => handlePromote(skill.dirName)}
                   disabled={busy}
                 >
                   <ArrowUp size={10} />

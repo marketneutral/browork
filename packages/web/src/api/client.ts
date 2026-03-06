@@ -78,6 +78,7 @@ export interface FilePreview {
 
 export interface SkillMeta {
   name: string;
+  dirName: string;
   description: string;
   enabled: boolean;
 }
@@ -169,7 +170,7 @@ export const api = {
   },
   settings: {
     getAgentsMd: () =>
-      request<{ content: string; isCustom: boolean; defaultContent: string }>("/settings/agents-md"),
+      request<{ userContent: string; isCustom: boolean; systemDefault: string }>("/settings/agents-md"),
     saveAgentsMd: (content: string) =>
       request<{ ok: boolean }>("/settings/agents-md", {
         method: "PUT",

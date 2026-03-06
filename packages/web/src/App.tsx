@@ -93,9 +93,15 @@ export function App() {
             percent: event.percent,
           });
           break;
-        case "session_info":
+        case "session_info": {
           useSessionStore.getState().setSandboxActive(event.sandboxActive);
+          // Session is fully initialized — refresh files to pick up .pi/skills/ etc.
+          const sid = useSessionStore.getState().sessionId;
+          if (sid) {
+            api.files.list(sid).then(useFilesStore.getState().setEntries).catch(console.error);
+          }
           break;
+        }
         case "files_changed": {
           const currentSessionId = useSessionStore.getState().sessionId;
           if (currentSessionId) {

@@ -302,7 +302,8 @@ code, pre, .font-mono {
   margin: 0.75em 0;
 }
 
-.prose-chat table            { border-collapse: collapse; margin: 0.5em 0; width: 100%; font-size: 0.9em; }
+.prose-chat .table-wrap       { overflow-x: auto; margin: 0.5em 0; }
+.prose-chat table            { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 0.9em; }
 .prose-chat th,
 .prose-chat td               { border: 1px solid var(--border); padding: 0.35em 0.6em; text-align: left; }
 .prose-chat th               { background: var(--muted); font-weight: 600; }

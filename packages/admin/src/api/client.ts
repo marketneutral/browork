@@ -236,7 +236,7 @@ export const adminApi = {
   killContainer: (userId: string) =>
     request<{ ok: boolean }>(`/admin/containers/${userId}`, { method: "DELETE" }),
   prompts: () => request<PromptsResponse>("/admin/prompts"),
-  getAgentsMd: () => request<{ content: string; isCustom: boolean; defaultContent: string }>("/settings/agents-md"),
+  getAgentsMd: () => request<{ userContent: string; isCustom: boolean; systemDefault: string }>("/settings/agents-md"),
   saveDefaultAgentsMd: (content: string) =>
     request<{ ok: boolean }>("/settings/agents-md/default", {
       method: "PUT",

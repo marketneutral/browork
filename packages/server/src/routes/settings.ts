@@ -39,17 +39,17 @@ export async function readUserAgentsMd(userId: string): Promise<string | null> {
 }
 
 export const settingsRoutes: FastifyPluginAsync = async (app) => {
-  // Get user's custom AGENTS.md
+  // Get user's custom AGENTS.md (appended to system default)
   app.get("/settings/agents-md", async (req) => {
     const userId = req.user?.id;
     const systemDefault = await readSystemDefault();
-    if (!userId) return { content: systemDefault, isCustom: false, defaultContent: systemDefault };
+    if (!userId) return { userContent: "", isCustom: false, systemDefault };
 
-    const content = await readUserAgentsMd(userId);
+    const userContent = await readUserAgentsMd(userId);
     return {
-      content: content ?? systemDefault,
-      isCustom: content !== null,
-      defaultContent: systemDefault,
+      userContent: userContent ?? "",
+      isCustom: userContent !== null,
+      systemDefault,
     };
   });
 

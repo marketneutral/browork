@@ -69,8 +69,8 @@ export function SettingsPage() {
     adminApi
       .getAgentsMd()
       .then((res) => {
-        setContent(res.defaultContent);
-        setDefaultContent(res.defaultContent);
+        setContent(res.systemDefault);
+        setDefaultContent(res.systemDefault);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));

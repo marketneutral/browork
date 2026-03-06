@@ -17,6 +17,8 @@ import { homedir } from "os";
 
 export interface SkillMeta {
   name: string;
+  /** Directory name on disk (may differ from display name) */
+  dirName: string;
   description: string;
   enabled: boolean;
 }
@@ -171,6 +173,7 @@ export async function scanSkillDirectory(dir: string, opts?: { register?: boolea
 
       const skill: SkillContent = {
         name,
+        dirName: entry.name,
         description,
         enabled: true,
         body,
@@ -192,8 +195,9 @@ export async function scanSkillDirectory(dir: string, opts?: { register?: boolea
  * List all loaded skills (metadata only).
  */
 export function listSkills(): SkillMeta[] {
-  return Array.from(skills.values()).map(({ name, description, enabled }) => ({
+  return Array.from(skills.values()).map(({ name, dirName, description, enabled }) => ({
     name,
+    dirName,
     description,
     enabled,
   }));
@@ -216,7 +220,7 @@ export function setSkillEnabled(
   const skill = skills.get(name);
   if (!skill) return undefined;
   skill.enabled = enabled;
-  return { name: skill.name, description: skill.description, enabled };
+  return { name: skill.name, dirName: skill.dirName, description: skill.description, enabled };
 }
 
 /**
@@ -382,7 +386,7 @@ export async function listUserSkills(userId: string): Promise<SkillMeta[]> {
   const dir = userSkillsDir(userId);
   if (!existsSync(dir)) return [];
   const results = await scanSkillDirectory(dir, { register: false });
-  return results.map(({ name, description, enabled }) => ({ name, description, enabled }));
+  return results.map(({ name, dirName, description, enabled }) => ({ name, dirName, description, enabled }));
 }
 
 /**
@@ -392,7 +396,7 @@ export async function listSessionSkills(workspaceDir: string): Promise<SkillMeta
   const dir = sessionSkillsDir(workspaceDir);
   if (!existsSync(dir)) return [];
   const results = await scanSkillDirectory(dir, { register: false });
-  return results.map(({ name, description, enabled }) => ({ name, description, enabled }));
+  return results.map(({ name, dirName, description, enabled }) => ({ name, dirName, description, enabled }));
 }
 
 /**
