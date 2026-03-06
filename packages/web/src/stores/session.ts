@@ -146,7 +146,14 @@ export const useSessionStore = create<SessionState>((set) => ({
   setMessages: (messages) => {
     // Assign seq to loaded history so timeline ordering works
     const seqd = messages.map((m) => ({ ...m, seq: ++seqCounter }));
-    set({ messages: seqd, completedToolGroups: [], completedImageGroups: [] });
+    // Re-sequence any activeToolCalls that arrived from rebind before
+    // history loaded, so they sort after the loaded messages (not before).
+    set((s) => ({
+      messages: seqd,
+      completedToolGroups: [],
+      completedImageGroups: [],
+      activeToolCalls: s.activeToolCalls.map((tc) => ({ ...tc, seq: ++seqCounter })),
+    }));
   },
 
   addUserMessage: (text) =>
