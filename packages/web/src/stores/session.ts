@@ -222,7 +222,8 @@ export const useSessionStore = create<SessionState>((set) => ({
 
   addPendingImages: (paths) =>
     set((s) => {
-      const images = paths.filter(isImagePath);
+      const existing = new Set(s.pendingImages);
+      const images = paths.filter((p) => isImagePath(p) && !existing.has(p));
       if (images.length === 0) return s;
       return { pendingImages: [...s.pendingImages, ...images] };
     }),
