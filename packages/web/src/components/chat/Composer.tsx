@@ -1,6 +1,8 @@
-import { useState, useRef, useCallback, useEffect, useMemo, type KeyboardEvent } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, type KeyboardEvent, type ClipboardEvent, type DragEvent } from "react";
+import { X, ImagePlus } from "lucide-react";
 import { useSkillsStore } from "../../stores/skills";
 import { useFilesStore } from "../../stores/files";
+import type { ImageAttachment } from "../../types";
 
 type SlashItem =
   | { kind: "skill"; name: string; description: string }
@@ -11,8 +13,11 @@ const builtinCommands = [
   { name: "compact", description: "Compact context to free up token space" },
 ];
 
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+const ACCEPTED_MIME = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+
 interface ComposerProps {
-  onSend: (text: string) => void;
+  onSend: (text: string, images?: ImageAttachment[]) => void;
   onInvokeSkill: (skillName: string, args?: string) => void;
   onCompact: () => void;
   disabled?: boolean;
@@ -22,9 +27,12 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
   const [text, setText] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [cursorPos, setCursorPos] = useState(0);
+  const [images, setImages] = useState<{ data: string; mimeType: string; preview: string }[]>([]);
+  const [dragOver, setDragOver] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const filePopupRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fileEntries = useFilesStore((s) => s.entries);
   const skills = useSkillsStore((s) => s.skills);
@@ -230,9 +238,62 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
     [text, atMention],
   );
 
+  const addImageFiles = useCallback((files: FileList | File[]) => {
+    for (const file of Array.from(files)) {
+      if (!ACCEPTED_MIME.has(file.type)) continue;
+      if (file.size > MAX_IMAGE_BYTES) continue;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        // dataUrl = "data:image/png;base64,..."
+        const base64 = dataUrl.split(",")[1];
+        setImages((prev) => [...prev, { data: base64, mimeType: file.type, preview: dataUrl }]);
+      };
+      reader.readAsDataURL(file);
+    }
+  }, []);
+
+  const removeImage = useCallback((index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageFiles: File[] = [];
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) imageFiles.push(file);
+      }
+    }
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      addImageFiles(imageFiles);
+    }
+  }, [addImageFiles]);
+
+  const handleDrop = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer?.files) {
+      addImageFiles(e.dataTransfer.files);
+    }
+  }, [addImageFiles]);
+
+  const handleDragOver = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+  }, []);
+
   const handleSend = useCallback(() => {
     const trimmed = text.trim();
-    if (!trimmed || disabled) return;
+    if ((!trimmed && images.length === 0) || disabled) return;
 
     // Check if this is a slash command invocation
     if (trimmed.startsWith("/")) {
@@ -274,13 +335,15 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
       }
     }
 
-    onSend(trimmed);
+    const attachments = images.length > 0 ? images.map(({ data, mimeType }) => ({ data, mimeType })) : undefined;
+    onSend(trimmed, attachments);
     setText("");
+    setImages([]);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
     requestAnimationFrame(() => textareaRef.current?.focus());
-  }, [text, disabled, onSend, onInvokeSkill, onCompact, enabledSkills, mcpTools]);
+  }, [text, images, disabled, onSend, onInvokeSkill, onCompact, enabledSkills, mcpTools]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (activePopup === "slash") {
@@ -488,8 +551,55 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
           </div>
         )}
 
-        <div className="bg-background-tertiary border border-border rounded-[var(--radius-xl)] p-3 focus-glow transition-all">
+        <div
+          className={`bg-background-tertiary border rounded-[var(--radius-xl)] p-3 focus-glow transition-all ${
+            dragOver ? "border-primary bg-primary/5" : "border-border"
+          }`}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+        >
+          {/* Image previews */}
+          {images.length > 0 && (
+            <div className="flex gap-2 mb-2 flex-wrap">
+              {images.map((img, i) => (
+                <div key={i} className="relative group/img">
+                  <img
+                    src={img.preview}
+                    alt={`Attached ${i + 1}`}
+                    className="h-16 w-16 object-cover rounded-[var(--radius)] border border-border"
+                  />
+                  <button
+                    onClick={() => removeImage(i)}
+                    className="absolute -top-1.5 -right-1.5 bg-background-secondary border border-border rounded-full p-0.5 opacity-0 group-hover/img:opacity-100 transition-opacity"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2 items-end">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled}
+              className="p-1.5 text-foreground-tertiary hover:text-foreground transition-colors disabled:opacity-50"
+              title="Attach image"
+            >
+              <ImagePlus size={18} />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) addImageFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
             <textarea
               ref={textareaRef}
               value={text}
@@ -501,6 +611,7 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
               onKeyDown={handleKeyDown}
               onKeyUp={(e) => setCursorPos((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
               onClick={(e) => setCursorPos((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
+              onPaste={handlePaste}
               placeholder="Ask me to analyze your data... Type / for workflows, @ to mention files"
               disabled={disabled}
               rows={1}
@@ -509,7 +620,7 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
             <button
               onMouseDown={(e) => e.preventDefault()}
               onClick={handleSend}
-              disabled={disabled || !text.trim()}
+              disabled={disabled || (!text.trim() && images.length === 0)}
               className="rounded-[var(--radius)] bg-gradient-primary text-white px-4 py-2 text-sm font-medium hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               Send

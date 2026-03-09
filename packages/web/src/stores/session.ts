@@ -7,6 +7,8 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   seq: number;
+  /** Base64 images attached by the user (user messages only) */
+  attachedImages?: { data: string; mimeType: string }[];
 }
 
 export interface ToolCall {
@@ -72,7 +74,7 @@ interface SessionState {
   setSessionId: (id: string | null) => void;
   setSessions: (sessions: SessionListItem[]) => void;
   setMessages: (messages: Omit<ChatMessage, "seq">[]) => void;
-  addUserMessage: (text: string) => void;
+  addUserMessage: (text: string, images?: { data: string; mimeType: string }[]) => void;
   appendAssistantDelta: (text: string) => void;
   appendThinkingDelta: (text: string) => void;
   finalizeAssistantMessage: () => void;
@@ -157,7 +159,7 @@ export const useSessionStore = create<SessionState>((set) => ({
     }));
   },
 
-  addUserMessage: (text) =>
+  addUserMessage: (text, images) =>
     set((s) => ({
       messages: [
         ...s.messages,
@@ -167,6 +169,7 @@ export const useSessionStore = create<SessionState>((set) => ({
           content: text,
           timestamp: Date.now(),
           seq: ++seqCounter,
+          ...(images?.length ? { attachedImages: images } : {}),
         },
       ],
     })),

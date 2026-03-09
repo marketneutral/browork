@@ -99,11 +99,13 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
 
         try {
           switch (cmd.type) {
-            case "prompt":
-              // Persist user message
-              addMessage(id, "user", cmd.message, Date.now());
-              await session!.sendPrompt(cmd.message);
+            case "prompt": {
+              // Persist user message (with attached images if any)
+              const userImages = cmd.images?.length ? JSON.stringify(cmd.images) : null;
+              addMessage(id, "user", cmd.message, Date.now(), userImages);
+              await session!.sendPrompt(cmd.message, cmd.images);
               break;
+            }
             case "skill_invoke": {
               // Look up skill from admin, user, or session sources
               const skill = getSkill(cmd.skill)

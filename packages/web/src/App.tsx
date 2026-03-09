@@ -230,18 +230,32 @@ export function App() {
         if (data.messages && data.messages.length > 0) {
           const store = useSessionStore.getState();
           store.setMessages(
-            data.messages.map((m) => ({
-              id: `msg-${m.id}`,
-              role: m.role,
-              content: m.content,
-              timestamp: m.timestamp,
-            })),
+            data.messages.map((m) => {
+              const msg: { id: string; role: typeof m.role; content: string; timestamp: number; attachedImages?: { data: string; mimeType: string }[] } = {
+                id: `msg-${m.id}`,
+                role: m.role,
+                content: m.content,
+                timestamp: m.timestamp,
+              };
+              // Restore user-attached images
+              if (m.role === "user" && m.images) {
+                try {
+                  const parsed = JSON.parse(m.images);
+                  if (Array.isArray(parsed) && parsed[0]?.data) {
+                    msg.attachedImages = parsed;
+                  }
+                } catch { /* ignore */ }
+              }
+              return msg;
+            }),
           );
           // Restore inline image groups positioned after their associated message
           const storedMessages = useSessionStore.getState().messages;
           const seqByMsgId = new Map(storedMessages.map((m) => [m.id, m.seq]));
           for (const m of data.messages) {
-            if (m.images) {
+            // Restore Pi-generated image groups (assistant messages only;
+            // user-attached images are restored via attachedImages above)
+            if (m.role === "assistant" && m.images) {
               try {
                 const paths = JSON.parse(m.images) as string[];
                 const msgSeq = seqByMsgId.get(`msg-${m.id}`);
@@ -321,10 +335,10 @@ export function App() {
   }, [setError]);
 
   const handleSendMessage = useCallback(
-    (text: string) => {
-      if (!text.trim()) return;
-      useSessionStore.getState().addUserMessage(text);
-      send({ type: "prompt", message: text });
+    (text: string, images?: { data: string; mimeType: string }[]) => {
+      if (!text.trim() && !images?.length) return;
+      useSessionStore.getState().addUserMessage(text, images);
+      send({ type: "prompt", message: text, ...(images?.length ? { images } : {}) });
     },
     [send],
   );

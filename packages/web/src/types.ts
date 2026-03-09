@@ -15,9 +15,15 @@ export type BroworkEvent =
   | { type: "ask_user"; requestId: string; questions: AskUserQuestion[] }
   | { type: "error"; message: string };
 
+/** Image attachment sent with a user prompt */
+export interface ImageAttachment {
+  data: string;     // base64-encoded
+  mimeType: string; // e.g. "image/png"
+}
+
 /** Commands sent to the server over WebSocket */
 export type BroworkCommand =
-  | { type: "prompt"; message: string }
+  | { type: "prompt"; message: string; images?: ImageAttachment[] }
   | { type: "skill_invoke"; skill: string; args?: string }
   | { type: "abort" }
   | { type: "steer"; message: string }

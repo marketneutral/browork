@@ -66,8 +66,13 @@ export type BroworkEvent =
 
 // ── Browork commands received from the frontend over WebSocket ──
 
+export interface ImageAttachment {
+  data: string;     // base64-encoded
+  mimeType: string;
+}
+
 export type BroworkCommand =
-  | { type: "prompt"; message: string }
+  | { type: "prompt"; message: string; images?: ImageAttachment[] }
   | { type: "skill_invoke"; skill: string; args?: string }
   | { type: "abort" }
   | { type: "steer"; message: string }
@@ -78,7 +83,7 @@ export type BroworkCommand =
 
 export interface PiSessionHandle {
   id: string;
-  sendPrompt(text: string): Promise<void>;
+  sendPrompt(text: string, images?: ImageAttachment[]): Promise<void>;
   sendSteer(text: string): Promise<void>;
   abort(): Promise<void>;
   compact(): Promise<void>;
@@ -387,10 +392,13 @@ export async function createPiSession(
   const handle: PiSessionHandle = {
     id: sessionId,
     turnState,
-    async sendPrompt(text: string) {
+    async sendPrompt(text: string, images?: ImageAttachment[]) {
       const update = consumeAgentsMdUpdate(workDir);
       const final = update ? formatAgentsMdInjection(update, text) : text;
-      await session.prompt(final);
+      const piImages = images?.length
+        ? images.map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }))
+        : undefined;
+      await (session as any).prompt(final, piImages ? { images: piImages } : undefined);
     },
     async sendSteer(text: string) {
       await session.steer(text);
@@ -491,7 +499,7 @@ function createMockSession(
       turnImagePaths: new Set(),
       turnToolCalls: [],
     },
-    async sendPrompt(text: string) {
+    async sendPrompt(text: string, _images?: ImageAttachment[]) {
       const update = consumeAgentsMdUpdate(workDir);
       const finalText = update ? formatAgentsMdInjection(update, text) : text;
       // Simulate Pi agent response with streaming

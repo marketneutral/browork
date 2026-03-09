@@ -52,7 +52,7 @@ export function LoginPage() {
             {APP_NAME}
           </h1>
           <p className="text-sm text-foreground-secondary mt-2 animate-fade-in-up stagger-1">
-            AI-powered data analysis for your team
+            Your AI-powered financial analyst
           </p>
         </div>
 

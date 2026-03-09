@@ -56,6 +56,18 @@ export const MessageBubble = memo(function MessageBubble({
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </button>
         )}
+        {isUser && message.attachedImages && message.attachedImages.length > 0 && (
+          <div className="flex gap-2 flex-wrap mb-2">
+            {message.attachedImages.map((img, i) => (
+              <img
+                key={i}
+                src={`data:${img.mimeType};base64,${img.data}`}
+                alt={`Attached ${i + 1}`}
+                className="max-h-48 max-w-64 rounded object-contain"
+              />
+            ))}
+          </div>
+        )}
         {isUser ? (
           <p className="whitespace-pre-wrap">{message.content}</p>
         ) : (
