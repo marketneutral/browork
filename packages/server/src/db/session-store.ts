@@ -12,6 +12,7 @@ export interface SessionRow {
   updated_at: string;
   forked_from: string | null;
   workspace_dir: string | null;
+  starred: number;
 }
 
 export interface SessionMeta {
@@ -22,6 +23,7 @@ export interface SessionMeta {
   lastMessage: string | null;
   forkedFrom: string | null;
   workspaceDir: string;
+  starred: boolean;
 }
 
 export interface MessageRow {
@@ -45,7 +47,7 @@ export function createSession(id: string, name: string, userId?: string): Sessio
     "INSERT INTO sessions (id, user_id, name, created_at, updated_at, workspace_dir) VALUES (?, ?, ?, ?, ?, ?)",
   ).run(id, userId ?? null, name, now, now, workspaceDir);
 
-  return { id, name, createdAt: now, updatedAt: now, lastMessage: null, forkedFrom: null, workspaceDir };
+  return { id, name, createdAt: now, updatedAt: now, lastMessage: null, forkedFrom: null, workspaceDir, starred: false };
 }
 
 export function getSessionById(id: string, userId?: string): SessionMeta | undefined {
@@ -71,6 +73,7 @@ export function getSessionById(id: string, userId?: string): SessionMeta | undef
     lastMessage: lastMsg ? truncate(lastMsg.content, 100) : null,
     forkedFrom: row.forked_from,
     workspaceDir: row.workspace_dir ?? `${row.id}/workspace`,
+    starred: !!row.starred,
   };
 }
 
@@ -107,6 +110,7 @@ export function listSessions(userId?: string): SessionMeta[] {
     lastMessage: lastMessages.get(row.id) ?? null,
     forkedFrom: row.forked_from,
     workspaceDir: row.workspace_dir ?? `${row.id}/workspace`,
+    starred: !!row.starred,
   }));
 }
 
@@ -123,6 +127,18 @@ export function renameSession(
 
   if (result.changes === 0) return undefined;
   return getSessionById(id);
+}
+
+export function starSession(
+  id: string,
+  starred: boolean,
+  userId?: string,
+): boolean {
+  const db = getDb();
+  const result = userId
+    ? db.prepare("UPDATE sessions SET starred = ? WHERE id = ? AND user_id = ?").run(starred ? 1 : 0, id, userId)
+    : db.prepare("UPDATE sessions SET starred = ? WHERE id = ?").run(starred ? 1 : 0, id);
+  return result.changes > 0;
 }
 
 export function deleteSession(id: string, userId?: string): boolean {

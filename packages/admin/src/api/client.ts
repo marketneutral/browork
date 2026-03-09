@@ -165,6 +165,8 @@ export interface McpServerInfo {
   status: "connecting" | "connected" | "disconnected" | "error";
   toolCount: number;
   error?: string;
+  serverInfo?: { name: string; version?: string };
+  instructions?: string;
 }
 
 export interface McpToolInfo {
@@ -259,6 +261,7 @@ export const adminApi = {
   mcpDeleteServer: (name: string) =>
     request<{ ok: boolean }>(`/admin/mcp/servers/${encodeURIComponent(name)}`, { method: "DELETE" }),
   // Skills
+  skillRescan: () => request<{ ok: boolean; count: number }>("/admin/skills/rescan", { method: "POST" }),
   skills: () => request<SystemSkill[]>("/admin/skills"),
   skillUsers: () => request<UserSkillGroup[]>("/admin/skills/users"),
   deleteSkill: (name: string) =>

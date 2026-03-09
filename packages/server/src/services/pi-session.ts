@@ -25,6 +25,28 @@ import { addMessage, setLastMessageImages, setLastMessageToolCalls } from "../db
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
+// Clean system prompt for analyst use — no Pi documentation, no dynamic tool list.
+// APPEND_SYSTEM.md (skills, MCP instructions, packages) and workspace AGENTS.md
+// are still appended by the SDK's resource loader.
+const BASE_SYSTEM_PROMPT = `You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.
+
+Available tools:
+- read: Read file contents
+- bash: Execute bash commands (ls, grep, find, etc.)
+- edit: Make surgical edits to files (find exact text and replace)
+- write: Create or overwrite files
+
+In addition to the tools above, you may have access to other custom tools depending on the project.
+
+Guidelines:
+- Use bash for file operations like ls, rg, find
+- Use read to examine files before editing. You must use this tool instead of cat or sed.
+- Use edit for precise changes (old text must match exactly)
+- Use write only for new files or complete rewrites
+- When summarizing your actions, output plain text directly - do NOT use cat or bash to display what you did
+- Be concise in your responses
+- Show file paths clearly when working with files`;
+
 // ── Browork event types sent to the frontend over WebSocket ──
 
 export type BroworkEvent =
@@ -178,6 +200,20 @@ export async function createPiSession(
 
   const sessionManager = piSdk.SessionManager.continueRecent(workDir);
 
+  // Build a custom resource loader that:
+  // 1. Replaces Pi's default system prompt (no Pi docs, no dynamic tool list)
+  //    with a clean analyst-focused prompt
+  // 2. Filters context files to only include AGENTS.md from inside the workspace
+  //    (drops browork's own CLAUDE.md and any ancestor context files)
+  const resourceLoader = new (piSdk as any).DefaultResourceLoader({
+    cwd: workDir,
+    systemPromptOverride: () => BASE_SYSTEM_PROMPT,
+    agentsFilesOverride: ({ agentsFiles }: { agentsFiles: { path: string; content: string }[] }) => ({
+      agentsFiles: agentsFiles.filter((f: { path: string }) => f.path.startsWith(workDir)),
+    }),
+  });
+  await resourceLoader.reload();
+
   const { session } = await piSdk.createAgentSession({
     cwd: workDir,
     model: piAi.getModel(
@@ -187,7 +223,8 @@ export async function createPiSession(
     thinkingLevel,
     customTools,
     sessionManager,
-  });
+    resourceLoader,
+  } as any);
 
   // When sandbox is active, redirect bash execution into the Docker container.
   // cwd stays as the host path so read/edit/write tools operate on the host

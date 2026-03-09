@@ -116,6 +116,13 @@ function runMigrations() {
     // Column already exists
   }
 
+  // Add starred column to sessions
+  try {
+    db.exec("ALTER TABLE sessions ADD COLUMN starred INTEGER NOT NULL DEFAULT 0");
+  } catch {
+    // Column already exists
+  }
+
   // Add skill_invocations table for tracking skill usage
   db.exec(`
     CREATE TABLE IF NOT EXISTS skill_invocations (

@@ -12,6 +12,7 @@ import { readdir, readFile, mkdir, symlink, readlink, unlink, lstat, cp, rm, wri
 import { resolve, join, basename, dirname } from "path";
 import { existsSync, realpathSync } from "fs";
 import { homedir } from "os";
+import { mcpClientManager } from "./mcp-client.js";
 
 // ── Types ──
 
@@ -45,9 +46,10 @@ function parseFrontmatter(raw: string): {
   data: Frontmatter;
   body: string;
 } {
-  const match = raw.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
+  const normalized = raw.replace(/\r\n/g, "\n");
+  const match = normalized.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
   if (!match) {
-    return { data: {}, body: raw };
+    return { data: {}, body: normalized };
   }
 
   const yamlBlock = match[1];
@@ -75,6 +77,13 @@ function parseFrontmatter(raw: string): {
   // Save last pair
   if (currentKey) {
     data[currentKey] = currentValue.trim();
+  }
+  // Strip surrounding quotes from values (YAML allows quoted strings)
+  for (const key of Object.keys(data)) {
+    const v = data[key];
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+      data[key] = v.slice(1, -1);
+    }
   }
 
   return { data: data as Frontmatter, body };
@@ -141,7 +150,7 @@ export async function initSkills(
   }
 
   // Write APPEND_SYSTEM.md with skill directory mappings so Pi resolves relative paths
-  await writeSkillPathsAppendPrompt(globalDir);
+  await rebuildAppendSystemPrompt();
 
   console.log(
     `Loaded ${skills.size} skills: ${Array.from(skills.keys()).join(", ")}`,
@@ -313,11 +322,15 @@ async function cleanBrokenSymlinks(dir: string): Promise<void> {
 }
 
 /**
- * Write ~/.pi/agent/APPEND_SYSTEM.md with skill directory mappings.
+ * Write ~/.pi/agent/APPEND_SYSTEM.md with skill directory mappings and MCP server instructions.
  * This tells Pi the absolute base directory for each installed skill so it
- * can resolve relative paths (scripts, reference docs) in SKILL.md files.
+ * can resolve relative paths (scripts, reference docs) in SKILL.md files,
+ * and includes any MCP server instructions per the MCP spec.
+ *
+ * Exported so it can be re-called when MCP connections change.
  */
-async function writeSkillPathsAppendPrompt(globalDir: string): Promise<void> {
+export async function rebuildAppendSystemPrompt(): Promise<void> {
+  const globalDir = GLOBAL_SKILLS_DIR;
   const piAgentDir = dirname(globalDir);
   const appendPath = join(piAgentDir, "APPEND_SYSTEM.md");
 
@@ -333,24 +346,42 @@ async function writeSkillPathsAppendPrompt(globalDir: string): Promise<void> {
     `Your name is ${appName}.`,
   ];
 
-  if (skillEntries.length === 0) {
-    // No skills — just write the identity line
-    await mkdir(piAgentDir, { recursive: true });
-    await writeFile(appendPath, lines.join("\n") + "\n", "utf-8");
-    return;
+  if (skillEntries.length > 0) {
+    lines.push(
+      "",
+      "## Skill Directories",
+      "",
+      "When a SKILL.md references relative paths (e.g. `scripts/thumbnail.py`, `editing.md`),",
+      "resolve them against that skill's base directory listed below — NOT the workspace cwd.",
+      "Always use the absolute path in bash commands and read tool calls.",
+      "",
+      "| Skill | Base Directory |",
+      "|-------|---------------|",
+      ...skillEntries.map((s) => `| ${s.name} | \`${s.dirPath}\` |`),
+    );
+  }
+
+  // MCP server instructions (per MCP spec — servers can provide instructions for the LLM)
+  const mcpInstructions = mcpClientManager.getAllInstructions();
+  if (mcpInstructions.length > 0) {
+    lines.push(
+      "",
+      "## MCP Server Instructions",
+      "",
+      "The following instructions are provided by connected MCP servers. Follow them when using tools from these servers.",
+      "",
+    );
+    for (const { serverName, instructions } of mcpInstructions) {
+      lines.push(
+        `### ${serverName}`,
+        "",
+        instructions,
+        "",
+      );
+    }
   }
 
   lines.push(
-    "",
-    "## Skill Directories",
-    "",
-    "When a SKILL.md references relative paths (e.g. `scripts/thumbnail.py`, `editing.md`),",
-    "resolve them against that skill's base directory listed below — NOT the workspace cwd.",
-    "Always use the absolute path in bash commands and read tool calls.",
-    "",
-    "| Skill | Base Directory |",
-    "|-------|---------------|",
-    ...skillEntries.map((s) => `| ${s.name} | \`${s.dirPath}\` |`),
     "",
     "## Pre-installed Packages",
     "",

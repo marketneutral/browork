@@ -9,10 +9,11 @@ const SKILLS_DIR = join(homedir(), ".pi", "agent", "skills");
 
 function usage(): never {
   console.error(
-    `Usage: npm run install-skill -- <repo-url> <skill-name> [--force]
+    `Usage: npm run install-skill -- <repo-url>[#branch] <skill-name> [--force]
 
 Examples:
   npm run install-skill -- https://github.com/anthropics/skills pdf-tools
+  npm run install-skill -- https://github.com/anthropics/skills#feature/v2 pdf-tools
   npm run install-skill -- https://github.com/anthropics/skills data-processing --force`
   );
   process.exit(1);
@@ -29,7 +30,15 @@ const positional = args.filter((a) => a !== "--force");
 
 if (positional.length !== 2) usage();
 
-const [repoUrl, skillName] = positional;
+let [repoUrl, skillName] = positional;
+
+// Support repo-url#branch syntax
+let branch: string | undefined;
+const hashIdx = repoUrl.indexOf("#");
+if (hashIdx !== -1) {
+  branch = repoUrl.slice(hashIdx + 1);
+  repoUrl = repoUrl.slice(0, hashIdx);
+}
 
 // Validate skill name (no path traversal)
 if (skillName.includes("/") || skillName.includes("\\") || skillName === ".." || skillName === ".") {
@@ -47,8 +56,9 @@ if (existsSync(dest) && !force) {
 // Shallow-clone the repo
 const tmp = mkdtempSync(join(tmpdir(), "install-skill-"));
 try {
-  console.log(`Cloning ${repoUrl}...`);
-  execSync(`git clone --depth 1 ${repoUrl} ${tmp}/repo`, {
+  const branchFlag = branch ? ` -b ${branch}` : "";
+  console.log(`Cloning ${repoUrl}${branch ? ` (branch: ${branch})` : ""}...`);
+  execSync(`git clone --depth 1${branchFlag} ${repoUrl} ${tmp}/repo`, {
     stdio: ["ignore", "ignore", "inherit"],
   });
 

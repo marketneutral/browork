@@ -20,6 +20,7 @@ export function SkillsPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -72,8 +73,19 @@ export function SkillsPage() {
           <Sparkles className="h-5 w-5 text-primary" />
           <h1 className="text-lg font-bold">Skills</h1>
         </div>
-        <button onClick={fetchData} className="flex items-center gap-2 rounded-lg bg-surface-glass px-3 py-1.5 text-sm hover:bg-surface-glass-hover">
-          <RefreshCw className="h-3.5 w-3.5" /> Refresh
+        <button
+          onClick={async () => {
+            setRefreshing(true);
+            try {
+              await adminApi.skillRescan();
+              await fetchData();
+            } catch (e) { console.error(e); }
+            finally { setRefreshing(false); }
+          }}
+          disabled={refreshing}
+          className="flex items-center gap-2 rounded-lg bg-surface-glass px-3 py-1.5 text-sm hover:bg-surface-glass-hover disabled:opacity-50"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} /> Refresh
         </button>
       </div>
 
@@ -189,27 +201,37 @@ export function SkillsPage() {
         {userSkills.length === 0 ? (
           <div className="py-6 text-center text-foreground-secondary">No users have installed skills</div>
         ) : (
-          <div className="divide-y divide-border/50">
-            {userSkills.map((group) => (
-              <div key={group.userId} className="px-4 py-3">
-                <div className="mb-2 flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
-                    {group.username[0].toUpperCase()}
-                  </div>
-                  <span className="text-sm font-medium">{group.displayName}</span>
-                  <span className="text-xs text-foreground-tertiary">@{group.username}</span>
-                </div>
-                <div className="ml-8 space-y-1">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-foreground-secondary">
+                <th className="px-4 py-2.5 font-medium">Name</th>
+                <th className="px-4 py-2.5 font-medium">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {userSkills.map((group) => (
+                <>
+                  <tr key={`user-${group.userId}`} className="border-b border-border/50 bg-surface-glass/50">
+                    <td colSpan={2} className="px-4 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                          {group.username[0].toUpperCase()}
+                        </div>
+                        <span className="font-medium">{group.displayName}</span>
+                        <span className="text-xs text-foreground-tertiary">@{group.username}</span>
+                      </div>
+                    </td>
+                  </tr>
                   {group.skills.map((s) => (
-                    <div key={s.name} className="flex items-center gap-3 text-sm">
-                      <code className="text-xs font-medium text-primary">{s.name}</code>
-                      <span className="text-xs text-foreground-secondary">{s.description}</span>
-                    </div>
+                    <tr key={`${group.userId}-${s.name}`} className="border-b border-border/50">
+                      <td className="px-4 py-2.5 pl-12 font-medium">{s.name}</td>
+                      <td className="px-4 py-2.5 text-foreground-secondary">{s.description || "—"}</td>
+                    </tr>
                   ))}
-                </div>
-              </div>
-            ))}
-          </div>
+                </>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>

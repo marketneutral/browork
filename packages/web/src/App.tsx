@@ -316,6 +316,10 @@ export function App() {
     [selectSession, setError],
   );
 
+  const handleStarSession = useCallback((id: string, starred: boolean) => {
+    api.sessions.star(id, starred).then(() => refreshSessions()).catch((err) => setError(err.message));
+  }, [setError]);
+
   const handleSendMessage = useCallback(
     (text: string) => {
       if (!text.trim()) return;
@@ -368,6 +372,7 @@ export function App() {
         onDeleteSession={handleDeleteSession}
         onRenameSession={handleRenameSession}
         onForkSession={handleForkSession}
+        onStarSession={handleStarSession}
         onAnswerQuestion={handleAnswerQuestion}
       />
     </>

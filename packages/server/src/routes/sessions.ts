@@ -7,6 +7,7 @@ import {
   getSessionById,
   listSessions,
   renameSession,
+  starSession,
   deleteSession,
   forkSession,
   addMessage,
@@ -90,6 +91,19 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
       const session = renameSession(req.params.id, name, userId);
       if (!session) return reply.code(404).send({ error: "Session not found" });
       return session;
+    },
+  );
+
+  // Star/unstar session
+  app.put<{ Params: { id: string }; Body: { starred: boolean } }>(
+    "/sessions/:id/star",
+    async (req, reply) => {
+      const userId = req.user?.id;
+      const { starred } = req.body as { starred: boolean };
+      if (!starSession(req.params.id, starred, userId)) {
+        return reply.code(404).send({ error: "Session not found" });
+      }
+      return { ok: true };
     },
   );
 

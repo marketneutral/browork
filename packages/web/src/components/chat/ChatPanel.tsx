@@ -85,12 +85,11 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
     return running ? toolLabel(running.tool, running.args, "running") + "..." : null;
   }, [activeToolCalls]);
 
-  // Auto-scroll to bottom on new content
+  // Auto-scroll to bottom on new content (instant during streaming to avoid jitter)
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
   }, [messages, currentText, activeToolCalls, completedToolGroups, completedImageGroups, pendingQuestion]);
 
   return (

@@ -16,7 +16,7 @@ import { homedir, cpus, totalmem, freemem, loadavg } from "os";
 import { execSync } from "child_process";
 import { listMcpServers, getMcpServer, updateMcpServer, addMcpServer, deleteMcpServer } from "../services/mcp-manager.js";
 import { mcpClientManager } from "../services/mcp-client.js";
-import { listSkills, listUserSkills, removeSystemSkill, scanSkillDirectory, GLOBAL_SKILLS_DIR } from "../services/skill-manager.js";
+import { listSkills, listUserSkills, removeSystemSkill, scanSkillDirectory, GLOBAL_SKILLS_DIR, rebuildAppendSystemPrompt, initSkills } from "../services/skill-manager.js";
 import { listUsers, deleteUser, getUserById } from "../db/user-store.js";
 import { listActiveSessions, getActiveSystemPrompt } from "../services/pi-session.js";
 import { getSkillUsageStats, getSkillUsageTimeseries } from "../db/session-store.js";
@@ -316,6 +316,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     const server = getMcpServer(req.params.name);
     if (!server) return reply.code(404).send({ error: "Server not found" });
     await mcpClientManager.connectServer(server);
+    await rebuildAppendSystemPrompt();
     const status = mcpClientManager.getConnectionStatus(server.name);
     return { ok: true, ...status };
   });
@@ -328,6 +329,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     } else if ((req.body as any).enabled === true) {
       await mcpClientManager.connectServer(updated);
     }
+    await rebuildAppendSystemPrompt();
     const status = mcpClientManager.getConnectionStatus(updated.name);
     return { ...updated, ...status };
   });
@@ -344,6 +346,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     if (getMcpServer(name)) return reply.code(409).send({ error: "Server already exists" });
     const server = addMcpServer({ name, url, transport, headers });
     await mcpClientManager.connectServer(server);
+    await rebuildAppendSystemPrompt();
     const status = mcpClientManager.getConnectionStatus(server.name);
     return { ...server, ...status };
   });
@@ -353,10 +356,16 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     if (!server) return reply.code(404).send({ error: "Server not found" });
     await mcpClientManager.disconnectServer(req.params.name);
     deleteMcpServer(req.params.name);
+    await rebuildAppendSystemPrompt();
     return { ok: true };
   });
 
   // ─── Skills ───
+  app.post("/admin/skills/rescan", async () => {
+    await initSkills();
+    return { ok: true, count: listSkills().length };
+  });
+
   app.get("/admin/skills", async () => {
     const systemSkills = listSkills();
     // Enrich with dirPath by scanning the global skills directory

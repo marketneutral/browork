@@ -23,6 +23,7 @@ interface AppLayoutProps {
   onDeleteSession: (id: string) => void;
   onRenameSession: (id: string, name: string) => void;
   onForkSession: (id: string) => void;
+  onStarSession: (id: string, starred: boolean) => void;
   onAnswerQuestion: (requestId: string, answers: AskUserAnswer[]) => void;
 }
 
@@ -37,6 +38,7 @@ export function AppLayout({
   onDeleteSession,
   onRenameSession,
   onForkSession,
+  onStarSession,
   onAnswerQuestion,
 }: AppLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -98,6 +100,7 @@ export function AppLayout({
         onDeleteSession={onDeleteSession}
         onRenameSession={onRenameSession}
         onForkSession={onForkSession}
+        onStarSession={onStarSession}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
       />

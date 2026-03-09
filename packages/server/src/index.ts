@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./env.js";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
@@ -13,7 +13,7 @@ import { authRoutes } from "./routes/auth.js";
 import { healthRoutes } from "./routes/health.js";
 import { adminRoutes } from "./routes/admin.js";
 import { sessionStreamHandler } from "./ws/session-stream.js";
-import { initSkills } from "./services/skill-manager.js";
+import { initSkills, rebuildAppendSystemPrompt } from "./services/skill-manager.js";
 import { initDatabase } from "./db/database.js";
 import { authPlugin } from "./plugins/auth.js";
 import { isSandboxEnabled, isDockerAvailable } from "./services/sandbox-manager.js";
@@ -95,6 +95,10 @@ async function main() {
 
   // Connect to configured MCP servers
   await mcpClientManager.initConnections();
+
+  // Rebuild APPEND_SYSTEM.md now that MCP connections are established
+  // (picks up server instructions from the MCP initialize handshake)
+  await rebuildAppendSystemPrompt();
 
   // Check sandbox configuration
   if (isSandboxEnabled()) {

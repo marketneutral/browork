@@ -36,6 +36,7 @@ export interface SessionListItem {
   createdAt: string;
   updatedAt: string;
   lastMessage: string | null;
+  starred: boolean;
 }
 
 export interface ContextUsage {

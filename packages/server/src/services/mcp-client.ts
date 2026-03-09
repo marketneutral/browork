@@ -25,12 +25,21 @@ export interface McpToolInfo {
   serverName: string;
 }
 
+export interface McpServerInfo {
+  name: string;
+  version?: string;
+}
+
 interface McpConnection {
   client: Client;
   transport: Transport;
   tools: McpToolInfo[];
   status: ConnectionStatus;
   error?: string;
+  /** Server-reported info from the initialize handshake */
+  serverInfo?: McpServerInfo;
+  /** Server-provided instructions for the LLM (MCP spec) */
+  instructions?: string;
 }
 
 const RECONNECT_DELAY_MS = 10_000;
@@ -125,10 +134,12 @@ class McpClientManager {
       conn.tools = toolInfos;
       conn.status = "connected";
       conn.error = undefined;
+      conn.serverInfo = client.getServerVersion() as McpServerInfo | undefined;
+      conn.instructions = client.getInstructions();
 
-      console.log(
-        `[mcp-client] ${config.name} connected — ${toolInfos.length} tool(s): ${toolInfos.map((t) => t.name).join(", ")}`,
-      );
+      const parts = [`[mcp-client] ${config.name} connected — ${toolInfos.length} tool(s): ${toolInfos.map((t) => t.name).join(", ")}`];
+      if (conn.instructions) parts.push(`  instructions: ${conn.instructions.slice(0, 200)}`);
+      console.log(parts.join("\n"));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       conn.status = "error";
@@ -214,14 +225,30 @@ class McpClientManager {
   /**
    * Get connection info for all known servers (for status display).
    */
-  getConnectionStatus(name: string): { status: ConnectionStatus; toolCount: number; error?: string } {
+  getConnectionStatus(name: string): { status: ConnectionStatus; toolCount: number; error?: string; serverInfo?: McpServerInfo; instructions?: string } {
     const conn = this.connections.get(name);
     if (!conn) return { status: "disconnected", toolCount: 0 };
     return {
       status: conn.status,
       toolCount: conn.tools.length,
       error: conn.error,
+      serverInfo: conn.serverInfo,
+      instructions: conn.instructions,
     };
+  }
+
+  /**
+   * Get all MCP server instructions (for system prompt injection).
+   * Returns entries for connected servers that provided instructions.
+   */
+  getAllInstructions(): { serverName: string; instructions: string }[] {
+    const result: { serverName: string; instructions: string }[] = [];
+    for (const [name, conn] of this.connections) {
+      if (conn.status === "connected" && conn.instructions) {
+        result.push({ serverName: name, instructions: conn.instructions });
+      }
+    }
+    return result;
   }
 
   /**

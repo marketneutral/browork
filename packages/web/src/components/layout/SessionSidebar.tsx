@@ -9,6 +9,7 @@ import {
   Check,
   X,
   PanelLeftClose,
+  Star,
 } from "lucide-react";
 import { SessionSkeleton } from "../ui/Skeleton";
 import { APP_NAME } from "../../config";
@@ -19,6 +20,7 @@ interface SessionSidebarProps {
   onDeleteSession: (id: string) => void;
   onRenameSession: (id: string, name: string) => void;
   onForkSession: (id: string) => void;
+  onStarSession: (id: string, starred: boolean) => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -29,12 +31,16 @@ export function SessionSidebar({
   onDeleteSession,
   onRenameSession,
   onForkSession,
+  onStarSession,
   collapsed,
   onToggleCollapse,
 }: SessionSidebarProps) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.sessionId);
   const isLoading = useSessionStore((s) => s.isLoading);
+
+  const starred = sessions.filter((s) => s.starred);
+  const unstarred = sessions.filter((s) => !s.starred);
 
   return (
     <aside className={`shrink-0 border-r bg-background-secondary flex flex-col max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:shadow-lg transition-all duration-300 ease-in-out overflow-hidden relative z-10 ${
@@ -77,7 +83,32 @@ export function SessionSidebar({
             No sessions yet
           </div>
         )}
-        {sessions.map((session) => (
+        {starred.length > 0 && (
+          <>
+            <div className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-foreground-tertiary flex items-center gap-1">
+              <Star size={10} className="fill-current" />
+              Starred
+            </div>
+            {starred.map((session) => (
+              <SessionItem
+                key={session.id}
+                session={session}
+                isActive={session.id === activeId}
+                onSelect={() => onSelectSession(session.id)}
+                onDelete={() => onDeleteSession(session.id)}
+                onRename={(name) => onRenameSession(session.id, name)}
+                onFork={() => onForkSession(session.id)}
+                onStar={() => onStarSession(session.id, !session.starred)}
+              />
+            ))}
+          </>
+        )}
+        {starred.length > 0 && unstarred.length > 0 && (
+          <div className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-foreground-tertiary">
+            Recent
+          </div>
+        )}
+        {unstarred.map((session) => (
           <SessionItem
             key={session.id}
             session={session}
@@ -86,6 +117,7 @@ export function SessionSidebar({
             onDelete={() => onDeleteSession(session.id)}
             onRename={(name) => onRenameSession(session.id, name)}
             onFork={() => onForkSession(session.id)}
+            onStar={() => onStarSession(session.id, !session.starred)}
           />
         ))}
       </div>
@@ -102,6 +134,7 @@ interface SessionItemProps {
   onDelete: () => void;
   onRename: (name: string) => void;
   onFork: () => void;
+  onStar: () => void;
 }
 
 function SessionItem({
@@ -111,6 +144,7 @@ function SessionItem({
   onDelete,
   onRename,
   onFork,
+  onStar,
 }: SessionItemProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -201,7 +235,17 @@ function SessionItem({
               <MessageSquare size={14} className="shrink-0 text-foreground-secondary" />
               <span className="text-sm font-medium truncate">{session.name}</span>
             </div>
-            <div className="hidden group-hover:flex items-center gap-0.5">
+            <div className={`${session.starred ? "flex" : "hidden group-hover:flex"} items-center gap-0.5`}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStar();
+                }}
+                title={session.starred ? "Unstar" : "Star"}
+                className={`p-1 rounded hover:bg-surface-glass-hover ${session.starred ? "text-amber-400" : "text-foreground-secondary"}`}
+              >
+                <Star size={12} className={session.starred ? "fill-current" : ""} />
+              </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -209,7 +253,7 @@ function SessionItem({
                   setIsRenaming(true);
                 }}
                 title="Rename"
-                className="p-1 rounded hover:bg-surface-glass-hover text-foreground-secondary"
+                className={`p-1 rounded hover:bg-surface-glass-hover text-foreground-secondary ${session.starred ? "hidden group-hover:block" : ""}`}
               >
                 <Pencil size={12} />
               </button>
@@ -219,7 +263,7 @@ function SessionItem({
                   onFork();
                 }}
                 title="Branch conversation"
-                className="p-1 rounded hover:bg-surface-glass-hover text-foreground-secondary"
+                className={`p-1 rounded hover:bg-surface-glass-hover text-foreground-secondary ${session.starred ? "hidden group-hover:block" : ""}`}
               >
                 <GitBranch size={12} />
               </button>
@@ -229,7 +273,7 @@ function SessionItem({
                   setIsConfirmingDelete(true);
                 }}
                 title="Delete"
-                className="p-1 rounded hover:bg-surface-glass-hover text-destructive"
+                className={`p-1 rounded hover:bg-surface-glass-hover text-destructive ${session.starred ? "hidden group-hover:block" : ""}`}
               >
                 <Trash2 size={12} />
               </button>

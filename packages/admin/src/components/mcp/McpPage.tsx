@@ -278,6 +278,12 @@ export function McpPage() {
                         {s.error && (
                           <p className="mb-2 text-xs text-destructive">{s.error}</p>
                         )}
+                        {s.instructions && (
+                          <div className="mb-3">
+                            <p className="text-xs font-medium text-foreground-secondary mb-1">Server Instructions:</p>
+                            <p className="whitespace-pre-wrap rounded-lg bg-surface-glass px-3 py-2 text-xs text-foreground-secondary">{s.instructions}</p>
+                          </div>
+                        )}
                         {(tools[s.name] ?? []).length === 0 ? (
                           <p className="text-xs text-foreground-tertiary">No tools available</p>
                         ) : (

@@ -52,6 +52,7 @@ export interface SessionMeta {
   updatedAt: string;
   lastMessage: string | null;
   forkedFrom: string | null;
+  starred: boolean;
 }
 
 export interface SessionWithMessages extends SessionMeta {
@@ -190,6 +191,11 @@ export const api = {
       }),
     fork: (id: string) =>
       request<SessionMeta>(`/sessions/${id}/fork`, { method: "POST" }),
+    star: (id: string, starred: boolean) =>
+      request<{ ok: boolean }>(`/sessions/${id}/star`, {
+        method: "PUT",
+        body: JSON.stringify({ starred }),
+      }),
   },
   files: {
     list: (sessionId: string) => request<FileEntry[]>(`/files?sessionId=${sessionId}`),
