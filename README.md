@@ -92,7 +92,7 @@ browork/
 │   │       ├── index.ts              # Entry point
 │   │       ├── routes/health.ts      # GET /health
 │   │       ├── routes/auth.ts        # Login, register, me (includes isAdmin)
-│   │       ├── routes/sessions.ts    # Session CRUD
+│   │       ├── routes/sessions.ts    # Session CRUD, fork, send-to-user, user list
 │   │       ├── routes/files.ts       # File management API
 │   │       ├── routes/skills.ts      # Skills CRUD + invoke
 │   │       ├── routes/settings.ts    # Per-user & system-wide AGENTS.md settings
@@ -280,6 +280,12 @@ Paste images from your clipboard or drag-and-drop image files into the composer 
 ### Mermaid diagrams
 
 Markdown files with mermaid code blocks are rendered as interactive diagrams in the file viewer. Use standard fenced code blocks with the `mermaid` language identifier.
+
+### Send session to another user
+
+You can send a copy of any session to another user. Click the paper plane icon next to a session in the sidebar, select a user from the picker, and click Send. The recipient gets a full copy of the session — all messages, tool call history, and workspace files — in their own session list, named with your name as the sender (e.g. "My Analysis (from Alice)").
+
+The original session stays in your list unchanged. This is useful for handing off work, sharing analysis results, or collaborating across users.
 
 ### Running session indicators
 
