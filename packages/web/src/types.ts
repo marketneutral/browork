@@ -11,7 +11,8 @@ export type BroworkEvent =
   | { type: "skill_end"; skill: string }
   | { type: "files_changed"; paths: string[] }
   | { type: "context_usage"; tokens: number | null; contextWindow: number; percent: number | null }
-  | { type: "session_info"; sandboxActive: boolean }
+  | { type: "session_info"; sandboxActive: boolean; thinkingLevel: string }
+  | { type: "thinking_level_changed"; level: string }
   | { type: "ask_user"; requestId: string; questions: AskUserQuestion[] }
   | { type: "subagent_start"; subagentId: string; name: string; task: string; activeTools: string[] }
   | { type: "subagent_tool_start"; subagentId: string; tool: string; args: unknown }
@@ -33,6 +34,7 @@ export type BroworkCommand =
   | { type: "abort" }
   | { type: "steer"; message: string }
   | { type: "compact" }
+  | { type: "set_thinking_level"; level: "low" | "medium" | "high" }
   | { type: "ask_user_response"; requestId: string; answers: AskUserAnswer[] };
 
 // ── ask_user types ──

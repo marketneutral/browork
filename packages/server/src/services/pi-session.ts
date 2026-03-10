@@ -62,7 +62,8 @@ export type BroworkEvent =
   | { type: "skill_start"; skill: string; label: string }
   | { type: "skill_end"; skill: string }
   | { type: "context_usage"; tokens: number | null; contextWindow: number; percent: number | null }
-  | { type: "session_info"; sandboxActive: boolean }
+  | { type: "session_info"; sandboxActive: boolean; thinkingLevel: string }
+  | { type: "thinking_level_changed"; level: string }
   | { type: "error"; message: string }
   | AskUserEvent
   | SubagentEvent;
@@ -80,6 +81,7 @@ export type BroworkCommand =
   | { type: "abort" }
   | { type: "steer"; message: string }
   | { type: "compact" }
+  | { type: "set_thinking_level"; level: "low" | "medium" | "high" }
   | { type: "ask_user_response"; requestId: string; answers: AskUserAnswer[] };
 
 // ── Session wrapper ──
@@ -90,6 +92,8 @@ export interface PiSessionHandle {
   sendSteer(text: string): Promise<void>;
   abort(): Promise<void>;
   compact(): Promise<void>;
+  setThinkingLevel(level: "low" | "medium" | "high"): void;
+  getThinkingLevel(): "low" | "medium" | "high";
   /** Resolve a pending ask_user question with the user's answers */
   answerQuestion(requestId: string, answers: AskUserAnswer[]): boolean;
   dispose(): void;
@@ -199,9 +203,13 @@ export async function createPiSession(
     await symlinkUserSkillsToWorkspace(userId, workDir);
   }
 
+  const thinkingLevel =
+    (process.env.DEFAULT_THINKING_LEVEL as "low" | "medium" | "high") ||
+    "medium";
+
   // Tell the client whether sandbox is actually active for this session
   // (sent after skill symlinks so the client can use this as a "session ready" signal)
-  send(ws, { type: "session_info", sandboxActive: !!sandboxUserId });
+  send(ws, { type: "session_info", sandboxActive: !!sandboxUserId, thinkingLevel });
 
   // Dynamically import the Pi SDK — it may not be installed yet
   let piSdk: typeof import("@mariozechner/pi-coding-agent") | null = null;
@@ -215,10 +223,6 @@ export async function createPiSession(
     console.warn("Pi SDK not found, running in mock mode");
     return createMockSession(sessionId, workDir, ws);
   }
-
-  const thinkingLevel =
-    (process.env.DEFAULT_THINKING_LEVEL as "low" | "medium" | "high") ||
-    "medium";
 
   // Keep a mutable reference so rebindSocket can swap it
   let activeWs = ws;
@@ -503,6 +507,15 @@ export async function createPiSession(
       await (session as any).compact?.();
       sendContextUsage();
     },
+    setThinkingLevel(level: "low" | "medium" | "high") {
+      (session as any).setThinkingLevel(level);
+      if (activeWs.readyState === activeWs.OPEN) {
+        activeWs.send(JSON.stringify({ type: "thinking_level_changed", level: (session as any).thinkingLevel }));
+      }
+    },
+    getThinkingLevel(): "low" | "medium" | "high" {
+      return (session as any).thinkingLevel ?? "medium";
+    },
     answerQuestion(requestId: string, answers: AskUserAnswer[]): boolean {
       turnState.pendingAskUser = null;
       return resolveQuestion(requestId, answers);
@@ -516,7 +529,7 @@ export async function createPiSession(
     },
     rebindSocket(newWs: WebSocket) {
       activeWs = newWs;
-      send(activeWs, { type: "session_info", sandboxActive: isSandboxActive });
+      send(activeWs, { type: "session_info", sandboxActive: isSandboxActive, thinkingLevel: (session as any).thinkingLevel ?? "medium" });
       sendContextUsage();
       if (isRunning) {
         send(activeWs, { type: "agent_start" });
@@ -699,6 +712,12 @@ function createMockSession(
     async compact() {
       mockTurnCount = Math.max(0, Math.floor(mockTurnCount / 3));
       sendMockContextUsage();
+    },
+    setThinkingLevel(_level: "low" | "medium" | "high") {
+      // Mock mode — no-op
+    },
+    getThinkingLevel(): "low" | "medium" | "high" {
+      return "medium";
     },
     answerQuestion(requestId: string, answers: AskUserAnswer[]): boolean {
       return resolveQuestion(requestId, answers);

@@ -105,6 +105,9 @@ export function App() {
           break;
         case "session_info": {
           useSessionStore.getState().setSandboxActive(event.sandboxActive);
+          if (event.thinkingLevel) {
+            useSessionStore.getState().setThinkingLevel(event.thinkingLevel as "low" | "medium" | "high");
+          }
           // Session is fully initialized — refresh files to pick up .pi/skills/ etc.
           const sid = useSessionStore.getState().sessionId;
           if (sid) {
@@ -112,6 +115,9 @@ export function App() {
           }
           break;
         }
+        case "thinking_level_changed":
+          useSessionStore.getState().setThinkingLevel(event.level as "low" | "medium" | "high");
+          break;
         case "files_changed": {
           const currentSessionId = useSessionStore.getState().sessionId;
           if (currentSessionId) {
@@ -401,6 +407,14 @@ export function App() {
     send({ type: "compact" });
   }, [send]);
 
+  const handleSetThinkingLevel = useCallback(
+    (level: "low" | "medium" | "high") => {
+      useSessionStore.getState().setThinkingLevel(level);
+      send({ type: "set_thinking_level", level });
+    },
+    [send],
+  );
+
   const handleAnswerQuestion = useCallback(
     (requestId: string, answers: AskUserAnswer[]) => {
       useSessionStore.getState().clearPendingQuestion();
@@ -427,6 +441,7 @@ export function App() {
         onForkSession={handleForkSession}
         onStarSession={handleStarSession}
         onAnswerQuestion={handleAnswerQuestion}
+        onSetThinkingLevel={handleSetThinkingLevel}
       />
     </>
   );

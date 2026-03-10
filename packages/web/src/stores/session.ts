@@ -80,6 +80,7 @@ interface SessionState {
   completedImageGroups: TurnImages[];
   contextUsage: ContextUsage | null;
   sandboxActive: boolean | null;
+  thinkingLevel: "low" | "medium" | "high";
   pendingQuestion: PendingQuestion | null;
   runningSessions: Set<string>;
   runningPreviews: Map<string, string>;
@@ -108,6 +109,7 @@ interface SessionState {
   addRestoredToolGroup: (toolCalls: { tool: string; args: unknown; result?: unknown; isError?: boolean }[], seq: number) => void;
   setContextUsage: (usage: ContextUsage) => void;
   setSandboxActive: (active: boolean) => void;
+  setThinkingLevel: (level: "low" | "medium" | "high") => void;
   setPendingQuestion: (pq: PendingQuestion) => void;
   clearPendingQuestion: () => void;
   setRunningSessions: (ids: string[], previews: Record<string, string>) => void;
@@ -148,6 +150,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   completedImageGroups: [],
   contextUsage: null,
   sandboxActive: null,
+  thinkingLevel: "medium",
   pendingQuestion: null,
   runningSessions: new Set(),
   runningPreviews: new Map(),
@@ -168,6 +171,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       completedImageGroups: [],
       contextUsage: null,
       sandboxActive: null,
+      thinkingLevel: "medium",
       pendingQuestion: null,
       subagentStates: new Map(),
     }),
@@ -315,6 +319,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   setContextUsage: (usage) => set({ contextUsage: usage, isCompacting: false }),
 
   setSandboxActive: (active) => set({ sandboxActive: active }),
+  setThinkingLevel: (level) => set({ thinkingLevel: level }),
 
   setPendingQuestion: (pq) => set({ pendingQuestion: pq }),
   clearPendingQuestion: () => set({ pendingQuestion: null }),

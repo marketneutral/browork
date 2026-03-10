@@ -156,6 +156,9 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
             case "compact":
               await session!.compact();
               break;
+            case "set_thinking_level":
+              session!.setThinkingLevel(cmd.level);
+              break;
             case "ask_user_response":
               session!.answerQuestion(cmd.requestId, cmd.answers);
               break;

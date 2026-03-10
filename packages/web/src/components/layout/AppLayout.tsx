@@ -25,6 +25,7 @@ interface AppLayoutProps {
   onForkSession: (id: string) => void;
   onStarSession: (id: string, starred: boolean) => void;
   onAnswerQuestion: (requestId: string, answers: AskUserAnswer[]) => void;
+  onSetThinkingLevel: (level: "low" | "medium" | "high") => void;
 }
 
 export function AppLayout({
@@ -40,6 +41,7 @@ export function AppLayout({
   onForkSession,
   onStarSession,
   onAnswerQuestion,
+  onSetThinkingLevel,
 }: AppLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filesPanelOpen, setFilesPanelOpen] = useState(true);
@@ -136,7 +138,7 @@ export function AppLayout({
           </button>
         </div>
 
-        <ChatPanel onSendMessage={onSendMessage} onInvokeSkill={onInvokeSkill} onAbort={onAbort} onCompact={onCompact} onAnswerQuestion={onAnswerQuestion} />
+        <ChatPanel onSendMessage={onSendMessage} onInvokeSkill={onInvokeSkill} onAbort={onAbort} onCompact={onCompact} onAnswerQuestion={onAnswerQuestion} onSetThinkingLevel={onSetThinkingLevel} />
       </main>
 
       {/* Right panel: drag handle + files + status footer */}

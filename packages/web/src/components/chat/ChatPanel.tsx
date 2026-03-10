@@ -32,9 +32,10 @@ interface ChatPanelProps {
   onAbort: () => void;
   onCompact: () => void;
   onAnswerQuestion: (requestId: string, answers: AskUserAnswer[]) => void;
+  onSetThinkingLevel: (level: "low" | "medium" | "high") => void;
 }
 
-export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, onAnswerQuestion }: ChatPanelProps) {
+export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, onAnswerQuestion, onSetThinkingLevel }: ChatPanelProps) {
   const messages = useSessionStore((s) => s.messages);
   const currentText = useSessionStore((s) => s.currentAssistantText);
   const isStreaming = useSessionStore((s) => s.isStreaming);
@@ -45,6 +46,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
   const historyLoaded = useSessionStore((s) => s.historyLoaded);
   const pendingQuestion = useSessionStore((s) => s.pendingQuestion);
   const thinkingText = useSessionStore((s) => s.thinkingText);
+  const thinkingLevel = useSessionStore((s) => s.thinkingLevel);
   const activeSkill = useSkillsStore((s) => s.activeSkill);
   const scrollRef = useRef<HTMLDivElement>(null);
   const thinkingPanelRef = useRef<HTMLPreElement>(null);
@@ -186,7 +188,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
         {isStreaming ? (
           <>
             <span className={`w-1.5 h-1.5 rounded-full ${pendingQuestion ? "bg-warning" : "bg-primary"} animate-pulse`} />
-            <span className="text-foreground-secondary">
+            <span className="text-foreground-secondary truncate">
               {pendingQuestion
                 ? "Waiting for your response..."
                 : runningToolLabel ?? (thinkingText ? (
@@ -198,28 +200,57 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
                     </button>
                   ) : "Thinking...")}
             </span>
-            <button
-              onClick={onAbort}
-              className="ml-auto text-destructive hover:underline"
-            >
-              Stop
-            </button>
+            <div className="ml-auto flex items-center gap-2 shrink-0">
+              <button
+                onClick={onAbort}
+                className="text-destructive hover:underline"
+              >
+                Stop
+              </button>
+              <ThinkingLevelSelector level={thinkingLevel} onChange={onSetThinkingLevel} />
+            </div>
           </>
         ) : isCompacting ? (
           <>
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
             <span className="text-foreground-secondary">Compacting context...</span>
+            <div className="ml-auto shrink-0">
+              <ThinkingLevelSelector level={thinkingLevel} onChange={onSetThinkingLevel} />
+            </div>
           </>
         ) : (
           <>
             <span className="w-1.5 h-1.5 rounded-full bg-foreground-tertiary/50" />
             Agent is idle.
+            <div className="ml-auto shrink-0">
+              <ThinkingLevelSelector level={thinkingLevel} onChange={onSetThinkingLevel} />
+            </div>
           </>
         )}
       </div>
 
       {/* Message composer */}
       <Composer onSend={onSendMessage} onInvokeSkill={onInvokeSkill} onCompact={onCompact} disabled={isStreaming || isCompacting} />
+    </div>
+  );
+}
+
+function ThinkingLevelSelector({ level, onChange }: { level: "low" | "medium" | "high"; onChange: (level: "low" | "medium" | "high") => void }) {
+  return (
+    <div className="flex items-center gap-0.5 bg-surface-glass rounded-md p-0.5" title="Thinking depth">
+      {(["low", "medium", "high"] as const).map((l) => (
+        <button
+          key={l}
+          onClick={() => onChange(l)}
+          className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
+            level === l
+              ? "bg-primary/20 text-primary"
+              : "text-foreground-tertiary hover:text-foreground-secondary"
+          }`}
+        >
+          {l === "low" ? "Low" : l === "medium" ? "Med" : "High"}
+        </button>
+      ))}
     </div>
   );
 }

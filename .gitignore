@@ -6,3 +6,4 @@ pi-mono/
 data/
 *.log
 .vite/
+docs/agent-training-guide.md
