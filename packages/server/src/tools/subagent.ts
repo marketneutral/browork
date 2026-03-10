@@ -73,6 +73,8 @@ export function createSubagentTool(options: SubagentToolOptions): ToolDefinition
 - Focused research or analysis tasks
 - File-heavy operations where you want to preserve your own context
 
+IMPORTANT: The sub-agent's returned result is authoritative — it has already completed the task. Do NOT re-execute the same task yourself after the sub-agent returns. Use the sub-agent's result directly in your response.
+
 By default the sub-agent only has read and bash (for grep/find/ls), no skills, and no MCP tools. Specify additional tools, skills, or MCP servers if needed.`,
     parameters: Type.Object({
       name: Type.String({
