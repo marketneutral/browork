@@ -27,14 +27,18 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     return listSessions(userId);
   });
 
-  // Return IDs of sessions currently running the agent (for this user)
+  // Return IDs of sessions currently running the agent (for this user),
+  // plus live preview text for each running session.
   app.get("/sessions/running", async (req) => {
     const userId = req.user?.id;
     const active = listActiveSessions();
-    const running = active
-      .filter((s) => s.userId === userId && s.isRunning)
-      .map((s) => s.sessionId);
-    return { sessionIds: running };
+    const userActive = active.filter((s) => s.userId === userId && s.isRunning);
+    const sessionIds = userActive.map((s) => s.sessionId);
+    const previews: Record<string, string> = {};
+    for (const s of userActive) {
+      if (s.preview) previews[s.sessionId] = s.preview;
+    }
+    return { sessionIds, previews };
   });
 
   // Create session

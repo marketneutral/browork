@@ -42,6 +42,7 @@ export function SessionSidebar({
   const activeId = useSessionStore((s) => s.sessionId);
   const isLoading = useSessionStore((s) => s.isLoading);
   const runningSessions = useSessionStore((s) => s.runningSessions);
+  const runningPreviews = useSessionStore((s) => s.runningPreviews);
 
   const starred = sessions.filter((s) => s.starred);
   const unstarred = sessions.filter((s) => !s.starred);
@@ -99,6 +100,7 @@ export function SessionSidebar({
                 session={session}
                 isActive={session.id === activeId}
                 isRunning={runningSessions.has(session.id)}
+                runningPreview={runningPreviews.get(session.id)}
                 onSelect={() => onSelectSession(session.id)}
                 onDelete={() => onDeleteSession(session.id)}
                 onRename={(name) => onRenameSession(session.id, name)}
@@ -119,6 +121,7 @@ export function SessionSidebar({
             session={session}
             isActive={session.id === activeId}
             isRunning={runningSessions.has(session.id)}
+            runningPreview={runningPreviews.get(session.id)}
             onSelect={() => onSelectSession(session.id)}
             onDelete={() => onDeleteSession(session.id)}
             onRename={(name) => onRenameSession(session.id, name)}
@@ -137,6 +140,7 @@ interface SessionItemProps {
   session: SessionListItem;
   isActive: boolean;
   isRunning: boolean;
+  runningPreview?: string;
   onSelect: () => void;
   onDelete: () => void;
   onRename: (name: string) => void;
@@ -148,6 +152,7 @@ function SessionItem({
   session,
   isActive,
   isRunning,
+  runningPreview,
   onSelect,
   onDelete,
   onRename,
@@ -305,9 +310,9 @@ function SessionItem({
               </button>
             </div>
           </div>
-          {session.lastMessage && (
-            <p className="text-xs text-foreground-secondary truncate mt-0.5 ml-5">
-              {session.lastMessage}
+          {(isRunning && runningPreview ? runningPreview : session.lastMessage) && (
+            <p className={`text-xs truncate mt-0.5 ml-5 ${isRunning && runningPreview ? "text-primary/70 italic" : "text-foreground-secondary"}`}>
+              {isRunning && runningPreview ? runningPreview : session.lastMessage}
             </p>
           )}
           <p className="text-[10px] text-foreground-tertiary mt-0.5 ml-5">

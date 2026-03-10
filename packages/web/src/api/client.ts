@@ -196,7 +196,7 @@ export const api = {
         method: "PUT",
         body: JSON.stringify({ starred }),
       }),
-    running: () => request<{ sessionIds: string[] }>("/sessions/running"),
+    running: () => request<{ sessionIds: string[]; previews: Record<string, string> }>("/sessions/running"),
     sendTo: (id: string, targetUserId: string) =>
       request<{ ok: boolean; sessionId: string; targetUser: string }>(`/sessions/${id}/send-to`, {
         method: "POST",

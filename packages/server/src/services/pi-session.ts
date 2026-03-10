@@ -15,7 +15,7 @@ import { existsSync } from "fs";
 import { isSandboxEnabled, ensureSandbox, createSandboxBashOps, createSandboxFileOps } from "./sandbox-manager.js";
 import { createWebTools } from "../tools/web-tools.js";
 import { createAskUserTool, resolveQuestion, rejectAllPending, registerPending } from "../tools/ask-user.js";
-import type { AskUserAnswer, AskUserEvent } from "../tools/ask-user.js";
+import type { AskUserAnswer, AskUserEvent, AskUserQuestion } from "../tools/ask-user.js";
 import { mcpClientManager } from "./mcp-client.js";
 import { bridgeMcpTools } from "../tools/mcp-bridge.js";
 import { symlinkUserSkillsToWorkspace } from "./skill-manager.js";
@@ -100,6 +100,7 @@ export interface PiSessionHandle {
     assistantBuffer: string;
     turnImagePaths: Set<string>;
     turnToolCalls: { tool: string; args: unknown; result?: unknown; isError?: boolean }[];
+    pendingAskUser: { requestId: string; questions: AskUserQuestion[] } | null;
   };
 }
 
@@ -122,22 +123,46 @@ export interface ActiveSessionInfo {
   hasSocket: boolean;
   toolCallsInProgress: number;
   bufferLength: number;
+  preview: string | null;
 }
 
 export function listActiveSessions(): ActiveSessionInfo[] {
   const result: ActiveSessionInfo[] = [];
   for (const [sessionId, handle] of activeSessions) {
     const meta = activeSessionMeta.get(sessionId);
+    const isRunning = meta?.getIsRunning() ?? false;
+
+    // Build a live preview for running sessions
+    let preview: string | null = null;
+    if (isRunning) {
+      if (handle.turnState.pendingAskUser) {
+        const q = handle.turnState.pendingAskUser.questions[0]?.question;
+        preview = q ? `Waiting: ${q.slice(0, 80)}` : "Waiting for your input...";
+      } else if (handle.turnState.assistantBuffer) {
+        // Last ~100 chars of the current assistant output
+        const buf = handle.turnState.assistantBuffer.trim();
+        preview = buf.length > 100 ? "..." + buf.slice(-100) : buf;
+      } else {
+        const inProgress = handle.turnState.turnToolCalls.filter((tc) => tc.result === undefined);
+        if (inProgress.length > 0) {
+          preview = `Running ${inProgress[inProgress.length - 1].tool}...`;
+        } else {
+          preview = "Working...";
+        }
+      }
+    }
+
     const inProgressTools = handle.turnState.turnToolCalls.filter(
       (tc) => tc.result === undefined,
     ).length;
     result.push({
       sessionId,
       userId: meta?.userId ?? null,
-      isRunning: meta?.getIsRunning() ?? false,
+      isRunning,
       hasSocket: meta?.getHasSocket() ?? false,
       toolCallsInProgress: inProgressTools,
       bufferLength: handle.turnState.assistantBuffer.length,
+      preview,
     });
   }
   return result;
@@ -199,7 +224,11 @@ export async function createPiSession(
   let activeWs = ws;
 
   const webTools = createWebTools();
-  const askUserTool = createAskUserTool(sessionId, (e) => send(activeWs, e));
+  const askUserTool = createAskUserTool(sessionId, (e) => {
+    // Track pending ask_user so rebindSocket can replay it
+    turnState.pendingAskUser = { requestId: e.requestId, questions: e.questions };
+    send(activeWs, e);
+  });
   const mcpTools = bridgeMcpTools(mcpClientManager.getToolsForSession(sessionId));
   const subagentTool = createSubagentTool({
     workDir,
@@ -296,6 +325,7 @@ export async function createPiSession(
     assistantBuffer: "",
     turnImagePaths: new Set(),
     turnToolCalls: [],
+    pendingAskUser: null,
   };
 
   const MAX_RESULT_LENGTH = 4000;
@@ -386,6 +416,7 @@ export async function createPiSession(
         }
         turnState.turnImagePaths = new Set();
         turnState.turnToolCalls = [];
+        turnState.pendingAskUser = null;
         isRunning = false;
         break;
       }
@@ -439,6 +470,7 @@ export async function createPiSession(
       sendContextUsage();
     },
     answerQuestion(requestId: string, answers: AskUserAnswer[]): boolean {
+      turnState.pendingAskUser = null;
       return resolveQuestion(requestId, answers);
     },
     dispose() {
@@ -467,6 +499,15 @@ export async function createPiSession(
         // Replay any assistant text accumulated so far in this turn
         if (turnState.assistantBuffer) {
           send(activeWs, { type: "message_delta", text: turnState.assistantBuffer });
+        }
+
+        // Replay pending ask_user question so the card reappears
+        if (turnState.pendingAskUser) {
+          send(activeWs, {
+            type: "ask_user",
+            requestId: turnState.pendingAskUser.requestId,
+            questions: turnState.pendingAskUser.questions,
+          });
         }
       }
     },
@@ -526,6 +567,7 @@ function createMockSession(
       assistantBuffer: "",
       turnImagePaths: new Set(),
       turnToolCalls: [],
+      pendingAskUser: null,
     },
     async sendPrompt(text: string, _images?: ImageAttachment[]) {
       const update = consumeAgentsMdUpdate(workDir);

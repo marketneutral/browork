@@ -82,6 +82,7 @@ interface SessionState {
   sandboxActive: boolean | null;
   pendingQuestion: PendingQuestion | null;
   runningSessions: Set<string>;
+  runningPreviews: Map<string, string>;
   subagentStates: Map<string, SubagentState>;
 
   // Actions
@@ -109,7 +110,7 @@ interface SessionState {
   setSandboxActive: (active: boolean) => void;
   setPendingQuestion: (pq: PendingQuestion) => void;
   clearPendingQuestion: () => void;
-  setRunningSessions: (ids: string[]) => void;
+  setRunningSessions: (ids: string[], previews: Record<string, string>) => void;
   startSubagent: (subagentId: string, name: string, task: string, activeTools: string[]) => void;
   addSubagentToolStart: (subagentId: string, tool: string, args: unknown) => void;
   completeSubagentToolCall: (subagentId: string, tool: string, result: unknown, isError: boolean) => void;
@@ -149,6 +150,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   sandboxActive: null,
   pendingQuestion: null,
   runningSessions: new Set(),
+  runningPreviews: new Map(),
   subagentStates: new Map(),
 
   setSessionId: (id) =>
@@ -316,7 +318,7 @@ export const useSessionStore = create<SessionState>((set) => ({
 
   setPendingQuestion: (pq) => set({ pendingQuestion: pq }),
   clearPendingQuestion: () => set({ pendingQuestion: null }),
-  setRunningSessions: (ids) => set({ runningSessions: new Set(ids) }),
+  setRunningSessions: (ids, previews) => set({ runningSessions: new Set(ids), runningPreviews: new Map(Object.entries(previews)) }),
 
   startSubagent: (subagentId, name, task, activeTools) =>
     set((s) => {

@@ -20,7 +20,7 @@ function refreshSessions() {
 function refreshRunningSessions() {
   api.sessions
     .running()
-    .then(({ sessionIds }) => useSessionStore.getState().setRunningSessions(sessionIds))
+    .then(({ sessionIds, previews }) => useSessionStore.getState().setRunningSessions(sessionIds, previews))
     .catch(console.error);
 }
 
@@ -169,7 +169,11 @@ export function App() {
   // Poll running session status so indicators update even when viewing a different session
   useEffect(() => {
     refreshRunningSessions();
-    const interval = setInterval(refreshRunningSessions, 3_000);
+    refreshSessions();
+    const interval = setInterval(() => {
+      refreshRunningSessions();
+      refreshSessions();
+    }, 3_000);
     return () => clearInterval(interval);
   }, []);
 
