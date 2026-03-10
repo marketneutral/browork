@@ -293,7 +293,7 @@ function SessionItem({
                   e.stopPropagation();
                   setShowSendDialog(true);
                 }}
-                title="Send to user"
+                title="Send workspace"
                 className={`p-1 rounded hover:bg-surface-glass-hover text-foreground-secondary ${session.starred ? "hidden group-hover:block" : ""}`}
               >
                 <Send size={12} />
@@ -374,7 +374,7 @@ function SendToUserDialog({ sessionId, sessionName, onClose }: SendToUserDialogP
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-4 py-3 border-b border-border">
-          <h3 className="text-sm font-semibold">Send to User</h3>
+          <h3 className="text-sm font-semibold">Send Copy of Workspace to Another User</h3>
           <p className="text-xs text-foreground-secondary mt-0.5 truncate">
             &ldquo;{sessionName}&rdquo;
           </p>
