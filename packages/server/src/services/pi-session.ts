@@ -299,13 +299,33 @@ export async function createPiSession(
   };
 
   const MAX_RESULT_LENGTH = 4000;
+  function truncateStr(s: string, max: number): string {
+    return s.length > max ? s.slice(0, max) + "… (truncated)" : s;
+  }
   function truncateToolResult(result: unknown): unknown {
     if (typeof result === "string") {
-      return result.length > MAX_RESULT_LENGTH
-        ? result.slice(0, MAX_RESULT_LENGTH) + "… (truncated)"
-        : result;
+      return truncateStr(result, MAX_RESULT_LENGTH);
     }
     if (result && typeof result === "object") {
+      const obj = result as Record<string, unknown>;
+      // Preserve structure for Pi SDK ToolResult objects (content + details).
+      // Truncate large values within the object instead of flattening to string.
+      if (obj.details && typeof obj.details === "object") {
+        const details = { ...(obj.details as Record<string, unknown>) };
+        // Truncate nested tool call results individually (e.g. subagent)
+        if (Array.isArray(details.toolCalls)) {
+          details.toolCalls = (details.toolCalls as Array<Record<string, unknown>>).map((tc) => ({
+            ...tc,
+            result: tc.result !== undefined ? truncateToolResult(tc.result) : undefined,
+          }));
+        }
+        const content = Array.isArray(obj.content)
+          ? (obj.content as Array<Record<string, unknown>>).map((c) =>
+              typeof c.text === "string" ? { ...c, text: truncateStr(c.text, MAX_RESULT_LENGTH) } : c,
+            )
+          : obj.content;
+        return { ...obj, content, details };
+      }
       const json = JSON.stringify(result);
       if (json.length > MAX_RESULT_LENGTH) {
         return json.slice(0, MAX_RESULT_LENGTH) + "… (truncated)";

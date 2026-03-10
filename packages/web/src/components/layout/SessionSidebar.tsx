@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useSessionStore, type SessionListItem } from "../../stores/session";
 import {
   Plus,
@@ -10,9 +11,11 @@ import {
   X,
   PanelLeftClose,
   Star,
+  Send,
 } from "lucide-react";
 import { SessionSkeleton } from "../ui/Skeleton";
 import { APP_NAME } from "../../config";
+import { api } from "../../api/client";
 
 interface SessionSidebarProps {
   onNewSession: () => void;
@@ -153,6 +156,7 @@ function SessionItem({
 }: SessionItemProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [showSendDialog, setShowSendDialog] = useState(false);
   const [editName, setEditName] = useState(session.name);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -282,6 +286,16 @@ function SessionItem({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  setShowSendDialog(true);
+                }}
+                title="Send to user"
+                className={`p-1 rounded hover:bg-surface-glass-hover text-foreground-secondary ${session.starred ? "hidden group-hover:block" : ""}`}
+              >
+                <Send size={12} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
                   setIsConfirmingDelete(true);
                 }}
                 title="Delete"
@@ -301,6 +315,107 @@ function SessionItem({
           </p>
         </>
       )}
+      {showSendDialog && createPortal(
+        <SendToUserDialog
+          sessionId={session.id}
+          sessionName={session.name}
+          onClose={() => setShowSendDialog(false)}
+        />,
+        document.body,
+      )}
+    </div>
+  );
+}
+
+// ── Send to User dialog ──
+
+interface SendToUserDialogProps {
+  sessionId: string;
+  sessionName: string;
+  onClose: () => void;
+}
+
+function SendToUserDialog({ sessionId, sessionName, onClose }: SendToUserDialogProps) {
+  const [users, setUsers] = useState<{ id: string; username: string; displayName: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.users.list()
+      .then(setUsers)
+      .catch(() => setUsers([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSend = async () => {
+    if (!selectedUserId) return;
+    setSending(true);
+    try {
+      const result = await api.sessions.sendTo(sessionId, selectedUserId);
+      setSuccessMsg(`Sent to ${result.targetUser}`);
+      setTimeout(onClose, 1500);
+    } catch (err) {
+      setSending(false);
+      alert(err instanceof Error ? err.message : "Failed to send");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div
+        className="bg-background border border-border rounded-lg shadow-xl w-80 max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-4 py-3 border-b border-border">
+          <h3 className="text-sm font-semibold">Send to User</h3>
+          <p className="text-xs text-foreground-secondary mt-0.5 truncate">
+            &ldquo;{sessionName}&rdquo;
+          </p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2 min-h-0">
+          {loading ? (
+            <p className="text-xs text-foreground-secondary p-2">Loading users...</p>
+          ) : users.length === 0 ? (
+            <p className="text-xs text-foreground-secondary p-2">No other users found</p>
+          ) : successMsg ? (
+            <p className="text-xs text-success p-2 font-medium">{successMsg}</p>
+          ) : (
+            users.map((u) => (
+              <button
+                key={u.id}
+                onClick={() => setSelectedUserId(u.id)}
+                className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                  selectedUserId === u.id
+                    ? "bg-primary/15 text-foreground"
+                    : "hover:bg-surface-glass-hover text-foreground-secondary"
+                }`}
+              >
+                <span className="font-medium">{u.displayName}</span>
+                <span className="text-foreground-tertiary text-xs ml-1.5">@{u.username}</span>
+              </button>
+            ))
+          )}
+        </div>
+        {!successMsg && (
+          <div className="px-4 py-3 border-t border-border flex items-center justify-end gap-2">
+            <button
+              onClick={onClose}
+              className="text-xs px-3 py-1.5 rounded hover:bg-surface-glass-hover text-foreground-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSend}
+              disabled={!selectedUserId || sending}
+              className="text-xs px-3 py-1.5 rounded bg-primary text-white font-medium disabled:opacity-40 hover:bg-primary/90 transition-colors"
+            >
+              {sending ? "Sending..." : "Send"}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

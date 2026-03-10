@@ -197,6 +197,14 @@ export const api = {
         body: JSON.stringify({ starred }),
       }),
     running: () => request<{ sessionIds: string[] }>("/sessions/running"),
+    sendTo: (id: string, targetUserId: string) =>
+      request<{ ok: boolean; sessionId: string; targetUser: string }>(`/sessions/${id}/send-to`, {
+        method: "POST",
+        body: JSON.stringify({ targetUserId }),
+      }),
+  },
+  users: {
+    list: () => request<{ id: string; username: string; displayName: string }[]>("/users"),
   },
   files: {
     list: (sessionId: string) => request<FileEntry[]>(`/files?sessionId=${sessionId}`),

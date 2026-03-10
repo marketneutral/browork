@@ -155,6 +155,7 @@ export function forkSession(
   newId: string,
   newName: string,
   userId?: string,
+  targetUserId?: string,
 ): SessionMeta | undefined {
   const db = getDb();
 
@@ -167,11 +168,12 @@ export function forkSession(
 
   const now = new Date().toISOString();
   const workspaceDir = `${newId}/workspace`;
+  const ownerUserId = targetUserId ?? userId;
 
   // Create forked session
   db.prepare(
     "INSERT INTO sessions (id, user_id, name, created_at, updated_at, forked_from, workspace_dir) VALUES (?, ?, ?, ?, ?, ?, ?)",
-  ).run(newId, userId ?? null, newName, now, now, sourceId, workspaceDir);
+  ).run(newId, ownerUserId ?? null, newName, now, now, sourceId, workspaceDir);
 
   // Copy all messages from source to fork
   db.prepare(`

@@ -13,6 +13,7 @@ import {
   addMessage,
   getMessages,
 } from "../db/session-store.js";
+import { listUsers, getUserById } from "../db/user-store.js";
 import { removeFileWatcher } from "../services/file-watcher.js";
 import { readUserAgentsMd, readSystemDefault } from "./settings.js";
 import { listActiveSessions } from "../services/pi-session.js";
@@ -152,6 +153,68 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
       }
 
       return forked;
+    },
+  );
+
+  // List users (for send-to-user picker, excludes current user)
+  app.get("/users", async (req) => {
+    const userId = req.user?.id;
+    const users = listUsers();
+    return users
+      .filter((u) => u.id !== userId)
+      .map((u) => ({ id: u.id, username: u.username, displayName: u.displayName }));
+  });
+
+  // Send session to another user (fork + assign to target user)
+  app.post<{ Params: { id: string } }>(
+    "/sessions/:id/send-to",
+    async (req, reply) => {
+      const userId = req.user?.id;
+      const sourceId = req.params.id;
+      const { targetUserId } = req.body as { targetUserId: string };
+
+      if (!targetUserId) {
+        return reply.code(400).send({ error: "targetUserId is required" });
+      }
+
+      if (targetUserId === userId) {
+        return reply.code(400).send({ error: "Cannot send a session to yourself. Use fork instead." });
+      }
+
+      const targetUser = getUserById(targetUserId);
+      if (!targetUser) {
+        return reply.code(404).send({ error: "Target user not found" });
+      }
+
+      const source = getSessionById(sourceId, userId);
+      if (!source) {
+        return reply.code(404).send({ error: "Source session not found" });
+      }
+
+      const newId = nanoid(12);
+      const senderName = req.user?.displayName || req.user?.username || "Someone";
+      const forked = forkSession(
+        sourceId,
+        newId,
+        `${source.name} (from ${senderName})`,
+        userId,
+        targetUserId,
+      );
+
+      if (!forked) {
+        return reply.code(500).send({ error: "Failed to send session" });
+      }
+
+      // Copy workspace files
+      const srcDir = resolve(DATA_ROOT, "workspaces", source.workspaceDir);
+      const dstDir = resolve(DATA_ROOT, "workspaces", forked.workspaceDir);
+      try {
+        await cp(srcDir, dstDir, { recursive: true });
+      } catch {
+        // Source workspace may not exist if session had no files
+      }
+
+      return { ok: true, sessionId: forked.id, targetUser: targetUser.displayName };
     },
   );
 
