@@ -289,7 +289,7 @@ The original session stays in your list unchanged. This is useful for handing of
 
 ### Running session indicators
 
-When the Pi agent is actively working in a session, a pulsing dot appears next to that session in the sidebar. This lets you monitor multiple sessions at a glance — start a long-running task in one session, switch to another, and see when each finishes.
+When the Pi agent is actively working in a session, a pulsing dot appears next to that session in the sidebar, along with live preview text showing what the agent is doing — whether it's waiting for your input, streaming a response, or running a tool. This lets you monitor multiple sessions at a glance — start a long-running task in one session, switch to another, and see the progress of each without switching back.
 
 ### Thinking transparency
 
