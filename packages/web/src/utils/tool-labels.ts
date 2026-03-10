@@ -44,6 +44,11 @@ export function toolLabel(tool: string, args: unknown, status: "running" | "done
       if (a?.describe) return `MCP: inspecting ${a.describe}`;
       return "MCP tool";
     }
+    case "subagent": {
+      const a = args as Record<string, unknown> | undefined;
+      const name = (a?.name as string) || "Sub-agent";
+      return past ? `${name} completed` : `${name} working...`;
+    }
     case "ask_user": {
       const a = args as Record<string, unknown> | undefined;
       const questions = a?.questions as Array<{ question: string }> | undefined;

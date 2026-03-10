@@ -12,9 +12,11 @@ import {
   Search,
   Globe,
   MessageCircleQuestion,
+  Bot,
 } from "lucide-react";
 import type { ToolCall } from "../../stores/session";
 import { toolLabel, getPath } from "../../utils/tool-labels";
+import { SubagentCard } from "./SubagentCard";
 
 interface ToolCallCardProps {
   toolCall: ToolCall;
@@ -43,6 +45,8 @@ function ToolIcon({ tool }: { tool: string }) {
       return <Wrench className={cls} />;
     case "ask_user":
       return <MessageCircleQuestion className={cls} />;
+    case "subagent":
+      return <Bot className={cls} />;
     default:
       return <Play className={cls} />;
   }
@@ -80,6 +84,10 @@ function FormatArgs({ tool, args }: { tool: string; args: unknown }) {
         {url}
       </div>
     );
+  }
+
+  if (tool === "subagent") {
+    return null; // SubagentCard renders everything in the result section
   }
 
   if (tool === "mcp") {
@@ -493,7 +501,8 @@ function TruncatedBlock({
 
 export function ToolCallCard({ toolCall, nested }: ToolCallCardProps) {
   const { tool, args, result, isError, status } = toolCall;
-  const [expanded, setExpanded] = useState(false);
+  const isSubagent = tool === "subagent";
+  const [expanded, setExpanded] = useState(isSubagent);
 
   const label = toolLabel(tool, args, status);
 
@@ -545,16 +554,24 @@ export function ToolCallCard({ toolCall, nested }: ToolCallCardProps) {
       {/* Detail */}
       {expanded && (
         <div className="border-t border-border/30 space-y-0">
-          {/* Args */}
-          <div className="px-2 py-1.5">
-            <FormatArgs tool={tool} args={args} />
-          </div>
-
-          {/* Result */}
-          {status === "done" && result !== undefined && (
-            <div className="px-2 pb-2">
-              <FormatResult tool={tool} args={args} result={result} isError={isError} />
+          {isSubagent ? (
+            <div className="px-3 py-2">
+              <SubagentCard args={args as Record<string, unknown>} result={result} />
             </div>
+          ) : (
+            <>
+              {/* Args */}
+              <div className="px-2 py-1.5">
+                <FormatArgs tool={tool} args={args} />
+              </div>
+
+              {/* Result */}
+              {status === "done" && result !== undefined && (
+                <div className="px-2 pb-2">
+                  <FormatResult tool={tool} args={args} result={result} isError={isError} />
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

@@ -52,6 +52,17 @@ export interface PendingQuestion {
   questions: AskUserQuestion[];
 }
 
+export interface SubagentState {
+  name: string;
+  task: string;
+  activeTools: string[];
+  toolCalls: ToolCall[];
+  currentText: string;
+  isComplete: boolean;
+  result?: string;
+  isError?: boolean;
+}
+
 interface SessionState {
   sessionId: string | null;
   sessions: SessionListItem[];
@@ -71,6 +82,7 @@ interface SessionState {
   sandboxActive: boolean | null;
   pendingQuestion: PendingQuestion | null;
   runningSessions: Set<string>;
+  subagentStates: Map<string, SubagentState>;
 
   // Actions
   setSessionId: (id: string | null) => void;
@@ -98,6 +110,11 @@ interface SessionState {
   setPendingQuestion: (pq: PendingQuestion) => void;
   clearPendingQuestion: () => void;
   setRunningSessions: (ids: string[]) => void;
+  startSubagent: (subagentId: string, name: string, task: string, activeTools: string[]) => void;
+  addSubagentToolStart: (subagentId: string, tool: string, args: unknown) => void;
+  completeSubagentToolCall: (subagentId: string, tool: string, result: unknown, isError: boolean) => void;
+  appendSubagentDelta: (subagentId: string, text: string) => void;
+  endSubagent: (subagentId: string, result: string, isError: boolean) => void;
   reset: () => void;
 }
 
@@ -132,6 +149,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   sandboxActive: null,
   pendingQuestion: null,
   runningSessions: new Set(),
+  subagentStates: new Map(),
 
   setSessionId: (id) =>
     set({
@@ -149,6 +167,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       contextUsage: null,
       sandboxActive: null,
       pendingQuestion: null,
+      subagentStates: new Map(),
     }),
 
   setSessions: (sessions) => set({ sessions }),
@@ -298,6 +317,57 @@ export const useSessionStore = create<SessionState>((set) => ({
   setPendingQuestion: (pq) => set({ pendingQuestion: pq }),
   clearPendingQuestion: () => set({ pendingQuestion: null }),
   setRunningSessions: (ids) => set({ runningSessions: new Set(ids) }),
+
+  startSubagent: (subagentId, name, task, activeTools) =>
+    set((s) => {
+      const next = new Map(s.subagentStates);
+      next.set(subagentId, { name, task, activeTools, toolCalls: [], currentText: "", isComplete: false });
+      return { subagentStates: next };
+    }),
+
+  addSubagentToolStart: (subagentId, tool, args) =>
+    set((s) => {
+      const state = s.subagentStates.get(subagentId);
+      if (!state) return s;
+      const next = new Map(s.subagentStates);
+      next.set(subagentId, {
+        ...state,
+        toolCalls: [...state.toolCalls, { tool, args, status: "running" as const, seq: 0 }],
+      });
+      return { subagentStates: next };
+    }),
+
+  completeSubagentToolCall: (subagentId, tool, result, isError) =>
+    set((s) => {
+      const state = s.subagentStates.get(subagentId);
+      if (!state) return s;
+      const next = new Map(s.subagentStates);
+      const toolCalls = state.toolCalls.map((tc) =>
+        tc.tool === tool && tc.status === "running"
+          ? { ...tc, result, isError, status: "done" as const }
+          : tc,
+      );
+      next.set(subagentId, { ...state, toolCalls });
+      return { subagentStates: next };
+    }),
+
+  appendSubagentDelta: (subagentId, text) =>
+    set((s) => {
+      const state = s.subagentStates.get(subagentId);
+      if (!state) return s;
+      const next = new Map(s.subagentStates);
+      next.set(subagentId, { ...state, currentText: state.currentText + text });
+      return { subagentStates: next };
+    }),
+
+  endSubagent: (subagentId, result, isError) =>
+    set((s) => {
+      const state = s.subagentStates.get(subagentId);
+      if (!state) return s;
+      const next = new Map(s.subagentStates);
+      next.set(subagentId, { ...state, isComplete: true, result, isError });
+      return { subagentStates: next };
+    }),
 
   reset: () =>
     set({

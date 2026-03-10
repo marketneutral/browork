@@ -21,6 +21,8 @@ import { bridgeMcpTools } from "../tools/mcp-bridge.js";
 import { symlinkUserSkillsToWorkspace } from "./skill-manager.js";
 import { consumeAgentsMdUpdate, formatAgentsMdInjection } from "./agents-md-tracker.js";
 import { wrapBashWithImageInjection } from "../utils/image-inject.js";
+import { createSubagentTool } from "../tools/subagent.js";
+import type { SubagentEvent } from "../tools/subagent.js";
 import { addMessage, setLastMessageImages, setLastMessageToolCalls } from "../db/session-store.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
@@ -62,7 +64,8 @@ export type BroworkEvent =
   | { type: "context_usage"; tokens: number | null; contextWindow: number; percent: number | null }
   | { type: "session_info"; sandboxActive: boolean }
   | { type: "error"; message: string }
-  | AskUserEvent;
+  | AskUserEvent
+  | SubagentEvent;
 
 // ── Browork commands received from the frontend over WebSocket ──
 
@@ -198,7 +201,12 @@ export async function createPiSession(
   const webTools = createWebTools();
   const askUserTool = createAskUserTool(sessionId, (e) => send(activeWs, e));
   const mcpTools = bridgeMcpTools(mcpClientManager.getToolsForSession(sessionId));
-  const customTools = [...webTools, askUserTool, ...mcpTools];
+  const subagentTool = createSubagentTool({
+    workDir,
+    sandboxUserId,
+    sendEvent: (e) => send(activeWs, e),
+  });
+  const customTools = [...webTools, askUserTool, subagentTool, ...mcpTools];
   if (customTools.length > 0) {
     console.log(`[pi-session] registering custom tools: ${customTools.map((t) => t.name).join(", ")}`);
   }

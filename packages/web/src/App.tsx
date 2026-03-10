@@ -128,6 +128,21 @@ export function App() {
           }
           break;
         }
+        case "subagent_start":
+          useSessionStore.getState().startSubagent(event.subagentId, event.name, event.task, event.activeTools);
+          break;
+        case "subagent_tool_start":
+          useSessionStore.getState().addSubagentToolStart(event.subagentId, event.tool, event.args);
+          break;
+        case "subagent_tool_end":
+          useSessionStore.getState().completeSubagentToolCall(event.subagentId, event.tool, event.result, event.isError);
+          break;
+        case "subagent_message_delta":
+          useSessionStore.getState().appendSubagentDelta(event.subagentId, event.text);
+          break;
+        case "subagent_end":
+          useSessionStore.getState().endSubagent(event.subagentId, event.result, event.isError);
+          break;
         case "error":
           setError(event.message);
           setStreaming(false);

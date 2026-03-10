@@ -13,6 +13,11 @@ export type BroworkEvent =
   | { type: "context_usage"; tokens: number | null; contextWindow: number; percent: number | null }
   | { type: "session_info"; sandboxActive: boolean }
   | { type: "ask_user"; requestId: string; questions: AskUserQuestion[] }
+  | { type: "subagent_start"; subagentId: string; name: string; task: string; activeTools: string[] }
+  | { type: "subagent_tool_start"; subagentId: string; tool: string; args: unknown }
+  | { type: "subagent_tool_end"; subagentId: string; tool: string; result: unknown; isError: boolean }
+  | { type: "subagent_message_delta"; subagentId: string; text: string }
+  | { type: "subagent_end"; subagentId: string; result: string; isError: boolean }
   | { type: "error"; message: string };
 
 /** Image attachment sent with a user prompt */
