@@ -365,6 +365,40 @@ export async function createPiSession(
   }
 
   const unsubscribe = session.subscribe((event) => {
+    // Surface LLM errors that would otherwise be silently dropped.
+    // When the API returns an error (auth failure, bad model, rate limit, etc.),
+    // the Pi SDK creates an assistant message with stopReason="error" but no
+    // text_delta events, so the user sees nothing. Inject the error text so it
+    // appears as an assistant message in the chat.
+    if (event.type === "message_end" && event.message?.stopReason === "error" && event.message?.errorMessage) {
+      const errorText = `Error from AI model: ${event.message.errorMessage}`;
+      console.error(`[pi-session] LLM error: ${event.message.errorMessage}`);
+      // Inject as assistant text so it shows in the chat bubble
+      turnState.assistantBuffer += errorText;
+      // Send delta to client so it appears in real-time
+      if (activeWs.readyState === activeWs.OPEN) {
+        activeWs.send(JSON.stringify({ type: "message_delta", text: errorText }));
+      }
+    }
+
+    // Surface auto-retry events so the client knows retries are happening
+    if (event.type === "auto_retry_start") {
+      const retryText = `\n\nRetrying (attempt ${event.attempt})... ${event.errorMessage || ""}`;
+      console.warn(`[pi-session] auto-retry #${event.attempt}: ${event.errorMessage}`);
+      turnState.assistantBuffer += retryText;
+      if (activeWs.readyState === activeWs.OPEN) {
+        activeWs.send(JSON.stringify({ type: "message_delta", text: retryText }));
+      }
+    }
+    if (event.type === "auto_retry_end" && !event.success) {
+      const failText = `\n\nRetry failed after ${event.attempt} attempts.${event.finalError ? ` ${event.finalError}` : ""}`;
+      console.error(`[pi-session] auto-retry failed: ${event.finalError}`);
+      turnState.assistantBuffer += failText;
+      if (activeWs.readyState === activeWs.OPEN) {
+        activeWs.send(JSON.stringify({ type: "message_delta", text: failText }));
+      }
+    }
+
     const broworkEvent = translatePiEvent(event);
     if (!broworkEvent) return;
 

@@ -277,15 +277,23 @@ describe("sandbox-manager", () => {
       expect(typeof ops.exec).toBe("function");
     });
 
-    it("should throw when no sandbox container exists for user", async () => {
+    it("should throw when auto-provisioning fails for user", async () => {
+      // createSandboxBashOps auto-provisions via ensureSandbox when no container
+      // exists. Mock execSync to fail so provisioning throws.
+      mockExecSync.mockImplementation(() => {
+        throw new Error("docker not available");
+      });
       const ops = createSandboxBashOps("no-container-user");
       await expect(
         ops.exec("ls", "/tmp", { onData: vi.fn() }),
-      ).rejects.toThrow("No sandbox container for user no-container-user");
+      ).rejects.toThrow("docker not available");
     });
 
     it("should call docker exec with correct container path translation", async () => {
       provisionUser("user1", "abc123");
+
+      // isContainerRunning check inside exec()
+      mockExecSync.mockReturnValueOnce("true\n");
 
       const child = createMockChild();
       mockSpawn.mockReturnValueOnce(child as any);
@@ -314,6 +322,9 @@ describe("sandbox-manager", () => {
     it("should stream stdout and stderr via onData callback", async () => {
       provisionUser("user2", "def456");
 
+      // isContainerRunning check inside exec()
+      mockExecSync.mockReturnValueOnce("true\n");
+
       const child = createMockChild();
       mockSpawn.mockReturnValueOnce(child as any);
 
@@ -341,6 +352,9 @@ describe("sandbox-manager", () => {
     it("should return non-zero exit code on failure", async () => {
       provisionUser("user3", "ghi789");
 
+      // isContainerRunning check inside exec()
+      mockExecSync.mockReturnValueOnce("true\n");
+
       const child = createMockChild();
       mockSpawn.mockReturnValueOnce(child as any);
 
@@ -359,6 +373,9 @@ describe("sandbox-manager", () => {
 
     it("should kill child process when abort signal fires", async () => {
       provisionUser("user4", "jkl012");
+
+      // isContainerRunning check inside exec()
+      mockExecSync.mockReturnValueOnce("true\n");
 
       const child = createMockChild();
       mockSpawn.mockReturnValueOnce(child as any);
