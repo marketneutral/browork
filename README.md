@@ -108,6 +108,7 @@ browork/
 │   │       ├── tools/web-tools.ts    # Web search & fetch tools (Brave API)
 │   │       ├── tools/ask-user.ts     # Interactive ask_user tool for mid-execution input
 │   │       ├── tools/mcp-bridge.ts   # MCP→Pi tool format bridge
+│   │       ├── tools/subagent.ts     # Sub-agent delegation tool
 │   │       ├── utils/image-inject.ts # Injects Pi-created images back into tool results
 │   │       ├── db/database.ts        # SQLite init (better-sqlite3, WAL mode)
 │   │       ├── db/session-store.ts   # Session & message CRUD
@@ -133,7 +134,7 @@ browork/
 │       └── src/
 │           ├── App.tsx               # Root component + WebSocket wiring
 │           ├── api/client.ts         # REST + WebSocket URL helpers
-│           ├── components/chat/      # ChatPanel, Composer, MessageBubble, AskUserCard, InlineImageGroup
+│           ├── components/chat/      # ChatPanel, Composer, MessageBubble, AskUserCard, SubagentCard, InlineImageGroup
 │           ├── components/files/     # FilePanel, FileTree, editors, viewers
 │           ├── components/layout/    # AppLayout, SessionSidebar, StatusPanel, SettingsDialog
 │           ├── hooks/useWebSocket.ts # WebSocket with reconnection
@@ -253,6 +254,36 @@ Type `@` in the composer to browse and reference workspace files inline. A popup
 ### Interactive prompts (ask_user)
 
 Pi can pause mid-execution to ask you questions via a multi-choice card in the chat. Options support single-select, multi-select, and free-text "Other" input. The agent blocks until you respond (5-minute timeout), then continues with your answer.
+
+### Sub-agents
+
+The Pi agent can delegate tasks to independent sub-agents, each with its own fresh context window. Sub-agents are useful for deep exploration, focused research, or file-heavy operations that would otherwise fill up the parent agent's context.
+
+Sub-agent activity appears inline in the chat as an expandable card showing:
+- **Capability pills** — icons for each enabled tool (Read, Bash, Write, Edit, Search, Fetch, MCP tools)
+- **Task description** — the full task delegated by the parent
+- **Nested tool calls** — expandable list of everything the sub-agent did
+- **Streaming output** — live text from the sub-agent as it works
+- **Final result** — the sub-agent's completed output
+
+By default, sub-agents have minimal capabilities (read + bash only, no skills, no MCP). The parent agent controls what each sub-agent can access:
+- `tools`: opt-in `write`, `edit`, `web_search`, `web_fetch`
+- `skills`: enable workspace skill discovery (disabled by default)
+- `mcp_servers`: grant access to specific MCP servers by name
+
+Sub-agents share the same workspace and sandbox as the parent, so file changes are visible to both.
+
+### Image attachments
+
+Paste images from your clipboard or drag-and-drop image files into the composer to send them alongside your message. Attached images appear as removable thumbnails in the composer before sending, and are displayed inline in user message bubbles after sending. Images are persisted with the message so they restore on session reload.
+
+### Mermaid diagrams
+
+Markdown files with mermaid code blocks are rendered as interactive diagrams in the file viewer. Use standard fenced code blocks with the `mermaid` language identifier.
+
+### Running session indicators
+
+When the Pi agent is actively working in a session, a pulsing dot appears next to that session in the sidebar. This lets you monitor multiple sessions at a glance — start a long-running task in one session, switch to another, and see when each finishes.
 
 ### Thinking transparency
 

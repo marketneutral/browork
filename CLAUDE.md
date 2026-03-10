@@ -33,7 +33,7 @@ Watch mode: `npm run test:watch --workspace=packages/server`
 - **Entry**: `src/index.ts`
 - **Routes** (`src/routes/`): REST endpoints for auth, sessions, files, skills, settings, health, MCP
 - **Services** (`src/services/`): Pi SDK wrapper (with mock fallback), skill manager, file watcher (chokidar), MCP client manager, sandbox manager
-- **Tools** (`src/tools/`): Custom Pi tools — web search/fetch (`web-tools.ts`), interactive ask_user (`ask-user.ts`), MCP bridge (`mcp-bridge.ts`)
+- **Tools** (`src/tools/`): Custom Pi tools — web search/fetch (`web-tools.ts`), interactive ask_user (`ask-user.ts`), MCP bridge (`mcp-bridge.ts`), subagent delegation (`subagent.ts`)
 - **WebSocket** (`src/ws/session-stream.ts`): Streams Pi agent events to the client in real-time
 - **Database** (`src/db/`): SQLite via better-sqlite3 (WAL mode), no ORM — direct prepared statements. Tables: users, tokens, sessions, messages (with `images` and `tool_calls` columns for inline image and tool call persistence), mcp_servers
 - **Auth** (`src/plugins/auth.ts`): Bearer token validation as a Fastify plugin; scrypt password hashing
@@ -48,7 +48,7 @@ Watch mode: `npm run test:watch --workspace=packages/server`
 - **File tree**: react-arborist with drag-and-drop move, inline rename, per-file download, and colored Lucide file-type icons (`FileIcon` component in `FileTree.tsx`)
 - **Editors**: CodeMirror (code), AG Grid (CSV), Markdown editor (`@uiw/react-md-editor`) in `src/components/files/editors/`
 - **Viewers**: Image, PDF, and HTML (sandboxed iframe with source toggle) in `src/components/files/viewers/`
-- **Chat**: Message bubbles + rich tool call cards (`ToolCallCard.tsx`) with terminal-style bash output, color-coded diffs for edits, and expandable result details. Inline image previews (`InlineImageGroup.tsx`) for Pi-generated images. Interactive `AskUserCard.tsx` for mid-execution user prompts. `@` file mention popup in Composer for inline file references with directory drill-down.
+- **Chat**: Message bubbles + rich tool call cards (`ToolCallCard.tsx`) with terminal-style bash output, color-coded diffs for edits, and expandable result details. Inline image previews (`InlineImageGroup.tsx`) for Pi-generated images. Interactive `AskUserCard.tsx` for mid-execution user prompts. `SubagentCard.tsx` for nested sub-agent activity with capability pills, streaming text, and nested tool calls. `@` file mention popup in Composer for inline file references with directory drill-down. Image paste/drop in Composer for attaching user images.
 - **Context bar**: Progress bar showing context window usage; `/compact` command to compress context
 - **Thinking transparency**: Live display of Pi's extended reasoning in the status area (from `thinking_delta` WebSocket events)
 - **App config**: `src/config.ts` exports `APP_NAME` from `VITE_APP_NAME` env var
@@ -135,6 +135,22 @@ Previously bundled workflow definitions (chart-generator, financial-report) whic
   - Frontend: `SettingsDialog.tsx` (opened via gear icon) with textarea editor, "Revert to Default" button, and admin-only "Save as Default".
 - **ask_user tool** (`tools/ask-user.ts`): A Pi SDK `ToolDefinitionLike` that pauses agent execution to present a multi-choice questionnaire to the user. The tool creates a deferred Promise and sends the question via WebSocket. The user responds through `AskUserCard.tsx` (multi-step card with single/multi-select, free-text "Other" input). Response is sent back via WebSocket `ask_user_response` event, resolving the Promise so Pi continues. 5-minute timeout.
 - **Image injection** (`utils/image-inject.ts`): After Pi executes a bash command, `wrapBashWithImageInjection()` scans the workspace for newly created image files (PNG, JPG, GIF, WebP) and appends up to 3 as `ImageContent` objects to the bash tool result. This lets Pi see charts and plots it creates. The wrapped bash tool is injected into `_baseToolsOverride` in `pi-session.ts`.
+- **Subagent delegation** (`tools/subagent.ts`): The parent Pi agent can spawn child agents via the `subagent` tool. Each child gets a fresh context window, an in-process `createAgentSession()` with `SessionManager.inMemory()`, and the same sandbox integration as the parent (via `_baseToolsOverride` patching). Key design:
+  - **Default tools**: `read` and `bash` only. Parent can opt-in `write`, `edit`, `web_search`, `web_fetch` via the `tools` param.
+  - **Skills**: Disabled by default via `skillsOverride` on the `DefaultResourceLoader` (returns empty skills array). Set `skills: true` to enable workspace skill discovery.
+  - **MCP tools**: Not available by default. Parent specifies `mcp_servers: ["server-name"]` to grant access to specific MCP servers. Tools are bridged via `bridgeMcpTools()` same as the parent session.
+  - **AGENTS.md**: Workspace-local AGENTS.md is inherited (filtered via `agentsFilesOverride` to exclude ancestor files).
+  - **Events**: Five WebSocket event types (`subagent_start/tool_start/tool_end/message_delta/end`) with `subagentId` for multiplexing. The `subagent_start` event includes `activeTools` (resolved tool name list) for UI display.
+  - **UI**: `SubagentCard.tsx` renders capability pills (icon + label per tool), scrollable task description, expandable nested tool calls (reuses `ToolCallCard` with `nested` prop), streaming text area, and final result. Live state is matched by name+task from the `subagentStates` Map in the session store; restored sessions fall back to `result.details`.
+  - **Persistence**: `activeTools` and `toolCalls` are included in the tool result `details` object, so they survive session reload via the `tool_calls` persistence mechanism.
+- **Running session indicators**: The sidebar shows a pulsing dot next to sessions where the Pi agent is actively running. Implementation:
+  - Server-side: `GET /api/sessions/running` returns running session IDs for the current user (filtered from `listActiveSessions()`).
+  - Client-side: `runningSessions` Set in the session store, polled every 3 seconds via `refreshRunningSessions()`. Also refreshed on `agent_start` and `agent_end` events.
+  - UI: `SessionSidebar.tsx` renders a ping-animated dot instead of the MessageSquare icon for running sessions.
+- **Tool call ordering on session switch**: A `historyLoaded` boolean in the session store prevents `activeToolCalls` and streaming text from rendering before the async session history load completes. `setMessages()` atomically sets `historyLoaded: true`; `setSessionId()` resets it to `false`. `ChatPanel.tsx` gates rendering on this flag.
+- **Image paste/drop in Composer**: Users can paste images from clipboard or drag-and-drop image files into the chat composer. Images are converted to base64, shown as removable thumbnails in the composer, and sent alongside the prompt text via the `images` field on the WebSocket `prompt` command. User-attached images are persisted in the `images` column of the messages table (JSON array of `{ data, mimeType }`) and restored on session reload as `attachedImages` on user messages.
+- **Mermaid diagram rendering**: Markdown preview in the file viewer renders mermaid code blocks as diagrams using the mermaid library. Fenced code blocks with language `mermaid` are detected and rendered inline.
+- **Chrome PDF drag-drop prevention**: An inline `<script>` in `index.html` (before React loads) prevents Chrome from intercepting PDF file drops by calling `preventDefault()` on `dragover`, `drop`, and `dragenter` events at the window level. This ensures PDF files are handled by the file upload drop zone rather than opened in a new browser tab.
 - **@ file mentions** (Composer): Typing `@` in the chat composer opens a popup showing workspace files with keyboard navigation and directory drill-down. Selecting a file inserts `@path/to/file` into the message; selecting a directory expands its contents. The file list is fetched from the files store.
 
 ## Pi System Prompt
