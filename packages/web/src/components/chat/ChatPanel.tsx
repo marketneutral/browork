@@ -42,6 +42,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
   const activeToolCalls = useSessionStore((s) => s.activeToolCalls);
   const completedToolGroups = useSessionStore((s) => s.completedToolGroups);
   const completedImageGroups = useSessionStore((s) => s.completedImageGroups);
+  const historyLoaded = useSessionStore((s) => s.historyLoaded);
   const pendingQuestion = useSessionStore((s) => s.pendingQuestion);
   const thinkingText = useSessionStore((s) => s.thinkingText);
   const activeSkill = useSkillsStore((s) => s.activeSkill);
@@ -68,8 +69,9 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
       ...completedToolGroups.map((g): TimelineItem => ({ kind: "tool_group", data: g })),
       ...completedImageGroups.map((g): TimelineItem => ({ kind: "image_group", data: g })),
     ];
-    // Wrap live activeToolCalls in a synthetic group so they render inside a group too
-    if (activeToolCalls.length > 0) {
+    // Wrap live activeToolCalls in a synthetic group so they render inside a group too.
+    // Wait until history has loaded so rebind tool calls don't flash at the top.
+    if (historyLoaded && activeToolCalls.length > 0) {
       items.push({
         kind: "tool_group",
         data: { id: "live", toolCalls: activeToolCalls, seq: activeToolCalls[0].seq },
@@ -77,7 +79,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
     }
     items.sort((a, b) => a.data.seq - b.data.seq);
     return items;
-  }, [messages, completedToolGroups, completedImageGroups, activeToolCalls]);
+  }, [messages, completedToolGroups, completedImageGroups, activeToolCalls, historyLoaded]);
 
   // Derive the latest running tool label for the status bar
   const runningToolLabel = useMemo(() => {
@@ -133,7 +135,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
         )}
 
         {/* Streaming assistant text */}
-        {currentText && (
+        {historyLoaded && currentText && (
           <MessageBubble
             message={{
               id: "streaming",

@@ -61,6 +61,7 @@ interface SessionState {
   isStreaming: boolean;
   isCompacting: boolean;
   isLoading: boolean;
+  historyLoaded: boolean;
   error: string | null;
   activeToolCalls: ToolCall[];
   completedToolGroups: ToolCallGroup[];
@@ -69,6 +70,7 @@ interface SessionState {
   contextUsage: ContextUsage | null;
   sandboxActive: boolean | null;
   pendingQuestion: PendingQuestion | null;
+  runningSessions: Set<string>;
 
   // Actions
   setSessionId: (id: string | null) => void;
@@ -81,6 +83,7 @@ interface SessionState {
   setStreaming: (v: boolean) => void;
   setCompacting: (v: boolean) => void;
   setLoading: (v: boolean) => void;
+  setHistoryLoaded: (v: boolean) => void;
   setError: (msg: string | null) => void;
   addToolStart: (tool: string, args: unknown) => void;
   completeToolCall: (tool: string, result: unknown, isError: boolean) => void;
@@ -94,6 +97,7 @@ interface SessionState {
   setSandboxActive: (active: boolean) => void;
   setPendingQuestion: (pq: PendingQuestion) => void;
   clearPendingQuestion: () => void;
+  setRunningSessions: (ids: string[]) => void;
   reset: () => void;
 }
 
@@ -118,6 +122,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   isStreaming: false,
   isCompacting: false,
   isLoading: true,
+  historyLoaded: false,
   error: null,
   activeToolCalls: [],
   completedToolGroups: [],
@@ -126,6 +131,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   contextUsage: null,
   sandboxActive: null,
   pendingQuestion: null,
+  runningSessions: new Set(),
 
   setSessionId: (id) =>
     set({
@@ -135,6 +141,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       currentAssistantText: "",
       thinkingText: "",
       isStreaming: false,
+      historyLoaded: false,
       activeToolCalls: [],
       completedToolGroups: [],
       pendingImages: [],
@@ -153,6 +160,7 @@ export const useSessionStore = create<SessionState>((set) => ({
     // history loaded, so they sort after the loaded messages (not before).
     set((s) => ({
       messages: seqd,
+      historyLoaded: true,
       completedToolGroups: [],
       completedImageGroups: [],
       activeToolCalls: s.activeToolCalls.map((tc) => ({ ...tc, seq: ++seqCounter })),
@@ -201,6 +209,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   setStreaming: (v) => set({ isStreaming: v }),
   setCompacting: (v) => set({ isCompacting: v }),
   setLoading: (v) => set({ isLoading: v }),
+  setHistoryLoaded: (v) => set({ historyLoaded: v }),
   setError: (msg) => set({ error: msg }),
 
   addToolStart: (tool, args) =>
@@ -288,6 +297,7 @@ export const useSessionStore = create<SessionState>((set) => ({
 
   setPendingQuestion: (pq) => set({ pendingQuestion: pq }),
   clearPendingQuestion: () => set({ pendingQuestion: null }),
+  setRunningSessions: (ids) => set({ runningSessions: new Set(ids) }),
 
   reset: () =>
     set({

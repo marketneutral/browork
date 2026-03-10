@@ -196,6 +196,7 @@ export const api = {
         method: "PUT",
         body: JSON.stringify({ starred }),
       }),
+    running: () => request<{ sessionIds: string[] }>("/sessions/running"),
   },
   files: {
     list: (sessionId: string) => request<FileEntry[]>(`/files?sessionId=${sessionId}`),

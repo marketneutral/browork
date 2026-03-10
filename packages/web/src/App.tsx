@@ -16,6 +16,14 @@ function refreshSessions() {
     .catch(console.error);
 }
 
+/** Refresh which sessions have a running agent */
+function refreshRunningSessions() {
+  api.sessions
+    .running()
+    .then(({ sessionIds }) => useSessionStore.getState().setRunningSessions(sessionIds))
+    .catch(console.error);
+}
+
 export function App() {
   const sessionId = useSessionStore((s) => s.sessionId);
   const setSessionId = useSessionStore((s) => s.setSessionId);
@@ -38,6 +46,7 @@ export function App() {
         case "agent_start":
           setStreaming(true);
           useSessionStore.getState().clearPendingImages();
+          refreshRunningSessions();
           break;
         case "thinking_delta":
           useSessionStore.getState().appendThinkingDelta(event.text);
@@ -70,6 +79,7 @@ export function App() {
           setStreaming(false);
           // Refresh session list to update lastMessage preview
           refreshSessions();
+          refreshRunningSessions();
           // Refresh session skills — Pi may have created new skills during this turn
           {
             const sid = useSessionStore.getState().sessionId;
@@ -140,6 +150,13 @@ export function App() {
     onMessage: handleMessage,
     enabled: !!sessionId,
   });
+
+  // Poll running session status so indicators update even when viewing a different session
+  useEffect(() => {
+    refreshRunningSessions();
+    const interval = setInterval(refreshRunningSessions, 3_000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Load sessions and auto-create if none exist
   useEffect(() => {
@@ -274,6 +291,9 @@ export function App() {
               } catch { /* ignore malformed JSON */ }
             }
           }
+        } else {
+          // Empty session — mark history as loaded so rebind tool calls can render
+          useSessionStore.getState().setHistoryLoaded(true);
         }
       }).catch((err) => setError(err.message));
     },

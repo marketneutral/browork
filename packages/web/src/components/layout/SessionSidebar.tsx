@@ -38,6 +38,7 @@ export function SessionSidebar({
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.sessionId);
   const isLoading = useSessionStore((s) => s.isLoading);
+  const runningSessions = useSessionStore((s) => s.runningSessions);
 
   const starred = sessions.filter((s) => s.starred);
   const unstarred = sessions.filter((s) => !s.starred);
@@ -94,6 +95,7 @@ export function SessionSidebar({
                 key={session.id}
                 session={session}
                 isActive={session.id === activeId}
+                isRunning={runningSessions.has(session.id)}
                 onSelect={() => onSelectSession(session.id)}
                 onDelete={() => onDeleteSession(session.id)}
                 onRename={(name) => onRenameSession(session.id, name)}
@@ -113,6 +115,7 @@ export function SessionSidebar({
             key={session.id}
             session={session}
             isActive={session.id === activeId}
+            isRunning={runningSessions.has(session.id)}
             onSelect={() => onSelectSession(session.id)}
             onDelete={() => onDeleteSession(session.id)}
             onRename={(name) => onRenameSession(session.id, name)}
@@ -130,6 +133,7 @@ export function SessionSidebar({
 interface SessionItemProps {
   session: SessionListItem;
   isActive: boolean;
+  isRunning: boolean;
   onSelect: () => void;
   onDelete: () => void;
   onRename: (name: string) => void;
@@ -140,6 +144,7 @@ interface SessionItemProps {
 function SessionItem({
   session,
   isActive,
+  isRunning,
   onSelect,
   onDelete,
   onRename,
@@ -232,7 +237,14 @@ function SessionItem({
         <>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 min-w-0">
-              <MessageSquare size={14} className="shrink-0 text-foreground-secondary" />
+              {isRunning ? (
+                <span className="shrink-0 relative flex h-2.5 w-2.5 ml-0.5 mr-0.5" title="Agent running">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
+                </span>
+              ) : (
+                <MessageSquare size={14} className="shrink-0 text-foreground-secondary" />
+              )}
               <span className="text-sm font-medium truncate">{session.name}</span>
             </div>
             <div className={`${session.starred ? "flex" : "hidden group-hover:flex"} items-center gap-0.5`}>

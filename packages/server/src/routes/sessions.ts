@@ -15,6 +15,7 @@ import {
 } from "../db/session-store.js";
 import { removeFileWatcher } from "../services/file-watcher.js";
 import { readUserAgentsMd, readSystemDefault } from "./settings.js";
+import { listActiveSessions } from "../services/pi-session.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
@@ -23,6 +24,16 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
   app.get("/sessions", async (req) => {
     const userId = req.user?.id;
     return listSessions(userId);
+  });
+
+  // Return IDs of sessions currently running the agent (for this user)
+  app.get("/sessions/running", async (req) => {
+    const userId = req.user?.id;
+    const active = listActiveSessions();
+    const running = active
+      .filter((s) => s.userId === userId && s.isRunning)
+      .map((s) => s.sessionId);
+    return { sessionIds: running };
   });
 
   // Create session
