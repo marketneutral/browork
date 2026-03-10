@@ -13,6 +13,12 @@
   </head>
   <body style="background:#141413;color:#faf9f5">
     <div id="root"></div>
+    <script>
+      // Prevent Chrome from opening dropped files (esp. PDFs) in a new tab
+      ;["dragover","drop","dragenter"].forEach(function(ev){
+        window.addEventListener(ev,function(e){e.preventDefault()},false)
+      })
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
