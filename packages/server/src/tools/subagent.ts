@@ -75,7 +75,7 @@ export function createSubagentTool(options: SubagentToolOptions): ToolDefinition
 
 IMPORTANT: The sub-agent's returned result is authoritative — it has already completed the task. Do NOT re-execute the same task yourself after the sub-agent returns. Use the sub-agent's result directly in your response.
 
-By default the sub-agent only has read and bash (for grep/find/ls), no skills, and no MCP tools. Specify additional tools, skills, or MCP servers if needed.`,
+By default the sub-agent has read, write, edit, and bash tools, no skills, and no MCP tools. Specify additional tools, skills, or MCP servers if needed.`,
     parameters: Type.Object({
       name: Type.String({
         description: "A short descriptive name for this sub-agent (e.g. 'Code Explorer', 'Data Analyst')",
@@ -91,7 +91,7 @@ By default the sub-agent only has read and bash (for grep/find/ls), no skills, a
       tools: Type.Optional(
         Type.Array(Type.String(), {
           description:
-            "Additional tools to enable beyond the defaults (read, bash). Options: 'write', 'edit', 'web_search', 'web_fetch'. By default the sub-agent can only read files and run bash commands.",
+            "Additional tools to enable beyond the defaults (read, write, edit, bash). Options: 'web_search', 'web_fetch'. By default the sub-agent can read, write, edit files and run bash commands.",
         }),
       ),
       skills: Type.Optional(
@@ -193,9 +193,7 @@ By default the sub-agent only has read and bash (for grep/find/ls), no skills, a
       } as any);
 
       // Determine which base tools to enable
-      const baseToolNames = ["read", "bash"];
-      if (extraToolSet.has("write")) baseToolNames.push("write");
-      if (extraToolSet.has("edit")) baseToolNames.push("edit");
+      const baseToolNames = ["read", "write", "edit", "bash"];
 
       // Patch base tools with sandbox ops (same pattern as parent session)
       const s = session as any;
@@ -207,28 +205,20 @@ By default the sub-agent only has read and bash (for grep/find/ls), no skills, a
         s._cwd = containerWorkDir;
         const toolsOverride: Record<string, unknown> = {
           read: piSdk.createReadTool(containerWorkDir, { operations: fileOps.read }),
+          write: piSdk.createWriteTool(containerWorkDir, { operations: fileOps.write }),
+          edit: piSdk.createEditTool(containerWorkDir, { operations: fileOps.edit }),
           bash: piSdk.createBashTool(containerWorkDir, {
             operations: createSandboxBashOps(sandboxUserId),
           }),
         };
-        if (extraToolSet.has("edit")) {
-          toolsOverride.edit = piSdk.createEditTool(containerWorkDir, { operations: fileOps.edit });
-        }
-        if (extraToolSet.has("write")) {
-          toolsOverride.write = piSdk.createWriteTool(containerWorkDir, { operations: fileOps.write });
-        }
         s._baseToolsOverride = toolsOverride;
       } else {
         const toolsOverride: Record<string, unknown> = {
           read: piSdk.createReadTool(workDir),
+          write: piSdk.createWriteTool(workDir),
+          edit: piSdk.createEditTool(workDir),
           bash: piSdk.createBashTool(workDir),
         };
-        if (extraToolSet.has("edit")) {
-          toolsOverride.edit = piSdk.createEditTool(workDir);
-        }
-        if (extraToolSet.has("write")) {
-          toolsOverride.write = piSdk.createWriteTool(workDir);
-        }
         s._baseToolsOverride = toolsOverride;
       }
 

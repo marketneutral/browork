@@ -122,7 +122,10 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
         {/* Unified timeline: messages and tool call groups in sequence order */}
         {timeline.map((item) =>
           item.kind === "message" ? (
-            <MessageBubble key={item.data.id} message={item.data} />
+            // Skip empty assistant messages (created to carry tool_calls/images only)
+            item.data.role === "assistant" && !item.data.content ? null : (
+              <MessageBubble key={item.data.id} message={item.data} />
+            )
           ) : item.kind === "tool_group" ? (
             <ToolCallGroup
               key={item.data.id}

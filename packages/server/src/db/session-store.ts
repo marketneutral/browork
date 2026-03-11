@@ -211,10 +211,10 @@ export function addMessage(
 export function setLastMessageImages(
   sessionId: string,
   images: string,
-): void {
+): boolean {
   const db = getDb();
   // Attach images to the most recent assistant message in this session
-  db.prepare(
+  const result = db.prepare(
     `UPDATE messages SET images = ?
      WHERE id = (
        SELECT id FROM messages
@@ -222,14 +222,15 @@ export function setLastMessageImages(
        ORDER BY timestamp DESC LIMIT 1
      )`,
   ).run(images, sessionId);
+  return result.changes > 0;
 }
 
 export function setLastMessageToolCalls(
   sessionId: string,
   toolCalls: string,
-): void {
+): boolean {
   const db = getDb();
-  db.prepare(
+  const result = db.prepare(
     `UPDATE messages SET tool_calls = ?
      WHERE id = (
        SELECT id FROM messages
@@ -237,6 +238,7 @@ export function setLastMessageToolCalls(
        ORDER BY timestamp DESC LIMIT 1
      )`,
   ).run(toolCalls, sessionId);
+  return result.changes > 0;
 }
 
 export function getMessages(

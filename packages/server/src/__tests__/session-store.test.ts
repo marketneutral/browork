@@ -244,6 +244,50 @@ describe("session-store", () => {
       expect(messages[1].tool_calls).toBe(toolCalls);
       expect(messages[0].tool_calls).toBeNull();
     });
+
+    it("should return false when no assistant message exists", () => {
+      // Documents the edge case: if the LLM only produced tool-use responses
+      // without text, no assistant message was ever created. The caller must
+      // check the return value and create a fallback message.
+      createSession("s1", "Session 1");
+      addMessage("s1", "user", "Do something", 1000);
+
+      const toolCalls = JSON.stringify([{ tool: "subagent", args: { task: "analyze" }, result: "done" }]);
+      const updated = setLastMessageToolCalls("s1", toolCalls);
+
+      expect(updated).toBe(false);
+      const messages = getMessages("s1");
+      expect(messages.length).toBe(1); // only user message
+      expect(messages[0].tool_calls).toBeNull();
+    });
+
+    it("should return true when an assistant message exists", () => {
+      createSession("s1", "Session 1");
+      addMessage("s1", "user", "Do something", 1000);
+      addMessage("s1", "assistant", "Working on it", 2000);
+
+      const toolCalls = JSON.stringify([{ tool: "bash", args: {}, result: "ok" }]);
+      const updated = setLastMessageToolCalls("s1", toolCalls);
+
+      expect(updated).toBe(true);
+    });
+  });
+
+  describe("addMessage with empty content (tool-call-only turns)", () => {
+    it("should persist tool_calls on an empty-content assistant message", () => {
+      // This is the fix: create an assistant message with empty content to
+      // carry tool_calls when the LLM produced no text during the turn.
+      createSession("s1", "Session 1");
+      addMessage("s1", "user", "Do something", 1000);
+
+      const toolCalls = JSON.stringify([{ tool: "subagent", args: { task: "analyze" }, result: "done" }]);
+      addMessage("s1", "assistant", "", 2000, null, toolCalls);
+
+      const messages = getMessages("s1");
+      expect(messages.length).toBe(2);
+      expect(messages[1].content).toBe("");
+      expect(messages[1].tool_calls).toBe(toolCalls);
+    });
   });
 
   describe("forkSession with tool_calls", () => {

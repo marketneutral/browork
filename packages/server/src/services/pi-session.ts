@@ -448,9 +448,17 @@ export async function createPiSession(
         if (turnState.assistantBuffer) {
           addMessage(sessionId, "assistant", turnState.assistantBuffer, Date.now(), images, toolCallsJson);
           turnState.assistantBuffer = "";
-        } else {
-          if (images) setLastMessageImages(sessionId, images);
-          if (toolCallsJson) setLastMessageToolCalls(sessionId, toolCallsJson);
+        } else if (images || toolCallsJson) {
+          // No assistant text this turn — try attaching to the last assistant message
+          // (preserves correct timeline ordering: tool calls at seq-0.5 before the text).
+          // Fall back to creating a new empty message if no assistant message exists
+          // (e.g. when the LLM produces only tool-use responses with no text all turn).
+          let attached = true;
+          if (images) attached = setLastMessageImages(sessionId, images) && attached;
+          if (toolCallsJson) attached = setLastMessageToolCalls(sessionId, toolCallsJson) && attached;
+          if (!attached) {
+            addMessage(sessionId, "assistant", "", Date.now(), images, toolCallsJson);
+          }
         }
         turnState.turnImagePaths = new Set();
         turnState.turnToolCalls = [];
