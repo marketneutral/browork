@@ -9,6 +9,7 @@ import { CsvEditor } from "./editors/CsvEditor";
 import { ImageViewer } from "./viewers/ImageViewer";
 import { PdfViewer } from "./viewers/PdfViewer";
 import { HtmlViewer } from "./viewers/HtmlViewer";
+import { XlsxViewer } from "./viewers/XlsxViewer";
 
 interface FileEditorPaneProps {
   onBack: () => void;
@@ -144,6 +145,9 @@ export function FileEditorPane({ onBack, onRefresh }: FileEditorPaneProps) {
         )}
         {ext === "csv" && (
           <CsvEditor content={openFile.content} onChange={handleChange} />
+        )}
+        {(ext === "xlsx" || ext === "xls") && (
+          <XlsxViewer content={openFile.content} />
         )}
         {(ext === "md" || ext === "qmd") && (
           <MarkdownEditor content={openFile.content} onChange={handleChange} />

@@ -64,7 +64,7 @@ export function FilePanel() {
 
       try {
         const preview = await api.files.preview(path, sessionId);
-        if (preview.type === "text" || preview.type === "csv") {
+        if (preview.type === "text" || preview.type === "csv" || preview.type === "xlsx") {
           useFilesStore.getState().openFileForEdit(
             path,
             preview.content || "",

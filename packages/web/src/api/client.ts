@@ -68,7 +68,7 @@ export interface FileEntry {
 }
 
 export interface FilePreview {
-  type: "csv" | "text" | "image" | "pdf" | "binary";
+  type: "csv" | "text" | "image" | "pdf" | "xlsx" | "binary";
   content?: string;
   headers?: string[];
   rows?: Record<string, string>[];

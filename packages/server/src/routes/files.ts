@@ -383,6 +383,23 @@ export const fileRoutes: FastifyPluginAsync = async (app) => {
     const ext = extname(resolved).toLowerCase();
 
     try {
+      if (ext === ".xlsx" || ext === ".xls") {
+        const XLSX = await import("xlsx");
+        const workbook = XLSX.read(await readFile(resolved), { type: "buffer" });
+        const sheets = workbook.SheetNames.map((name) => {
+          const sheet = workbook.Sheets[name];
+          const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+          const headers = json.length > 0 ? Object.keys(json[0]) : [];
+          const rows = json.slice(0, 500).map((row) => {
+            const r: Record<string, string> = {};
+            for (const h of headers) r[h] = String(row[h] ?? "");
+            return r;
+          });
+          return { name, headers, rows, totalRows: json.length };
+        });
+        return { type: "xlsx", content: JSON.stringify({ sheets }) };
+      }
+
       if (ext === ".csv") {
         const raw = await readFile(resolved, "utf-8");
         const lines = raw.split("\n").filter((l) => l.trim());

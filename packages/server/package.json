@@ -12,9 +12,9 @@
   },
   "dependencies": {
     "@fastify/cors": "^10.0.0",
-    "@fastify/static": "^8.0.0",
     "@fastify/multipart": "^9.0.0",
     "@fastify/rate-limit": "^10.3.0",
+    "@fastify/static": "^8.0.0",
     "@fastify/websocket": "^11.0.0",
     "@mariozechner/pi-ai": "^0.54.0",
     "@mariozechner/pi-coding-agent": "^0.54.0",
@@ -29,7 +29,8 @@
     "fastify-plugin": "^5.1.0",
     "ldapts": "^8.1.7",
     "nanoid": "^5.0.0",
-    "turndown": "^7.2.2"
+    "turndown": "^7.2.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",

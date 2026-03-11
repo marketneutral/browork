@@ -17,6 +17,8 @@ const darkTheme = themeQuartz.withParams({
   headerBackgroundColor: "#1c1b1a",
   borderColor: "#2a2926",
   rowHoverColor: "#ffffff10",
+  fontSize: "12px",
+  headerFontSize: "12px",
 });
 
 interface CsvEditorProps {
@@ -79,9 +81,9 @@ export function CsvEditor({ content, onChange }: CsvEditorProps) {
         rowData={rowData}
         onCellValueChanged={handleCellChange}
         getRowId={(params) => params.data.__rowIndex}
+        autoSizeStrategy={{ type: "fitCellContents" }}
         defaultColDef={{
-          flex: 1,
-          minWidth: 80,
+          minWidth: 60,
         }}
       />
     </div>
