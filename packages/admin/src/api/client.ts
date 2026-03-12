@@ -52,6 +52,7 @@ export interface OverviewResponse {
   todaySessions: number;
   todayMessages: number;
   newUsersThisWeek: number;
+  weeklyTokensTotal: number;
 }
 
 export interface AdminUserSummary {
@@ -85,6 +86,29 @@ export interface AdminUserDetail {
     messages: number;
     storageBytes: number;
   };
+  tokenUsage?: {
+    thisWeek: { inputTokens: number; outputTokens: number; totalTokens: number; cost: number };
+    budget: { limit: number; isCustom: boolean };
+  };
+}
+
+export interface TokenUsageOverview {
+  systemDefaultLimit: number;
+  users: {
+    userId: string;
+    username: string | null;
+    displayName: string | null;
+    totalTokens: number;
+    cost: number;
+    limit: number;
+    isCustomBudget: boolean;
+  }[];
+}
+
+export interface UserTokenHistory {
+  thisWeek: { inputTokens: number; outputTokens: number; totalTokens: number; cost: number };
+  history: { weekStart: string; totalTokens: number; cost: number }[];
+  budget: { limit: number; isCustom: boolean };
 }
 
 export interface ActivityResponse {
@@ -273,4 +297,15 @@ export const adminApi = {
   // User management
   deleteUser: (id: string) =>
     request<{ ok: boolean }>(`/admin/users/${id}`, { method: "DELETE" }),
+  // Token usage & budgets
+  tokenUsage: () => request<TokenUsageOverview>("/admin/token-usage"),
+  userTokenHistory: (id: string, weeks?: number) =>
+    request<UserTokenHistory>(`/admin/token-usage/${id}${weeks ? `?weeks=${weeks}` : ""}`),
+  setUserBudget: (id: string, weeklyLimit: number) =>
+    request<{ ok: boolean }>(`/admin/users/${id}/budget`, {
+      method: "PUT",
+      body: JSON.stringify({ weeklyLimit }),
+    }),
+  removeUserBudget: (id: string) =>
+    request<{ ok: boolean }>(`/admin/users/${id}/budget`, { method: "DELETE" }),
 };

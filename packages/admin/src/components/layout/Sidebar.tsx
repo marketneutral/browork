@@ -10,11 +10,13 @@ import {
   Plug,
   Sparkles,
   Radio,
+  Zap,
 } from "lucide-react";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { path: "/users", label: "Users", icon: Users },
+  { path: "/usage", label: "Usage", icon: Zap },
   { path: "/activity", label: "Activity", icon: TrendingUp },
   { path: "/tools", label: "Tools", icon: Wrench },
   { path: "/mcp", label: "MCP Servers", icon: Plug },

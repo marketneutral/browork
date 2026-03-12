@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useAdminStore } from "@/stores/admin";
 import { StatCard } from "./StatCard";
-import { Users, MessageSquare, FolderOpen, HardDrive } from "lucide-react";
+import { Users, MessageSquare, FolderOpen, HardDrive, Zap } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -28,6 +28,12 @@ function formatBytes(bytes: number): string {
   const units = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return `${(bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
+}
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
+  return String(n);
 }
 
 function CustomTooltip({ active, payload, label }: any) {
@@ -87,6 +93,13 @@ export function OverviewPage() {
           icon={HardDrive}
           color="text-foreground-secondary"
           subtext={`${overview?.activeTokens ?? 0} active tokens`}
+        />
+        <StatCard
+          label="Weekly Tokens"
+          value={formatTokens(overview?.weeklyTokensTotal ?? 0)}
+          icon={Zap}
+          color="text-amber-400"
+          subtext="All users this week"
         />
       </div>
 
