@@ -32,7 +32,7 @@ interface ChatPanelProps {
   onAbort: () => void;
   onCompact: () => void;
   onAnswerQuestion: (requestId: string, answers: AskUserAnswer[]) => void;
-  onSetThinkingLevel: (level: "low" | "medium" | "high") => void;
+  onSetThinkingLevel: (level: "none" | "low" | "medium" | "high") => void;
 }
 
 export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, onAnswerQuestion, onSetThinkingLevel }: ChatPanelProps) {
@@ -201,7 +201,7 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
                     >
                       {thinkingSnippet(thinkingText)}
                     </button>
-                  ) : "Thinking...")}
+                  ) : thinkingLevel === "none" ? "Working..." : "Thinking...")}
             </span>
             <div className="ml-auto flex items-center gap-2 shrink-0">
               <button
@@ -238,10 +238,10 @@ export function ChatPanel({ onSendMessage, onInvokeSkill, onAbort, onCompact, on
   );
 }
 
-function ThinkingLevelSelector({ level, onChange }: { level: "low" | "medium" | "high"; onChange: (level: "low" | "medium" | "high") => void }) {
+function ThinkingLevelSelector({ level, onChange }: { level: "none" | "low" | "medium" | "high"; onChange: (level: "none" | "low" | "medium" | "high") => void }) {
   return (
     <div className="flex items-center gap-0.5 bg-surface-glass rounded-md p-0.5" title="Thinking depth">
-      {(["low", "medium", "high"] as const).map((l) => (
+      {(["none", "low", "medium", "high"] as const).map((l) => (
         <button
           key={l}
           onClick={() => onChange(l)}
@@ -251,7 +251,7 @@ function ThinkingLevelSelector({ level, onChange }: { level: "low" | "medium" | 
               : "text-foreground-tertiary hover:text-foreground-secondary"
           }`}
         >
-          {l === "low" ? "Low" : l === "medium" ? "Med" : "High"}
+          {l === "none" ? "None" : l === "low" ? "Low" : l === "medium" ? "Med" : "High"}
         </button>
       ))}
     </div>

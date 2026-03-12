@@ -25,7 +25,7 @@ interface AppLayoutProps {
   onForkSession: (id: string) => void;
   onStarSession: (id: string, starred: boolean) => void;
   onAnswerQuestion: (requestId: string, answers: AskUserAnswer[]) => void;
-  onSetThinkingLevel: (level: "low" | "medium" | "high") => void;
+  onSetThinkingLevel: (level: "none" | "low" | "medium" | "high") => void;
 }
 
 export function AppLayout({

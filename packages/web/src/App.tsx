@@ -106,7 +106,7 @@ export function App() {
         case "session_info": {
           useSessionStore.getState().setSandboxActive(event.sandboxActive);
           if (event.thinkingLevel) {
-            useSessionStore.getState().setThinkingLevel(event.thinkingLevel as "low" | "medium" | "high");
+            useSessionStore.getState().setThinkingLevel(event.thinkingLevel as "none" | "low" | "medium" | "high");
           }
           // Session is fully initialized — refresh files to pick up .pi/skills/ etc.
           const sid = useSessionStore.getState().sessionId;
@@ -116,7 +116,7 @@ export function App() {
           break;
         }
         case "thinking_level_changed":
-          useSessionStore.getState().setThinkingLevel(event.level as "low" | "medium" | "high");
+          useSessionStore.getState().setThinkingLevel(event.level as "none" | "low" | "medium" | "high");
           break;
         case "files_changed": {
           const currentSessionId = useSessionStore.getState().sessionId;
@@ -408,7 +408,7 @@ export function App() {
   }, [send]);
 
   const handleSetThinkingLevel = useCallback(
-    (level: "low" | "medium" | "high") => {
+    (level: "none" | "low" | "medium" | "high") => {
       useSessionStore.getState().setThinkingLevel(level);
       send({ type: "set_thinking_level", level });
     },

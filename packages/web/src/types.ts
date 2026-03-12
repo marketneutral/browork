@@ -34,7 +34,7 @@ export type BroworkCommand =
   | { type: "abort" }
   | { type: "steer"; message: string }
   | { type: "compact" }
-  | { type: "set_thinking_level"; level: "low" | "medium" | "high" }
+  | { type: "set_thinking_level"; level: "none" | "low" | "medium" | "high" }
   | { type: "ask_user_response"; requestId: string; answers: AskUserAnswer[] };
 
 // ── ask_user types ──

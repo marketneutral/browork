@@ -132,8 +132,9 @@ By default the sub-agent has read, write, edit, and bash tools, no skills, and n
         };
       }
 
-      const thinkingLevel =
-        (process.env.DEFAULT_THINKING_LEVEL as "low" | "medium" | "high") || "medium";
+      const rawThinkingLevel =
+        (process.env.DEFAULT_THINKING_LEVEL as "none" | "low" | "medium" | "high") || "medium";
+      const thinkingLevel = rawThinkingLevel === "none" ? "off" : rawThinkingLevel;
 
       // Build controlled custom tools list
       const customTools: ToolDefinitionLike[] = [];

@@ -81,7 +81,7 @@ export type BroworkCommand =
   | { type: "abort" }
   | { type: "steer"; message: string }
   | { type: "compact" }
-  | { type: "set_thinking_level"; level: "low" | "medium" | "high" }
+  | { type: "set_thinking_level"; level: "none" | "low" | "medium" | "high" }
   | { type: "ask_user_response"; requestId: string; answers: AskUserAnswer[] };
 
 // ── Session wrapper ──
@@ -92,8 +92,8 @@ export interface PiSessionHandle {
   sendSteer(text: string): Promise<void>;
   abort(): Promise<void>;
   compact(): Promise<void>;
-  setThinkingLevel(level: "low" | "medium" | "high"): void;
-  getThinkingLevel(): "low" | "medium" | "high";
+  setThinkingLevel(level: "none" | "low" | "medium" | "high"): void;
+  getThinkingLevel(): "none" | "low" | "medium" | "high";
   /** Resolve a pending ask_user question with the user's answers */
   answerQuestion(requestId: string, answers: AskUserAnswer[]): boolean;
   dispose(): void;
@@ -204,7 +204,7 @@ export async function createPiSession(
   }
 
   const thinkingLevel =
-    (process.env.DEFAULT_THINKING_LEVEL as "low" | "medium" | "high") ||
+    (process.env.DEFAULT_THINKING_LEVEL as "none" | "low" | "medium" | "high") ||
     "medium";
 
   // Tell the client whether sandbox is actually active for this session
@@ -266,7 +266,7 @@ export async function createPiSession(
       process.env.PI_PROVIDER || "azure-openai-responses",
       process.env.PI_MODEL || "gpt-4",
     ),
-    thinkingLevel,
+    thinkingLevel: thinkingLevel === "none" ? "off" : thinkingLevel,
     customTools,
     sessionManager,
     resourceLoader,
@@ -515,14 +515,19 @@ export async function createPiSession(
       await (session as any).compact?.();
       sendContextUsage();
     },
-    setThinkingLevel(level: "low" | "medium" | "high") {
-      (session as any).setThinkingLevel(level);
+    setThinkingLevel(level: "none" | "low" | "medium" | "high") {
+      // Pi SDK uses "off" internally; frontend uses "none"
+      const sdkLevel = level === "none" ? "off" : level;
+      (session as any).setThinkingLevel(sdkLevel);
+      // Report back in frontend terms
+      const reportLevel = (session as any).thinkingLevel === "off" ? "none" : (session as any).thinkingLevel;
       if (activeWs.readyState === activeWs.OPEN) {
-        activeWs.send(JSON.stringify({ type: "thinking_level_changed", level: (session as any).thinkingLevel }));
+        activeWs.send(JSON.stringify({ type: "thinking_level_changed", level: reportLevel }));
       }
     },
-    getThinkingLevel(): "low" | "medium" | "high" {
-      return (session as any).thinkingLevel ?? "medium";
+    getThinkingLevel(): "none" | "low" | "medium" | "high" {
+      const raw = (session as any).thinkingLevel ?? "medium";
+      return raw === "off" ? "none" : raw;
     },
     answerQuestion(requestId: string, answers: AskUserAnswer[]): boolean {
       turnState.pendingAskUser = null;
@@ -537,7 +542,8 @@ export async function createPiSession(
     },
     rebindSocket(newWs: WebSocket) {
       activeWs = newWs;
-      send(activeWs, { type: "session_info", sandboxActive: isSandboxActive, thinkingLevel: (session as any).thinkingLevel ?? "medium" });
+      const rawLevel = (session as any).thinkingLevel ?? "medium";
+      send(activeWs, { type: "session_info", sandboxActive: isSandboxActive, thinkingLevel: rawLevel === "off" ? "none" : rawLevel });
       sendContextUsage();
       if (isRunning) {
         send(activeWs, { type: "agent_start" });
@@ -721,10 +727,10 @@ function createMockSession(
       mockTurnCount = Math.max(0, Math.floor(mockTurnCount / 3));
       sendMockContextUsage();
     },
-    setThinkingLevel(_level: "low" | "medium" | "high") {
+    setThinkingLevel(_level: "none" | "low" | "medium" | "high") {
       // Mock mode — no-op
     },
-    getThinkingLevel(): "low" | "medium" | "high" {
+    getThinkingLevel(): "none" | "low" | "medium" | "high" {
       return "medium";
     },
     answerQuestion(requestId: string, answers: AskUserAnswer[]): boolean {

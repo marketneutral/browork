@@ -80,7 +80,7 @@ interface SessionState {
   completedImageGroups: TurnImages[];
   contextUsage: ContextUsage | null;
   sandboxActive: boolean | null;
-  thinkingLevel: "low" | "medium" | "high";
+  thinkingLevel: "none" | "low" | "medium" | "high";
   pendingQuestion: PendingQuestion | null;
   runningSessions: Set<string>;
   runningPreviews: Map<string, string>;
@@ -109,7 +109,7 @@ interface SessionState {
   addRestoredToolGroup: (toolCalls: { tool: string; args: unknown; result?: unknown; isError?: boolean }[], seq: number) => void;
   setContextUsage: (usage: ContextUsage) => void;
   setSandboxActive: (active: boolean) => void;
-  setThinkingLevel: (level: "low" | "medium" | "high") => void;
+  setThinkingLevel: (level: "none" | "low" | "medium" | "high") => void;
   setPendingQuestion: (pq: PendingQuestion) => void;
   clearPendingQuestion: () => void;
   setRunningSessions: (ids: string[], previews: Record<string, string>) => void;
