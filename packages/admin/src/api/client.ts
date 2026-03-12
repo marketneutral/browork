@@ -80,6 +80,7 @@ export interface AdminUserDetail {
     updatedAt: string;
     messageCount: number;
     workspaceSizeBytes: number;
+    totalTokens: number;
   }[];
   totals: {
     sessions: number;

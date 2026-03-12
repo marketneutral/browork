@@ -147,11 +147,10 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
 
     const sessions = db.prepare(`
       SELECT s.id, s.name, s.created_at as createdAt, s.updated_at as updatedAt, s.workspace_dir as workspaceDir,
-        COUNT(m.id) as messageCount
+        (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id) as messageCount,
+        (SELECT COALESCE(SUM(total_tokens), 0) FROM token_usage t WHERE t.session_id = s.id) as totalTokens
       FROM sessions s
-      LEFT JOIN messages m ON m.session_id = s.id
       WHERE s.user_id = ?
-      GROUP BY s.id
       ORDER BY s.updated_at DESC
     `).all(req.params.id) as any[];
 

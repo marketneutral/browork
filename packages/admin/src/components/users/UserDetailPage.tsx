@@ -240,6 +240,7 @@ export function UserDetailPage() {
             <tr className="border-b border-border text-left text-foreground-secondary">
               <th className="px-4 py-2.5 font-medium">Name</th>
               <th className="px-4 py-2.5 font-medium text-right">Messages</th>
+              <th className="px-4 py-2.5 font-medium text-right">Tokens</th>
               <th className="px-4 py-2.5 font-medium text-right">Storage</th>
               <th className="px-4 py-2.5 font-medium text-right">Created</th>
               <th className="px-4 py-2.5 font-medium text-right">Last Updated</th>
@@ -250,6 +251,9 @@ export function UserDetailPage() {
               <tr key={s.id} className="border-b border-border/50">
                 <td className="px-4 py-2.5 font-medium">{s.name}</td>
                 <td className="px-4 py-2.5 text-right font-mono">{s.messageCount}</td>
+                <td className="px-4 py-2.5 text-right font-mono text-foreground-secondary">
+                  {formatTokens(s.totalTokens)}
+                </td>
                 <td className="px-4 py-2.5 text-right font-mono text-foreground-secondary">
                   {formatBytes(s.workspaceSizeBytes)}
                 </td>
