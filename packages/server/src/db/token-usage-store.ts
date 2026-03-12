@@ -17,6 +17,7 @@ export interface TokenUsageRecord {
 export interface WeeklyUsage {
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens: number;
   totalTokens: number;
   cost: number;
 }
@@ -92,6 +93,7 @@ export function getWeeklyUsage(userId: string, weekStartMs?: number): WeeklyUsag
     SELECT
       COALESCE(SUM(input_tokens), 0) as inputTokens,
       COALESCE(SUM(output_tokens), 0) as outputTokens,
+      COALESCE(SUM(cache_read_tokens), 0) as cacheReadTokens,
       COALESCE(SUM(total_tokens), 0) as totalTokens,
       COALESCE(SUM(cost_total), 0) as cost
     FROM token_usage
@@ -106,6 +108,7 @@ export function getSessionUsage(sessionId: string): WeeklyUsage {
     SELECT
       COALESCE(SUM(input_tokens), 0) as inputTokens,
       COALESCE(SUM(output_tokens), 0) as outputTokens,
+      COALESCE(SUM(cache_read_tokens), 0) as cacheReadTokens,
       COALESCE(SUM(total_tokens), 0) as totalTokens,
       COALESCE(SUM(cost_total), 0) as cost
     FROM token_usage

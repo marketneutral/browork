@@ -138,10 +138,18 @@ export function UserDetailPage() {
             </h3>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-2 gap-4 mb-4 sm:grid-cols-4">
             <div className="rounded-lg bg-surface-glass p-3">
-              <p className="text-lg font-bold">{formatTokens(user.tokenUsage.thisWeek.totalTokens)}</p>
-              <p className="text-xs text-foreground-secondary">Tokens used</p>
+              <p className="text-lg font-bold">{formatTokens(user.tokenUsage.thisWeek.inputTokens)}</p>
+              <p className="text-xs text-foreground-secondary">Input</p>
+            </div>
+            <div className="rounded-lg bg-surface-glass p-3">
+              <p className="text-lg font-bold">{formatTokens(user.tokenUsage.thisWeek.outputTokens)}</p>
+              <p className="text-xs text-foreground-secondary">Output</p>
+            </div>
+            <div className="rounded-lg bg-surface-glass p-3">
+              <p className="text-lg font-bold">{formatTokens(user.tokenUsage.thisWeek.cacheReadTokens)}</p>
+              <p className="text-xs text-foreground-secondary">Cache Read</p>
             </div>
             <div className="rounded-lg bg-surface-glass p-3">
               <div className="flex items-center gap-2">
@@ -224,7 +232,7 @@ export function UserDetailPage() {
           )}
 
           <div className="text-xs text-foreground-tertiary">
-            Input: {formatTokens(user.tokenUsage.thisWeek.inputTokens)} · Output: {formatTokens(user.tokenUsage.thisWeek.outputTokens)}
+            Total: {formatTokens(user.tokenUsage.thisWeek.totalTokens)} tokens
             {user.tokenUsage.thisWeek.cost > 0 && ` · Cost: $${user.tokenUsage.thisWeek.cost.toFixed(4)}`}
           </div>
         </div>

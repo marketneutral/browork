@@ -88,7 +88,7 @@ export interface AdminUserDetail {
     storageBytes: number;
   };
   tokenUsage?: {
-    thisWeek: { inputTokens: number; outputTokens: number; totalTokens: number; cost: number };
+    thisWeek: { inputTokens: number; outputTokens: number; cacheReadTokens: number; totalTokens: number; cost: number };
     budget: { limit: number; isCustom: boolean };
   };
 }
@@ -107,7 +107,7 @@ export interface TokenUsageOverview {
 }
 
 export interface UserTokenHistory {
-  thisWeek: { inputTokens: number; outputTokens: number; totalTokens: number; cost: number };
+  thisWeek: { inputTokens: number; outputTokens: number; cacheReadTokens: number; totalTokens: number; cost: number };
   history: { weekStart: string; totalTokens: number; cost: number }[];
   budget: { limit: number; isCustom: boolean };
 }
