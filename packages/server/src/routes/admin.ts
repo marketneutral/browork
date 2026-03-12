@@ -20,6 +20,7 @@ import { listSkills, listUserSkills, removeSystemSkill, scanSkillDirectory, GLOB
 import { listUsers, deleteUser, getUserById } from "../db/user-store.js";
 import { listActiveSessions, getActiveSystemPrompt } from "../services/pi-session.js";
 import { getSkillUsageStats, getSkillUsageTimeseries } from "../db/session-store.js";
+import { getAllUsersWeeklyUsage, getWeeklyUsage, getUserUsageHistory, getUserBudget, setUserBudget, removeUserBudget, getSystemDefaultBudget, getEffectiveBudget } from "../db/token-usage-store.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
@@ -83,6 +84,9 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     const newUsersThisWeek = (db.prepare("SELECT COUNT(*) as c FROM users WHERE created_at >= date('now', '-7 days')").get() as any).c;
     const totalStorageBytes = await getTotalWorkspaceSize();
 
+    const weeklyTokenUsage = getAllUsersWeeklyUsage();
+    const weeklyTokensTotal = weeklyTokenUsage.reduce((sum, u) => sum + u.totalTokens, 0);
+
     return {
       totalUsers,
       totalSessions,
@@ -92,6 +96,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
       todaySessions,
       todayMessages,
       newUsersThisWeek,
+      weeklyTokensTotal,
     };
   });
 
@@ -161,6 +166,9 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     const totalMessages = sessionsWithSize.reduce((sum: number, s: any) => sum + s.messageCount, 0);
     const totalStorage = sessionsWithSize.reduce((sum: number, s: any) => sum + s.workspaceSizeBytes, 0);
 
+    const weeklyUsage = getWeeklyUsage(req.params.id);
+    const customBudget = getUserBudget(req.params.id);
+
     return {
       ...user,
       isAdmin: isAdminUser(user.username),
@@ -169,6 +177,13 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
         sessions: sessions.length,
         messages: totalMessages,
         storageBytes: totalStorage,
+      },
+      tokenUsage: {
+        thisWeek: weeklyUsage,
+        budget: {
+          limit: customBudget ?? getSystemDefaultBudget(),
+          isCustom: customBudget !== null,
+        },
       },
     };
   });
@@ -464,6 +479,63 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     };
     cleanup().catch((err) => console.error(`User cleanup failed for ${targetId}:`, err));
 
+    return { ok: true };
+  });
+
+  // ─── Token Usage & Budgets ───
+  app.get("/admin/token-usage", async () => {
+    const usersUsage = getAllUsersWeeklyUsage();
+    const systemDefaultLimit = getSystemDefaultBudget();
+    // Enrich with username + effective budget
+    const db = getDb();
+    return {
+      systemDefaultLimit,
+      users: usersUsage.map((u) => {
+        const user = db.prepare("SELECT username, display_name as displayName FROM users WHERE id = ?").get(u.userId) as any;
+        const customBudget = getUserBudget(u.userId);
+        return {
+          ...u,
+          username: user?.username ?? null,
+          displayName: user?.displayName ?? null,
+          limit: customBudget ?? systemDefaultLimit,
+          isCustomBudget: customBudget !== null,
+        };
+      }),
+    };
+  });
+
+  app.get<{ Params: { id: string }; Querystring: { weeks?: string } }>("/admin/token-usage/:id", async (req, reply) => {
+    const target = getUserById(req.params.id);
+    if (!target) return reply.code(404).send({ error: "User not found" });
+    const weeks = parseInt(req.query.weeks || "12", 10);
+    const weekly = getWeeklyUsage(req.params.id);
+    const history = getUserUsageHistory(req.params.id, weeks);
+    const customBudget = getUserBudget(req.params.id);
+    return {
+      thisWeek: weekly,
+      history,
+      budget: {
+        limit: customBudget ?? getSystemDefaultBudget(),
+        isCustom: customBudget !== null,
+      },
+    };
+  });
+
+  app.put<{ Params: { id: string }; Body: { weeklyLimit: number } }>("/admin/users/:id/budget", async (req, reply) => {
+    const target = getUserById(req.params.id);
+    if (!target) return reply.code(404).send({ error: "User not found" });
+    const { weeklyLimit } = req.body as { weeklyLimit: number };
+    if (typeof weeklyLimit !== "number" || weeklyLimit < 0) {
+      return reply.code(400).send({ error: "weeklyLimit must be a non-negative number" });
+    }
+    setUserBudget(req.params.id, weeklyLimit);
+    return { ok: true, weeklyLimit };
+  });
+
+  app.delete<{ Params: { id: string } }>("/admin/users/:id/budget", async (req, reply) => {
+    const target = getUserById(req.params.id);
+    if (!target) return reply.code(404).send({ error: "User not found" });
+    removeUserBudget(req.params.id);
     return { ok: true };
   });
 

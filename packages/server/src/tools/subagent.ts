@@ -15,6 +15,7 @@ import { translatePiEvent } from "../utils/event-translator.js";
 import { createSandboxBashOps, createSandboxFileOps } from "../services/sandbox-manager.js";
 import { mcpClientManager } from "../services/mcp-client.js";
 import { bridgeMcpTools } from "./mcp-bridge.js";
+import { recordTokenUsage } from "../db/token-usage-store.js";
 
 // ── Types matching Pi SDK ToolDefinition shape ──
 
@@ -52,6 +53,8 @@ interface SubagentToolOptions {
   workDir: string;
   sandboxUserId: string | undefined;
   sendEvent: (event: SubagentEvent) => void;
+  userId?: string;
+  sessionId?: string;
 }
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
@@ -63,7 +66,7 @@ const SUBAGENT_BASE_PROMPT = `You are a focused sub-agent working on a specific 
 // ── Tool factory ──
 
 export function createSubagentTool(options: SubagentToolOptions): ToolDefinitionLike {
-  const { workDir, sandboxUserId, sendEvent } = options;
+  const { workDir, sandboxUserId, sendEvent, userId: parentUserId, sessionId: parentSessionId } = options;
 
   return {
     name: "subagent",
@@ -274,6 +277,20 @@ By default the sub-agent has read, write, edit, and bash tools, no skills, and n
             break;
           case "message_end":
             // Keep accumulated text — don't reset, so finalText captures the last output
+            // Capture subagent token usage — attribute to parent user/session
+            if (parentUserId && parentSessionId && event.message?.usage) {
+              const u = event.message.usage;
+              try {
+                recordTokenUsage(parentUserId, parentSessionId, {
+                  input: u.input ?? 0,
+                  output: u.output ?? 0,
+                  cacheRead: u.cacheRead ?? 0,
+                  cacheWrite: u.cacheWrite ?? 0,
+                  totalTokens: u.totalTokens ?? 0,
+                  costTotal: u.cost?.total ?? 0,
+                });
+              } catch { /* ignore */ }
+            }
             break;
         }
       });

@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo, type KeyboardEvent, 
 import { X, ImagePlus } from "lucide-react";
 import { useSkillsStore } from "../../stores/skills";
 import { useFilesStore } from "../../stores/files";
+import { useSessionStore } from "../../stores/session";
 import type { ImageAttachment } from "../../types";
 
 type SlashItem =
@@ -24,6 +25,8 @@ interface ComposerProps {
 }
 
 export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: ComposerProps) {
+  const budgetStatus = useSessionStore((s) => s.budgetStatus);
+  const overBudget = budgetStatus?.overBudget === true;
   const [text, setText] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [cursorPos, setCursorPos] = useState(0);
@@ -612,8 +615,8 @@ export function Composer({ onSend, onInvokeSkill, onCompact, disabled }: Compose
               onKeyUp={(e) => setCursorPos((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
               onClick={(e) => setCursorPos((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
               onPaste={handlePaste}
-              placeholder="Ask me to analyze your data... Type / for workflows, @ to mention files"
-              disabled={disabled}
+              placeholder={overBudget ? "Weekly token budget reached. Resets Sunday." : "Ask me to analyze your data... Type / for workflows, @ to mention files"}
+              disabled={disabled || overBudget}
               rows={1}
               className="flex-1 resize-none bg-transparent border-0 px-2 py-1.5 text-sm text-foreground placeholder:text-foreground-tertiary outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             />

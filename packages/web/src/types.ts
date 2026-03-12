@@ -19,6 +19,7 @@ export type BroworkEvent =
   | { type: "subagent_tool_end"; subagentId: string; tool: string; result: unknown; isError: boolean }
   | { type: "subagent_message_delta"; subagentId: string; text: string }
   | { type: "subagent_end"; subagentId: string; result: string; isError: boolean }
+  | { type: "budget_status"; used: number; limit: number; remaining: number; percent: number | null; resetsAt: string; overBudget: boolean }
   | { type: "error"; message: string };
 
 /** Image attachment sent with a user prompt */

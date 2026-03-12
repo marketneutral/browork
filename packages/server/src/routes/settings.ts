@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { resolve, dirname } from "path";
 import { readFile, writeFile, rm, mkdir } from "fs/promises";
 import { isAdminUser } from "./auth.js";
+import { getBudgetStatus } from "../db/token-usage-store.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 const SYSTEM_AGENTS_MD_PATH = resolve(DATA_ROOT, "system-settings", "AGENTS.md");
@@ -70,6 +71,13 @@ export const settingsRoutes: FastifyPluginAsync = async (app) => {
     await mkdir(dirname(filePath), { recursive: true });
     await writeFile(filePath, content, "utf-8");
     return { ok: true };
+  });
+
+  // Get current user's token budget status
+  app.get("/settings/budget", async (req) => {
+    const userId = req.user?.id;
+    if (!userId) return { used: 0, limit: 0, remaining: -1, percent: null, resetsAt: null };
+    return getBudgetStatus(userId);
   });
 
   // Save system-wide default AGENTS.md (admin only)

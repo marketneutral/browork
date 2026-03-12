@@ -24,6 +24,8 @@ import { wrapBashWithImageInjection } from "../utils/image-inject.js";
 import { createSubagentTool } from "../tools/subagent.js";
 import type { SubagentEvent } from "../tools/subagent.js";
 import { addMessage, setLastMessageImages, setLastMessageToolCalls } from "../db/session-store.js";
+import { recordTokenUsage, getBudgetStatus } from "../db/token-usage-store.js";
+import type { BudgetStatus } from "../db/token-usage-store.js";
 
 const DATA_ROOT = process.env.DATA_ROOT || resolve(process.cwd(), "data");
 
@@ -64,6 +66,7 @@ export type BroworkEvent =
   | { type: "context_usage"; tokens: number | null; contextWindow: number; percent: number | null }
   | { type: "session_info"; sandboxActive: boolean; thinkingLevel: string }
   | { type: "thinking_level_changed"; level: string }
+  | { type: "budget_status"; used: number; limit: number; remaining: number; percent: number | null; resetsAt: string; overBudget: boolean }
   | { type: "error"; message: string }
   | AskUserEvent
   | SubagentEvent;
@@ -211,6 +214,14 @@ export async function createPiSession(
   // (sent after skill symlinks so the client can use this as a "session ready" signal)
   send(ws, { type: "session_info", sandboxActive: !!sandboxUserId, thinkingLevel });
 
+  // Send initial budget status so the client can render the budget bar immediately
+  if (userId) {
+    try {
+      const initBudget = getBudgetStatus(userId);
+      send(ws, { type: "budget_status", ...initBudget });
+    } catch { /* ignore */ }
+  }
+
   // Dynamically import the Pi SDK — it may not be installed yet
   let piSdk: typeof import("@mariozechner/pi-coding-agent") | null = null;
   let piAi: typeof import("@mariozechner/pi-ai") | null = null;
@@ -221,7 +232,7 @@ export async function createPiSession(
   } catch {
     // Pi SDK not installed — use mock mode for development
     console.warn("Pi SDK not found, running in mock mode");
-    return createMockSession(sessionId, workDir, ws);
+    return createMockSession(sessionId, workDir, ws, userId);
   }
 
   // Keep a mutable reference so rebindSocket can swap it
@@ -238,6 +249,8 @@ export async function createPiSession(
     workDir,
     sandboxUserId,
     sendEvent: (e) => send(activeWs, e),
+    userId,
+    sessionId,
   });
   const customTools = [...webTools, askUserTool, subagentTool, ...mcpTools];
   if (customTools.length > 0) {
@@ -385,6 +398,23 @@ export async function createPiSession(
       }
     }
 
+    // Capture token usage from message_end events
+    if (event.type === "message_end" && event.message?.usage && userId) {
+      const u = event.message.usage;
+      try {
+        recordTokenUsage(userId, sessionId, {
+          input: u.input ?? 0,
+          output: u.output ?? 0,
+          cacheRead: u.cacheRead ?? 0,
+          cacheWrite: u.cacheWrite ?? 0,
+          totalTokens: u.totalTokens ?? 0,
+          costTotal: u.cost?.total ?? 0,
+        });
+      } catch (err) {
+        console.error("[pi-session] Failed to record token usage:", err);
+      }
+    }
+
     // Surface auto-retry events so the client knows retries are happening
     if (event.type === "auto_retry_start") {
       const retryText = `\n\nRetrying (attempt ${event.attempt})... ${event.errorMessage || ""}`;
@@ -474,6 +504,7 @@ export async function createPiSession(
 
       if (broworkEvent.type === "agent_end") {
         sendContextUsage();
+        sendBudgetStatus();
       }
     }
   });
@@ -491,6 +522,18 @@ export async function createPiSession(
       }
     } catch {
       // getContextUsage may not be available in all SDK versions
+    }
+  };
+
+  const sendBudgetStatus = () => {
+    if (!userId) return;
+    try {
+      const status = getBudgetStatus(userId);
+      if (activeWs.readyState === activeWs.OPEN) {
+        activeWs.send(JSON.stringify({ type: "budget_status", ...status } satisfies BroworkEvent));
+      }
+    } catch {
+      // Budget query may fail if DB not ready
     }
   };
 
@@ -545,6 +588,7 @@ export async function createPiSession(
       const rawLevel = (session as any).thinkingLevel ?? "medium";
       send(activeWs, { type: "session_info", sandboxActive: isSandboxActive, thinkingLevel: rawLevel === "off" ? "none" : rawLevel });
       sendContextUsage();
+      sendBudgetStatus();
       if (isRunning) {
         send(activeWs, { type: "agent_start" });
 
@@ -608,6 +652,7 @@ function createMockSession(
   sessionId: string,
   workDir: string,
   ws: WebSocket,
+  userId?: string,
 ): PiSessionHandle {
   let activeWs = ws;
   let mockTurnCount = 0;
@@ -716,6 +761,17 @@ function createMockSession(
 
       mockTurnCount++;
       sendMockContextUsage();
+
+      // Record mock token usage (simulates ~2k tokens per turn)
+      if (userId) {
+        try {
+          recordTokenUsage(userId, sessionId, {
+            input: 1500, output: 500, cacheRead: 0, cacheWrite: 0, totalTokens: 2000, costTotal: 0.01,
+          });
+          const status = getBudgetStatus(userId);
+          send(activeWs, { type: "budget_status", ...status });
+        } catch { /* ignore */ }
+      }
     },
     async sendSteer(text: string) {
       send(activeWs, { type: "message_delta", text: `\n\n[Steering: ${text}]` });

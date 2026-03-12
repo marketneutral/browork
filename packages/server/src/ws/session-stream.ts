@@ -6,6 +6,7 @@ import { subscribeWsToFileChanges, getFileWatcher } from "../services/file-watch
 import { initAgentsMdTracking, onFileChanged } from "../services/agents-md-tracker.js";
 import { getSkill, getUserSkill, getSessionSkill } from "../services/skill-manager.js";
 import { addMessage, getSessionById, logSkillInvocation } from "../db/session-store.js";
+import { getBudgetStatus } from "../db/token-usage-store.js";
 import { resolve } from "path";
 import { mkdirSync } from "fs";
 
@@ -100,6 +101,19 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
         try {
           switch (cmd.type) {
             case "prompt": {
+              // Budget enforcement — block new prompts when over weekly limit
+              if (userId) {
+                const budget = getBudgetStatus(userId);
+                if (budget.overBudget) {
+                  const usedK = Math.round(budget.used / 1000);
+                  const limitK = Math.round(budget.limit / 1000);
+                  socket.send(JSON.stringify({
+                    type: "error",
+                    message: `Weekly token budget reached (${usedK}k / ${limitK}k). Resets ${new Date(budget.resetsAt).toLocaleDateString("en-US", { weekday: "long" })}. Contact an admin to increase your limit.`,
+                  }));
+                  break;
+                }
+              }
               // Persist user message (with attached images if any)
               const userImages = cmd.images?.length ? JSON.stringify(cmd.images) : null;
               addMessage(id, "user", cmd.message, Date.now(), userImages);
@@ -107,6 +121,19 @@ export const sessionStreamHandler: FastifyPluginAsync = async (app) => {
               break;
             }
             case "skill_invoke": {
+              // Budget enforcement
+              if (userId) {
+                const budget = getBudgetStatus(userId);
+                if (budget.overBudget) {
+                  const usedK = Math.round(budget.used / 1000);
+                  const limitK = Math.round(budget.limit / 1000);
+                  socket.send(JSON.stringify({
+                    type: "error",
+                    message: `Weekly token budget reached (${usedK}k / ${limitK}k). Resets ${new Date(budget.resetsAt).toLocaleDateString("en-US", { weekday: "long" })}. Contact an admin to increase your limit.`,
+                  }));
+                  break;
+                }
+              }
               // Look up skill from admin, user, or session sources
               const skill = getSkill(cmd.skill)
                 ?? (userId ? await getUserSkill(userId, cmd.skill) : undefined)

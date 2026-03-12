@@ -85,6 +85,7 @@ interface SessionState {
   runningSessions: Set<string>;
   runningPreviews: Map<string, string>;
   subagentStates: Map<string, SubagentState>;
+  budgetStatus: { used: number; limit: number; remaining: number; percent: number | null; resetsAt: string; overBudget?: boolean } | null;
 
   // Actions
   setSessionId: (id: string | null) => void;
@@ -118,6 +119,7 @@ interface SessionState {
   completeSubagentToolCall: (subagentId: string, tool: string, result: unknown, isError: boolean) => void;
   appendSubagentDelta: (subagentId: string, text: string) => void;
   endSubagent: (subagentId: string, result: string, isError: boolean) => void;
+  setBudgetStatus: (status: { used: number; limit: number; remaining: number; percent: number | null; resetsAt: string; overBudget?: boolean }) => void;
   reset: () => void;
 }
 
@@ -155,6 +157,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   runningSessions: new Set(),
   runningPreviews: new Map(),
   subagentStates: new Map(),
+  budgetStatus: null,
 
   setSessionId: (id) =>
     set({
@@ -320,6 +323,7 @@ export const useSessionStore = create<SessionState>((set) => ({
 
   setSandboxActive: (active) => set({ sandboxActive: active }),
   setThinkingLevel: (level) => set({ thinkingLevel: level }),
+  setBudgetStatus: (status) => set({ budgetStatus: status }),
 
   setPendingQuestion: (pq) => set({ pendingQuestion: pq }),
   clearPendingQuestion: () => set({ pendingQuestion: null }),

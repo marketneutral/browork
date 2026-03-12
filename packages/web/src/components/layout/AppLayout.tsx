@@ -196,6 +196,7 @@ function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionSt
   const logout = useAuthStore((s) => s.logout);
   const contextUsage = useSessionStore((s) => s.contextUsage);
   const sandboxActive = useSessionStore((s) => s.sandboxActive);
+  const budgetStatus = useSessionStore((s) => s.budgetStatus);
   const [ctxTip, setCtxTip] = useState<{ x: number; y: number } | null>(null);
   const ctxBarRef = useRef<HTMLDivElement>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -213,6 +214,21 @@ function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionSt
           ? "bg-warning"
           : "bg-neutral-600"
       : "bg-neutral-600";
+
+  const budgetBarColor =
+    budgetStatus?.percent != null
+      ? budgetStatus.percent >= 100
+        ? "bg-destructive"
+        : budgetStatus.percent >= 80
+          ? "bg-warning"
+          : "bg-primary/60"
+      : "bg-primary/60";
+
+  const formatTokens = (n: number) => {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
+    return String(n);
+  };
 
   return (
     <div className="shrink-0">
@@ -262,6 +278,22 @@ function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionSt
                 {contextUsage.percent.toFixed(2)}%
               </div>
             )}
+          </div>
+        )}
+
+        {/* Weekly token budget bar */}
+        {connectionStatus === "connected" && budgetStatus && budgetStatus.limit > 0 && (
+          <div className="mt-1" title={`Weekly budget: ${formatTokens(budgetStatus.used)} / ${formatTokens(budgetStatus.limit)} tokens`}>
+            <div className="h-1 rounded-full bg-border overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${budgetBarColor}`}
+                style={{ width: `${Math.min(budgetStatus.percent ?? 0, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between mt-0.5 text-[9px] text-foreground-tertiary">
+              <span>{formatTokens(budgetStatus.used)} / {formatTokens(budgetStatus.limit)}</span>
+              <span>weekly</span>
+            </div>
           </div>
         )}
       </div>

@@ -118,6 +118,9 @@ export function App() {
         case "thinking_level_changed":
           useSessionStore.getState().setThinkingLevel(event.level as "none" | "low" | "medium" | "high");
           break;
+        case "budget_status":
+          useSessionStore.getState().setBudgetStatus(event);
+          break;
         case "files_changed": {
           const currentSessionId = useSessionStore.getState().sessionId;
           if (currentSessionId) {

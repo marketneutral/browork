@@ -144,6 +144,40 @@ function runMigrations() {
     // Indexes already exist
   }
 
+  // Token usage tracking table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS token_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+      total_tokens INTEGER NOT NULL DEFAULT 0,
+      cost_total REAL NOT NULL DEFAULT 0,
+      timestamp INTEGER NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+    )
+  `);
+  try {
+    db.exec("CREATE INDEX IF NOT EXISTS idx_token_usage_user_time ON token_usage(user_id, timestamp)");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_token_usage_session ON token_usage(session_id)");
+  } catch {
+    // Indexes already exist
+  }
+
+  // Per-user weekly token budget overrides
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_budgets (
+      user_id TEXT PRIMARY KEY,
+      weekly_token_limit INTEGER NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
   // Migrate mcp_servers from stdio (command/args/env) to remote (url/transport/headers)
   try {
     const row = db.prepare("SELECT command FROM mcp_servers LIMIT 1").get();
