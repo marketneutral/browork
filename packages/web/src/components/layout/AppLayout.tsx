@@ -197,9 +197,8 @@ function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionSt
   const contextUsage = useSessionStore((s) => s.contextUsage);
   const sandboxActive = useSessionStore((s) => s.sandboxActive);
   const budgetStatus = useSessionStore((s) => s.budgetStatus);
-  const [ctxTip, setCtxTip] = useState<{ x: number; y: number } | null>(null);
-  const ctxBarRef = useRef<HTMLDivElement>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [barTip, setBarTip] = useState<{ text: string; x: number; y: number } | null>(null);
 
   const handleLogout = () => {
     api.auth.logout().catch(() => {});
@@ -224,11 +223,6 @@ function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionSt
           : "bg-primary/60"
       : "bg-primary/60";
 
-  const formatTokens = (n: number) => {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
-    return String(n);
-  };
 
   return (
     <div className="shrink-0">
@@ -256,13 +250,12 @@ function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionSt
         {/* Context usage bar */}
         {connectionStatus === "connected" && contextUsage?.percent != null && (
           <div
-            ref={ctxBarRef}
-            className="mt-1 py-1 cursor-default relative"
+            className="mt-1 py-2 -my-1 cursor-default relative"
             onMouseMove={(e) => {
-              const rect = ctxBarRef.current?.getBoundingClientRect();
-              if (rect) setCtxTip({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+              const rect = e.currentTarget.getBoundingClientRect();
+              setBarTip({ text: "This session context usage", x: e.clientX - rect.left, y: e.clientY - rect.top });
             }}
-            onMouseLeave={() => setCtxTip(null)}
+            onMouseLeave={() => setBarTip(null)}
           >
             <div className="h-1 rounded-full bg-border overflow-hidden">
               <div
@@ -270,12 +263,12 @@ function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionSt
                 style={{ width: `${contextUsage.percent}%` }}
               />
             </div>
-            {ctxTip && (
+            {barTip?.text === "This session context usage" && (
               <div
                 className="absolute px-1.5 py-0.5 rounded bg-neutral-800 text-[10px] text-neutral-300 whitespace-nowrap pointer-events-none -translate-x-1/2"
-                style={{ left: ctxTip.x, top: ctxTip.y - 22 }}
+                style={{ left: barTip.x, top: barTip.y - 22 }}
               >
-                {contextUsage.percent.toFixed(2)}%
+                This session context usage
               </div>
             )}
           </div>
@@ -283,17 +276,28 @@ function RightPanelFooter({ connectionStatus }: { connectionStatus: ConnectionSt
 
         {/* Weekly token budget bar */}
         {connectionStatus === "connected" && budgetStatus && budgetStatus.limit > 0 && (
-          <div className="mt-1" title={`Weekly budget: ${formatTokens(budgetStatus.used)} / ${formatTokens(budgetStatus.limit)} tokens`}>
+          <div
+            className="mt-1 py-2 -my-1 cursor-default relative"
+            onMouseMove={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setBarTip({ text: "Your weekly token budget usage", x: e.clientX - rect.left, y: e.clientY - rect.top });
+            }}
+            onMouseLeave={() => setBarTip(null)}
+          >
             <div className="h-1 rounded-full bg-border overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${budgetBarColor}`}
                 style={{ width: `${Math.min(budgetStatus.percent ?? 0, 100)}%` }}
               />
             </div>
-            <div className="flex justify-between mt-0.5 text-[9px] text-foreground-tertiary">
-              <span>{formatTokens(budgetStatus.used)} / {formatTokens(budgetStatus.limit)}</span>
-              <span>weekly</span>
-            </div>
+            {barTip?.text === "Your weekly token budget usage" && (
+              <div
+                className="absolute px-1.5 py-0.5 rounded bg-neutral-800 text-[10px] text-neutral-300 whitespace-nowrap pointer-events-none -translate-x-1/2"
+                style={{ left: barTip.x, top: barTip.y - 22 }}
+              >
+                Your weekly token budget usage
+              </div>
+            )}
           </div>
         )}
       </div>
